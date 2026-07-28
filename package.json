@@ -1,0 +1,28 @@
+{
+  "name": "autoradar",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:e2e": "pnpm --filter @autoradar/web test:e2e",
+    "supabase:start": "pnpm dlx supabase@latest start",
+    "supabase:reset": "pnpm dlx supabase@latest db reset",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "actor:dev": "pnpm --filter @autoradar/search-actor dev",
+    "actor:test": "pnpm --filter @autoradar/search-actor test"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2"
+  }
+}

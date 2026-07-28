@@ -1,0 +1,79 @@
+import { z } from "zod";
+
+export const VehicleContextSchema = z.object({
+  make: z.string().min(1),
+  model: z.string().min(1),
+  year: z.number().int().min(1886).max(2200),
+  generation: z.string().optional(),
+  body: z.string().optional(),
+  engine: z.string().optional(),
+  transmission: z.string().optional(),
+});
+
+export const PartRequestSchema = z.object({
+  name: z.string().min(2),
+  side: z.enum(["left", "right", "unknown"]).default("unknown"),
+  position: z.enum(["front", "rear", "unknown"]).default("unknown"),
+  condition: z.enum(["new", "used", "any"]).default("any"),
+  rawPartNumber: z.string().optional(),
+  normalizedPartNumber: z.string().optional(),
+});
+
+export const SearchRequestSchema = z.object({
+  query: z.string().min(2),
+  locale: z.literal("ru-BY").default("ru-BY"),
+  currency: z.literal("BYN").default("BYN"),
+  vehicle: VehicleContextSchema.optional(),
+  part: PartRequestSchema,
+});
+
+export const SourceIdSchema = z.enum([
+  "mock",
+  "bamper",
+  "armtek",
+  "av-parts",
+  "remzona",
+]);
+
+export const NormalizedOfferSchema = z.object({
+  sourceId: SourceIdSchema,
+  externalId: z.string().min(1),
+  externalUrl: z.url(),
+  title: z.string().min(1),
+  brand: z.string().optional(),
+  rawPartNumber: z.string().optional(),
+  normalizedPartNumber: z.string().optional(),
+  condition: z.enum(["new", "used", "unknown"]),
+  partKind: z.enum(["original", "analog", "unknown"]),
+  priceAmount: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/)
+    .optional(),
+  currency: z.literal("BYN"),
+  availability: z.string().optional(),
+  deliveryText: z.string().optional(),
+  location: z.string().optional(),
+  sellerName: z.string().optional(),
+  compatibilityText: z.string().optional(),
+  fetchedAt: z.iso.datetime(),
+});
+
+export const SearchJobStatusSchema = z.enum([
+  "created",
+  "running",
+  "partial",
+  "completed",
+  "failed",
+  "cancelled",
+  "expired",
+]);
+
+export type VehicleContext = z.infer<typeof VehicleContextSchema>;
+export type PartRequest = z.infer<typeof PartRequestSchema>;
+export type SearchRequest = z.infer<typeof SearchRequestSchema>;
+export type NormalizedOffer = z.infer<typeof NormalizedOfferSchema>;
+export type SearchJobStatus = z.infer<typeof SearchJobStatusSchema>;
+
+export function normalizePartNumber(value: string): string {
+  return value.toUpperCase().replace(/[\s./-]+/g, "");
+}

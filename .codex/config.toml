@@ -1,0 +1,9 @@
+# Keep Supabase access project-scoped so Codex cannot select another database
+# while working in this trusted repository.
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=vtehtsxaudcmgvclktrp&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"
+
+# The existing account-wide connection remains available globally for other
+# repositories, but is hidden inside AutoRadar to prevent ambiguous routing.
+[mcp_servers.supabase_yahors_org]
+enabled = false
