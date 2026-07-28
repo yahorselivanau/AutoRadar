@@ -5,11 +5,14 @@ import {
   Check,
   ChevronRight,
   CircleDot,
+  ExternalLink,
+  MapPin,
   Mic,
   Pencil,
   Search,
   Sparkles,
 } from "lucide-react";
+import type { NormalizedOffer } from "@autoradar/domain";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
@@ -42,6 +45,7 @@ type Extraction = {
 };
 
 type Stage = "empty" | "loading" | "review" | "error";
+type SearchStage = "idle" | "searching" | "results" | "error";
 
 const sideLabels = {
   left: "Левая",
@@ -61,12 +65,28 @@ const conditionLabels = {
   any: "Любое",
 } as const;
 
+function formatOffersCount(count: number): string {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) {
+    return `Нашёл ${count} реальных предложений.`;
+  }
+  if (mod10 === 1) return `Нашёл ${count} реальное предложение.`;
+  if (mod10 >= 2 && mod10 <= 4) {
+    return `Нашёл ${count} реальных предложения.`;
+  }
+  return `Нашёл ${count} реальных предложений.`;
+}
+
 export function ChatExperience() {
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [stage, setStage] = useState<Stage>("empty");
   const [extraction, setExtraction] = useState<Extraction | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [searchStage, setSearchStage] = useState<SearchStage>("idle");
+  const [searchError, setSearchError] = useState("");
+  const [offers, setOffers] = useState<NormalizedOffer[]>([]);
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -96,9 +116,7 @@ export function ChatExperience() {
       setStage("review");
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Не удалось разобрать запрос.",
+        error instanceof Error ? error.message : "Не удалось разобрать запрос.",
       );
       setStage("error");
     }
@@ -106,6 +124,63 @@ export function ChatExperience() {
 
   const applySuggestion = (suggestion: string) => {
     setQuery(suggestion);
+  };
+
+  const searchRemzona = async () => {
+    if (!extraction) return;
+
+    setSearchStage("searching");
+    setSearchError("");
+    setOffers([]);
+
+    const hasVehicle =
+      extraction.vehicle.make &&
+      extraction.vehicle.model &&
+      extraction.vehicle.year;
+
+    try {
+      const response = await fetch("/api/search/remzona", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: submittedQuery,
+          vehicle: hasVehicle
+            ? {
+                make: extraction.vehicle.make,
+                model: extraction.vehicle.model,
+                year: extraction.vehicle.year,
+                generation: extraction.vehicle.generation ?? undefined,
+                body: extraction.vehicle.body ?? undefined,
+                engine: extraction.vehicle.engine ?? undefined,
+                transmission: extraction.vehicle.transmission ?? undefined,
+              }
+            : undefined,
+          part: {
+            name: extraction.partName ?? "Неизвестная деталь",
+            side: extraction.side,
+            position: extraction.position,
+            condition: extraction.condition,
+            rawPartNumber: extraction.rawPartNumber ?? undefined,
+            normalizedPartNumber: extraction.normalizedPartNumber ?? undefined,
+          },
+        }),
+      });
+      const payload = (await response.json()) as {
+        offers?: NormalizedOffer[];
+        error?: string;
+      };
+      if (!response.ok || !payload.offers) {
+        throw new Error(payload.error ?? "Remzona не ответила.");
+      }
+
+      setOffers(payload.offers);
+      setSearchStage("results");
+    } catch (error) {
+      setSearchError(
+        error instanceof Error ? error.message : "Remzona не ответила.",
+      );
+      setSearchStage("error");
+    }
   };
 
   const vehicleLabel = extraction
@@ -141,8 +216,8 @@ export function ChatExperience() {
               </span>
               <h1>Что нужно найти?</h1>
               <p>
-                Опишите деталь своими словами. DeepSeek выделит параметры
-                запроса, не придумывая OEM и совместимость.
+                Опишите деталь своими словами. AI выделит параметры запроса, не
+                придумывая OEM и совместимость.
               </p>
             </div>
 
@@ -174,7 +249,7 @@ export function ChatExperience() {
                 <Sparkles size={15} /> AutoRadar
               </span>
               {stage === "loading" ? (
-                <p aria-live="polite">DeepSeek разбирает параметры запроса…</p>
+                <p aria-live="polite">AI разбирает параметры запроса…</p>
               ) : stage === "error" ? (
                 <p aria-live="polite">{errorMessage}</p>
               ) : (
@@ -189,7 +264,7 @@ export function ChatExperience() {
               <article className="request-card">
                 <div className="card-heading">
                   <div>
-                    <span>Распознано DeepSeek через AI Gateway</span>
+                    <span>Распознано через Vercel AI Gateway</span>
                     <h2>{extraction.partName ?? "Деталь нужно уточнить"}</h2>
                   </div>
                   <span className="confidence-badge">
@@ -218,8 +293,9 @@ export function ChatExperience() {
                   </div>
                 </dl>
                 <p className="request-note">
-                  Реальные предложения появятся после подключения первого
-                  проверенного адаптера источника. Фиктивная выдача отключена.
+                  Remzona ищет новые запчасти по артикулу или названию. Цена,
+                  наличие и совместимость показываются только когда источник
+                  вернул их явно.
                 </p>
                 <div className="request-actions">
                   <button
@@ -233,14 +309,94 @@ export function ChatExperience() {
                   <button
                     className="button primary pressable"
                     type="button"
-                    disabled
-                    title="Нужен работающий адаптер источника"
+                    disabled={searchStage === "searching"}
+                    onClick={() => void searchRemzona()}
                   >
                     <Search size={17} />
-                    Поиск источников скоро
+                    {searchStage === "searching"
+                      ? "Ищу на Remzona…"
+                      : "Искать на Remzona"}
                   </button>
                 </div>
               </article>
+            ) : null}
+
+            {searchStage === "error" ? (
+              <div className="compatibility-warning" aria-live="polite">
+                <CircleDot size={20} />
+                <p>
+                  <strong>Поиск не выполнен.</strong> {searchError}
+                </p>
+              </div>
+            ) : null}
+
+            {searchStage === "results" ? (
+              <>
+                <div className="assistant-block" aria-live="polite">
+                  <span className="assistant-kicker">
+                    <Sparkles size={15} /> Remzona
+                  </span>
+                  <p>
+                    {offers.length > 0
+                      ? formatOffersCount(offers.length)
+                      : "По этому запросу предложений не найдено."}
+                  </p>
+                </div>
+
+                {offers.length > 0 ? (
+                  <div className="offer-list">
+                    {offers.map((offer) => (
+                      <article
+                        className="offer-card"
+                        key={`${offer.sourceId}-${offer.externalId}`}
+                      >
+                        <div className="offer-main">
+                          <div className="offer-badges">
+                            <span className="offer-badge unknown">Remzona</span>
+                            <span className="offer-badge unknown">
+                              Состояние не указано
+                            </span>
+                          </div>
+                          <span className="offer-brand">
+                            {offer.brand ?? "Бренд не указан"}
+                          </span>
+                          <h2>{offer.title}</h2>
+                          <span className="part-number">
+                            Артикул: {offer.rawPartNumber ?? "не указан"}
+                          </span>
+                        </div>
+                        <div className="offer-logistics">
+                          <span>
+                            <MapPin size={15} />
+                            {offer.location ?? "Город не указан"}
+                          </span>
+                          <small>
+                            Совместимость нужно подтвердить у продавца.
+                          </small>
+                        </div>
+                        <div className="offer-action">
+                          <span className="price">
+                            {offer.priceAmount
+                              ? `${offer.priceAmount} BYN`
+                              : "Цена на сайте"}
+                          </span>
+                          <small>
+                            Цена и наличие доступны на карточке товара.
+                          </small>
+                          <a
+                            className="button secondary pressable"
+                            href={offer.externalUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            На Remzona <ExternalLink size={16} />
+                          </a>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             {stage === "error" ? (

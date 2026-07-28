@@ -1,0 +1,114 @@
+{
+  "title": "AutoRadar federated search input",
+  "description": "Structured parts request. Bamper supports only verified OEM and taxonomy routes.",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "query": {
+      "title": "Original query",
+      "description": "Original user request retained for diagnostics.",
+      "type": "string",
+      "editor": "textfield",
+      "minLength": 2
+    },
+    "locale": {
+      "title": "Locale",
+      "description": "MVP locale.",
+      "type": "string",
+      "default": "ru-BY",
+      "enum": ["ru-BY"]
+    },
+    "currency": {
+      "title": "Currency",
+      "description": "MVP display currency.",
+      "type": "string",
+      "default": "BYN",
+      "enum": ["BYN"]
+    },
+    "vehicle": {
+      "title": "Vehicle",
+      "description": "Optional structured vehicle context.",
+      "type": "object",
+      "editor": "json",
+      "properties": {
+        "make": {
+          "title": "Make",
+          "description": "Exact vehicle make.",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "description": "Exact vehicle model.",
+          "type": "string"
+        },
+        "year": {
+          "title": "Year",
+          "description": "Vehicle production year.",
+          "type": "integer",
+          "minimum": 1886,
+          "maximum": 2200
+        }
+      },
+      "required": ["make", "model", "year"]
+    },
+    "part": {
+      "title": "Part request",
+      "description": "Structured part name, dimensions and optional OEM number.",
+      "type": "object",
+      "editor": "json",
+      "properties": {
+        "name": {
+          "title": "Part name",
+          "description": "Part name used by the verified taxonomy resolver.",
+          "type": "string",
+          "minLength": 2
+        },
+        "side": {
+          "title": "Side",
+          "description": "Requested vehicle side.",
+          "type": "string",
+          "default": "unknown",
+          "enum": ["left", "right", "unknown"]
+        },
+        "position": {
+          "title": "Position",
+          "description": "Requested front or rear position.",
+          "type": "string",
+          "default": "unknown",
+          "enum": ["front", "rear", "unknown"]
+        },
+        "condition": {
+          "title": "Condition",
+          "description": "Requested item condition.",
+          "type": "string",
+          "default": "any",
+          "enum": ["new", "used", "any"]
+        },
+        "rawPartNumber": {
+          "title": "Raw part number",
+          "description": "Part or OEM number as entered by the user.",
+          "type": "string"
+        },
+        "normalizedPartNumber": {
+          "title": "Normalized part number",
+          "description": "Deterministically normalized part or OEM number.",
+          "type": "string"
+        }
+      },
+      "required": ["name"]
+    },
+    "sources": {
+      "title": "Sources",
+      "description": "Adapters to execute for this search.",
+      "type": "array",
+      "editor": "select",
+      "default": ["bamper"],
+      "items": {
+        "type": "string",
+        "enum": ["bamper", "mock"],
+        "enumTitles": ["Bamper", "Mock"]
+      }
+    }
+  },
+  "required": ["query", "part"]
+}

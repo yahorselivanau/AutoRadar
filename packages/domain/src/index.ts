@@ -47,22 +47,18 @@ export const PartRequestExtractionSchema = z.object({
   clarificationQuestion: z.string().min(1).nullable(),
 });
 
-export const SourceIdSchema = z.enum([
-  "mock",
-  "bamper",
-  "armtek",
-  "av-parts",
-  "remzona",
-]);
+export const SourceIdSchema = z.enum(["mock", "armtek", "av-parts", "remzona"]);
 
 export const NormalizedOfferSchema = z.object({
   sourceId: SourceIdSchema,
   externalId: z.string().min(1),
   externalUrl: z.url(),
   title: z.string().min(1),
+  description: z.string().optional(),
   brand: z.string().optional(),
   rawPartNumber: z.string().optional(),
   normalizedPartNumber: z.string().optional(),
+  oemNumbers: z.array(z.string().min(1)).default([]),
   condition: z.enum(["new", "used", "unknown"]),
   partKind: z.enum(["original", "analog", "unknown"]),
   priceAmount: z
@@ -74,8 +70,10 @@ export const NormalizedOfferSchema = z.object({
   deliveryText: z.string().optional(),
   location: z.string().optional(),
   sellerName: z.string().optional(),
+  sellerRatingPercent: z.number().int().min(0).max(100).optional(),
   compatibilityText: z.string().optional(),
   fetchedAt: z.iso.datetime(),
+  rawPayloadHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
 export const SearchJobStatusSchema = z.enum([
@@ -91,9 +89,7 @@ export const SearchJobStatusSchema = z.enum([
 export type VehicleContext = z.infer<typeof VehicleContextSchema>;
 export type PartRequest = z.infer<typeof PartRequestSchema>;
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
-export type PartRequestExtraction = z.infer<
-  typeof PartRequestExtractionSchema
->;
+export type PartRequestExtraction = z.infer<typeof PartRequestExtractionSchema>;
 export type NormalizedOffer = z.infer<typeof NormalizedOfferSchema>;
 export type SearchJobStatus = z.infer<typeof SearchJobStatusSchema>;
 

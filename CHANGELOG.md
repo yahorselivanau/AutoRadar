@@ -16,6 +16,13 @@
   `https://autoradar.vercel.app`.
 - Server-side AI request extraction through Vercel AI Gateway and DeepSeek.
 - Versioned `part-request.v1` prompt with Zod-validated structured output.
+- Remzona public-XHR discovery report with verified success, empty and 429
+  fixtures.
+- Shared Remzona HTTP/Cheerio adapter with typed errors, serialized pacing,
+  feature flag, fixture tests and a live smoke command.
+- Direct `POST /api/search/remzona` route and real Remzona product cards in the
+  chat flow.
+- Mocked Remzona chat E2E coverage on mobile and desktop.
 
 ### Changed
 
@@ -24,12 +31,14 @@
   cross-project database operations; other repositories keep their global access.
 - Configured the Vercel project root as `apps/web` with the Next.js framework
   preset.
-- Removed fictional offers from the chat and search results UI; the product now
-  shows an honest unavailable state until a real adapter is connected.
-
-### Known limitations
-
-- No real source adapter has been researched or connected yet.
-- Search sources, auth and garage persistence remain demonstration-only.
-- DeepSeek requests are configured but currently blocked by the Vercel account:
-  paid AI Gateway credits or a DeepSeek BYOK credential are required.
+- Removed fictional offers from the chat and connected the first real source.
+- Switched the AI Gateway model to `openai/gpt-5.4-nano` and removed
+  provider-specific DeepSeek copy from the chat.
+- Extended normalized offers with descriptions, OEM arrays, seller ratings and
+  SHA-256 raw payload hashes.
+- Removed the stalled Bamper/Firecrawl implementation, route, commands and
+  runtime configuration; Bamper no longer blocks the MVP.
+- Restored source-access rules: respect public access boundaries, never bypass
+  CAPTCHA/paywalls and never disable TLS verification.
+- Aligned the Playwright dev-server URL with `localhost` so Next.js 16 hydrates
+  correctly during E2E tests.

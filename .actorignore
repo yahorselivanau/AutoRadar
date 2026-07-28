@@ -1,0 +1,15 @@
+apps/
+docs/
+supabase/
+packages/db/
+packages/ui/
+node_modules/
+**/node_modules/
+**/.next/
+**/.turbo/
+**/test-results/
+.git/
+.vercel/
+.apify/
+coverage/
+playwright-report/

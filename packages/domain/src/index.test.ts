@@ -37,6 +37,8 @@ describe("domain schemas", () => {
       priceAmount: "125.50",
       currency: "BYN",
       fetchedAt: "2026-07-28T12:00:00.000Z",
+      rawPayloadHash:
+        "0000000000000000000000000000000000000000000000000000000000000000",
     });
 
     expect(offer.priceAmount).toBe("125.50");

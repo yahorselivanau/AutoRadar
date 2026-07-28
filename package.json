@@ -18,7 +18,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "actor:dev": "pnpm --filter @autoradar/search-actor dev",
-    "actor:test": "pnpm --filter @autoradar/search-actor test"
+    "actor:test": "pnpm --filter @autoradar/search-actor test",
+    "remzona:smoke": "pnpm --filter @autoradar/search-actor remzona:smoke"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

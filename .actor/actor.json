@@ -1,0 +1,12 @@
+{
+  "actorSpecification": 1,
+  "name": "autoradar-search",
+  "title": "AutoRadar Federated Parts Search",
+  "version": "0.1",
+  "buildTag": "latest",
+  "minMemoryMbytes": 512,
+  "maxMemoryMbytes": 2048,
+  "dockerfile": "./Dockerfile",
+  "readme": "./README.md",
+  "input": "./input_schema.json"
+}

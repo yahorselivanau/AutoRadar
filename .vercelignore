@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+.git
+.apify
+coverage
+playwright-report
+test-results

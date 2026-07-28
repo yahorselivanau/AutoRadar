@@ -1,5 +1,16 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "AI_MODEL",
+    "AI_PROVIDER",
+    "APIFY_SEARCH_ACTOR_ID",
+    "APIFY_TOKEN",
+    "SOURCE_REMZONA_ENABLED",
+    "REMZONA_BASE_URL",
+    "REMZONA_USER_AGENT",
+    "REMZONA_HTTP_TIMEOUT_MS",
+    "REMZONA_REQUEST_INTERVAL_MS"
+  ],
   "tasks": {
     "dev": {
       "cache": false,

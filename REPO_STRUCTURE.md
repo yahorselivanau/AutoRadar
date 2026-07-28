@@ -38,7 +38,6 @@
 │       ├── src/
 │       │   ├── adapters/
 │       │   │   ├── armtek/
-│       │   │   ├── bamper/
 │       │   │   ├── av-parts/
 │       │   │   ├── remzona/
 │       │   │   └── mock/
@@ -222,16 +221,22 @@ SEARCH_TOTAL_TIMEOUT_MS=25000
 
 # Source flags
 SOURCE_ARMTEK_ENABLED=true
-SOURCE_BAMPER_ENABLED=true
 SOURCE_AV_PARTS_ENABLED=true
 SOURCE_REMZONA_ENABLED=true
+
+# Remzona public XHR transport
+REMZONA_BASE_URL=https://remzona.by/
+REMZONA_USER_AGENT=AutoRadar/0.1 (+https://autoradar.vercel.app; parts search)
+REMZONA_HTTP_TIMEOUT_MS=10000
+REMZONA_REQUEST_INTERVAL_MS=5000
 
 # Security
 SEARCH_JOB_SIGNING_SECRET=
 ANON_SESSION_SECRET=
 ```
 
-Добавлять source-specific переменные только после подтверждённого исследования. Не коммитить секреты.
+Добавлять source-specific переменные только после подтверждённого исследования.
+Не отключать TLS verification и не коммитить секреты.
 
 ## 7. Команды
 

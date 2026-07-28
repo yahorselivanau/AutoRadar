@@ -24,17 +24,17 @@ export function SearchResults({ searchId }: Readonly<{ searchId: string }>) {
       <div className="compatibility-warning">
         <TriangleAlert size={20} />
         <p>
-          <strong>Нужен проверенный источник.</strong> AutoRadar покажет здесь
-          только реальные предложения, полученные работающими адаптерами.
+          <strong>Совместимость нужно проверить.</strong> AutoRadar показывает
+          реальные карточки Remzona, но не подтверждает применяемость детали.
         </p>
       </div>
 
       <div className="filter-empty">
         <Search size={28} />
-        <h2>Первый реальный адаптер ещё не подключён</h2>
+        <h2>Поиск Remzona доступен в чате</h2>
         <p>
-          AI-разбор запроса уже работает. Следующий этап — discovery и
-          fixture-first реализация Bamper.
+          Введите артикул или название детали, подтвердите распознанные
+          параметры и запустите поиск.
         </p>
         <Link className="button primary pressable" href="/chat">
           Вернуться к AI-запросу

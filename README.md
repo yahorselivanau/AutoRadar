@@ -14,7 +14,6 @@
 - `DESIGN_TOKENS.css` — готовые Tailwind v4/shadcn semantic tokens.
 - `apps/web` — mobile-first Next.js приложение.
 - `packages/domain` — общие Zod-схемы и доменная нормализация.
-- `actors/search` — runtime адаптеров; сейчас содержит только mock adapter.
 - `supabase` — migrations и локальная конфигурация.
 - `docs/HANDOFF.md` — текущее состояние и следующий шаг.
 
@@ -29,11 +28,10 @@ pnpm dev
 После запуска открыть `http://localhost:3000`. AI-разбор запроса использует
 Vercel AI Gateway и модель из `AI_MODEL`. Для локальной работы связать проект
 с Vercel и выполнить `vercel env pull .env.local`; в production используется
-автоматический OIDC. Фиктивная выдача предложений отключена до появления
-первого проверенного адаптера.
+автоматический OIDC. Реальная выдача Remzona доступна без регистрации.
 
-DeepSeek требует оплаченных AI Gateway credits или DeepSeek BYOK. Без одного
-из этих вариантов route вернёт понятный unavailable state вместо mock-ответа.
+Модель `openai/gpt-5.4-nano` проверена реальным запросом через AI Gateway и
+доступна на текущем Free Credit.
 
 Проверки:
 
@@ -51,7 +49,26 @@ pnpm test:e2e
 - Vercel production: https://autoradar.vercel.app
 - Vercel project: `autoradar`, web application: `apps/web`.
 - Vercel root directory: `apps/web`, framework preset: `Next.js`.
-- AI Gateway model: `deepseek/deepseek-v4-flash` через `AI_MODEL`.
+- AI Gateway model: `openai/gpt-5.4-nano` через `AI_MODEL`.
+
+## Remzona adapter
+
+Первый рабочий источник новых запчастей — Remzona. Адаптер воспроизводит один
+публичный XHR-запрос обычным HTTP, парсит server-rendered HTML через Cheerio и
+не использует Playwright, Firecrawl или proxy. Точный отчёт и fixtures:
+`actors/search/src/adapters/remzona/DISCOVERY.md`.
+
+Локальная проверка:
+
+```bash
+pnpm actor:test
+SOURCE_REMZONA_ENABLED=true pnpm actor:dev
+pnpm remzona:smoke -- 7700274177
+```
+
+Web-приложение вызывает `POST /api/search/remzona`. Источник можно мгновенно
+отключить через `SOURCE_REMZONA_ENABLED=false`. Адаптер выполняет один запрос,
+сериализует вызовы, выдерживает паузу между ними и не повторяет 429.
 
 Для Git deployment проект Vercel должен быть подключён к GitHub-репозиторию
 через Vercel Git Integration. После подключения push в `main` создаёт
@@ -73,8 +90,9 @@ deployment.
 MVP не копирует полные каталоги. Он выполняет живой федеративный поиск под конкретный запрос пользователя:
 
 1. AI или форма собирает структурированные параметры.
-2. Сервер создаёт поисковое задание.
-3. Apify Actor параллельно запускает адаптеры сайтов.
+2. Сервер запускает общий адаптер напрямую; persisted search job добавляется
+   после стабилизации второго источника.
+3. Apify Actor остаётся опциональным для long-running источников.
 4. Каждый адаптер использует самый дешёвый доступный способ:
    - публичный HTTP/JSON;
    - HTML + Cheerio;
@@ -87,7 +105,8 @@ MVP не копирует полные каталоги. Он выполняет
 - География: только Беларусь.
 - Монетизация: отсутствует.
 - Целевая аудитория: автовладельцы, механики, СТО и магазины.
-- Обязательные источники: `armtek.by`, `bamper.by`, `av-parts.by`, `remzona.by`.
+- Текущий источник: `remzona.by`; следующие кандидаты — `armtek.by` и
+  `av-parts.by`.
 - Архитектура должна поддерживать до 10 источников.
 - Поиск доступен без регистрации.
 - Аккаунт нужен для гаража, истории и сохранённых автомобилей.

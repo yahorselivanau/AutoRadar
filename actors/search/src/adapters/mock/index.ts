@@ -30,6 +30,8 @@ export class MockPartsAdapter implements PartsSourceAdapter {
           sellerName: "Демонстрационный продавец",
           compatibilityText: "Совместимость требует проверки у продавца",
           fetchedAt: fixtureTimestamp,
+          rawPayloadHash:
+            "0000000000000000000000000000000000000000000000000000000000000000",
         }),
       ],
     };

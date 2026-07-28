@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const model = process.env.AI_MODEL ?? "deepseek/deepseek-v4-flash";
+  const model = process.env.AI_MODEL ?? "openai/gpt-5.4-nano";
 
   try {
     const { object } = await generateObject({
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error:
-            "DeepSeek пока недоступен: для AI Gateway нужны credits или BYOK.",
+            "AI Gateway временно недоступен. Повторите запрос или заполните форму вручную.",
         },
         { status: 503 },
       );
@@ -97,7 +97,10 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-      { error: "Не удалось разобрать запрос. Можно заполнить параметры вручную." },
+      {
+        error:
+          "Не удалось разобрать запрос. Можно заполнить параметры вручную.",
+      },
       { status: 502 },
     );
   }

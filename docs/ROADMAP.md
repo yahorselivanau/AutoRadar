@@ -12,17 +12,17 @@
 - [ ] Supabase SSR client;
 - [ ] Apify task dispatch.
 
-## Далее — Real sources
+## Сейчас — Real sources
 
-- [ ] Bamper discovery, fixtures, parser, smoke test;
-- [ ] discovery простого источника новых деталей;
+- [x] Remzona discovery, fixtures, parser, live smoke и web route;
 - [ ] второй источник новых деталей;
-- [ ] ARMTEK и Remzona только при допустимом публичном доступе.
+- [ ] третий источник новых деталей;
+- [ ] ARMTEK только после discovery публичного retail-поиска.
 
 ## После стабильной выдачи — AI
 
-- [ ] versioned prompt;
-- [ ] structured extraction schema;
+- [x] versioned prompt;
+- [x] structured extraction schema;
 - [ ] clarification tools;
 - [ ] server-side search tool call;
 - [ ] manual fallback form.

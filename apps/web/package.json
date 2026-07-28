@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@autoradar/domain": "workspace:*",
+    "@autoradar/search-actor": "workspace:*",
     "@autoradar/ui": "workspace:*",
     "ai": "^6.0.235",
     "lucide-react": "^0.544.0",
