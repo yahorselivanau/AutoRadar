@@ -40,6 +40,17 @@ pnpm build
 pnpm test:e2e
 ```
 
+## Развёртывание
+
+- GitHub: `yahorselivanau/AutoRadar`, production branch `main`.
+- Vercel production: https://autoradar.vercel.app
+- Vercel project: `autoradar`, web application: `apps/web`.
+
+Для Git deployment проект Vercel должен быть подключён к GitHub-репозиторию
+через Vercel Git Integration. После подключения push в `main` создаёт
+production deployment, а push в другие ветки и pull request — preview
+deployment.
+
 ## Supabase для Codex
 
 В доверенном репозитории Codex загружает `.codex/config.toml` и подключает

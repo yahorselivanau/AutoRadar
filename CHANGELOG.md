@@ -11,6 +11,9 @@
 - Initial Supabase schema/RLS migration.
 - Project-scoped Supabase MCP configuration for the AutoRadar hosted project.
 - Unit tests, browser smoke tests and project handoff documentation.
+- GitHub repository publication on the `main` production branch.
+- Vercel project and verified production deployment at
+  `https://autoradar.vercel.app`.
 
 ### Changed
 
