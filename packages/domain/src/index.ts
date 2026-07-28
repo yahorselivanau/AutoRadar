@@ -27,6 +27,26 @@ export const SearchRequestSchema = z.object({
   part: PartRequestSchema,
 });
 
+export const PartRequestExtractionSchema = z.object({
+  summary: z.string().min(1),
+  partName: z.string().min(2).nullable(),
+  rawPartNumber: z.string().min(1).nullable(),
+  vehicle: z.object({
+    make: z.string().min(1).nullable(),
+    model: z.string().min(1).nullable(),
+    year: z.number().int().min(1886).max(2200).nullable(),
+    generation: z.string().min(1).nullable(),
+    body: z.string().min(1).nullable(),
+    engine: z.string().min(1).nullable(),
+    transmission: z.string().min(1).nullable(),
+  }),
+  side: z.enum(["left", "right", "unknown"]),
+  position: z.enum(["front", "rear", "unknown"]),
+  condition: z.enum(["new", "used", "any"]),
+  needsClarification: z.boolean(),
+  clarificationQuestion: z.string().min(1).nullable(),
+});
+
 export const SourceIdSchema = z.enum([
   "mock",
   "bamper",
@@ -71,6 +91,9 @@ export const SearchJobStatusSchema = z.enum([
 export type VehicleContext = z.infer<typeof VehicleContextSchema>;
 export type PartRequest = z.infer<typeof PartRequestSchema>;
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
+export type PartRequestExtraction = z.infer<
+  typeof PartRequestExtractionSchema
+>;
 export type NormalizedOffer = z.infer<typeof NormalizedOfferSchema>;
 export type SearchJobStatus = z.infer<typeof SearchJobStatusSchema>;
 

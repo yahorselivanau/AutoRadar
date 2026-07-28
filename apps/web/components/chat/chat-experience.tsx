@@ -10,8 +10,8 @@ import {
   Search,
   Sparkles,
 } from "lucide-react";
-import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 
 const suggestions = [
   "Передний левый стеклоподъёмник на Peugeot 308 2008",
@@ -20,37 +20,112 @@ const suggestions = [
   "Добавить автомобиль по VIN",
 ];
 
-type Stage = "empty" | "review" | "results";
+type Extraction = {
+  summary: string;
+  partName: string | null;
+  rawPartNumber: string | null;
+  normalizedPartNumber: string | null;
+  vehicle: {
+    make: string | null;
+    model: string | null;
+    year: number | null;
+    generation: string | null;
+    body: string | null;
+    engine: string | null;
+    transmission: string | null;
+  };
+  side: "left" | "right" | "unknown";
+  position: "front" | "rear" | "unknown";
+  condition: "new" | "used" | "any";
+  needsClarification: boolean;
+  clarificationQuestion: string | null;
+};
+
+type Stage = "empty" | "loading" | "review" | "error";
+
+const sideLabels = {
+  left: "Левая",
+  right: "Правая",
+  unknown: "Не указана",
+} as const;
+
+const positionLabels = {
+  front: "Передняя",
+  rear: "Задняя",
+  unknown: "Не указано",
+} as const;
+
+const conditionLabels = {
+  new: "Новая",
+  used: "Б/у",
+  any: "Любое",
+} as const;
 
 export function ChatExperience() {
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [stage, setStage] = useState<Stage>("empty");
+  const [extraction, setExtraction] = useState<Extraction | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const submit = (event?: FormEvent) => {
+  const submit = async (event?: FormEvent) => {
     event?.preventDefault();
     const normalized = query.trim();
     if (!normalized) return;
+
     setSubmittedQuery(normalized);
-    setStage("review");
+    setStage("loading");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/ai/parse-part-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: normalized }),
+      });
+      const payload = (await response.json()) as {
+        extraction?: Extraction;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.extraction) {
+        throw new Error(payload.error ?? "Не удалось разобрать запрос.");
+      }
+
+      setExtraction(payload.extraction);
+      setStage("review");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Не удалось разобрать запрос.",
+      );
+      setStage("error");
+    }
   };
 
   const applySuggestion = (suggestion: string) => {
     setQuery(suggestion);
-    if (suggestion.startsWith("Передний")) {
-      setSubmittedQuery(suggestion);
-      setStage("review");
-    }
   };
+
+  const vehicleLabel = extraction
+    ? [
+        extraction.vehicle.make,
+        extraction.vehicle.model,
+        extraction.vehicle.year,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "Не указан"
+    : "Не указан";
 
   return (
     <section className="chat-page">
       <div className="desktop-context">
         <button className="vehicle-context pressable" type="button">
-          <span className="vehicle-mark">P</span>
+          <span className="vehicle-mark">+</span>
           <span>
-            <strong>Peugeot 308</strong>
-            <small>2008 · хэтчбек · 1.6</small>
+            <strong>Автомобиль не выбран</strong>
+            <small>Добавить для точного поиска</small>
           </span>
           <ChevronRight size={17} />
         </button>
@@ -66,8 +141,8 @@ export function ChatExperience() {
               </span>
               <h1>Что нужно найти?</h1>
               <p>
-                Опишите деталь своими словами. AutoRadar уточнит автомобиль и
-                сравнит предложения белорусских продавцов.
+                Опишите деталь своими словами. DeepSeek выделит параметры
+                запроса, не придумывая OEM и совместимость.
               </p>
             </div>
 
@@ -98,119 +173,102 @@ export function ChatExperience() {
               <span className="assistant-kicker">
                 <Sparkles size={15} /> AutoRadar
               </span>
-              <p>
-                Я понял запрос так. Проверьте параметры — особенно кузов и
-                количество дверей — перед запуском поиска.
-              </p>
+              {stage === "loading" ? (
+                <p aria-live="polite">DeepSeek разбирает параметры запроса…</p>
+              ) : stage === "error" ? (
+                <p aria-live="polite">{errorMessage}</p>
+              ) : (
+                <p>
+                  {extraction?.summary}{" "}
+                  {extraction?.clarificationQuestion ?? ""}
+                </p>
+              )}
             </div>
 
-            <article className="request-card">
-              <div className="card-heading">
-                <div>
-                  <span>Запрос подготовлен</span>
-                  <h2>Передний левый стеклоподъёмник</h2>
+            {stage === "review" && extraction ? (
+              <article className="request-card">
+                <div className="card-heading">
+                  <div>
+                    <span>Распознано DeepSeek через AI Gateway</span>
+                    <h2>{extraction.partName ?? "Деталь нужно уточнить"}</h2>
+                  </div>
+                  <span className="confidence-badge">
+                    <Check size={14} /> Структурировано
+                  </span>
                 </div>
-                <span className="confidence-badge">
-                  <Check size={14} /> Понятно
-                </span>
-              </div>
-              <dl className="request-grid">
-                <div>
-                  <dt>Автомобиль</dt>
-                  <dd>Peugeot 308 · 2008</dd>
+                <dl className="request-grid">
+                  <div>
+                    <dt>Автомобиль</dt>
+                    <dd>{vehicleLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Артикул / OEM</dt>
+                    <dd>{extraction.rawPartNumber ?? "Не указан"}</dd>
+                  </div>
+                  <div>
+                    <dt>Положение и сторона</dt>
+                    <dd>
+                      {positionLabels[extraction.position]} ·{" "}
+                      {sideLabels[extraction.side]}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Состояние</dt>
+                    <dd>{conditionLabels[extraction.condition]}</dd>
+                  </div>
+                </dl>
+                <p className="request-note">
+                  Реальные предложения появятся после подключения первого
+                  проверенного адаптера источника. Фиктивная выдача отключена.
+                </p>
+                <div className="request-actions">
+                  <button
+                    className="button secondary pressable"
+                    type="button"
+                    onClick={() => setStage("empty")}
+                  >
+                    <Pencil size={17} />
+                    Изменить
+                  </button>
+                  <button
+                    className="button primary pressable"
+                    type="button"
+                    disabled
+                    title="Нужен работающий адаптер источника"
+                  >
+                    <Search size={17} />
+                    Поиск источников скоро
+                  </button>
                 </div>
-                <div>
-                  <dt>Кузов</dt>
-                  <dd>Хэтчбек · 3 двери</dd>
-                </div>
-                <div>
-                  <dt>Положение</dt>
-                  <dd>Передний · левый</dd>
-                </div>
-                <div>
-                  <dt>Состояние</dt>
-                  <dd>Любое</dd>
-                </div>
-              </dl>
+              </article>
+            ) : null}
+
+            {stage === "error" ? (
               <div className="request-actions">
-                <button className="button secondary pressable" type="button">
+                <button
+                  className="button secondary pressable"
+                  type="button"
+                  onClick={() => setStage("empty")}
+                >
                   <Pencil size={17} />
-                  Изменить
+                  Изменить запрос
                 </button>
                 <button
                   className="button primary pressable"
                   type="button"
-                  onClick={() => setStage("results")}
+                  onClick={() => void submit()}
                 >
-                  <Search size={17} />
-                  Искать предложения
+                  <Sparkles size={17} />
+                  Повторить
                 </button>
               </div>
-            </article>
-
-            {stage === "results" ? (
-              <>
-                <article className="progress-card" aria-live="polite">
-                  <div className="progress-heading">
-                    <div>
-                      <span>Демонстрационный поиск завершён</span>
-                      <strong>4 источника · 18 предложений</strong>
-                    </div>
-                    <span className="done-icon">
-                      <Check size={18} />
-                    </span>
-                  </div>
-                  <div className="progress-track">
-                    <span />
-                  </div>
-                  <div className="source-pills">
-                    <span>Mock · 18</span>
-                    <span className="muted">Bamper · не подключён</span>
-                    <span className="muted">ARMTEK · не подключён</span>
-                  </div>
-                </article>
-
-                <article className="summary-card">
-                  <header>
-                    <div>
-                      <span>Найдено в mock-выдаче</span>
-                      <h2>18 предложений от 125 BYN</h2>
-                    </div>
-                    <span className="demo-badge">Демо-данные</span>
-                  </header>
-                  <div className="summary-groups">
-                    <div>
-                      <span className="dot blue" />
-                      <small>Новый оригинал</small>
-                      <strong>от 287 BYN</strong>
-                    </div>
-                    <div>
-                      <span className="dot violet" />
-                      <small>Новый аналог</small>
-                      <strong>от 164 BYN</strong>
-                    </div>
-                    <div>
-                      <span className="dot yellow" />
-                      <small>Оригинал б/у</small>
-                      <strong>от 125 BYN</strong>
-                    </div>
-                  </div>
-                  <Link
-                    className="button primary full pressable"
-                    href="/search/demo"
-                  >
-                    Открыть все предложения
-                    <ChevronRight size={17} />
-                  </Link>
-                </article>
-              </>
             ) : null}
           </div>
         )}
       </div>
 
       <div className="composer-wrap safe-bottom">
-        <form className="composer" onSubmit={submit}>
+        <form className="composer" onSubmit={(event) => void submit(event)}>
           <label className="sr-only" htmlFor="parts-query">
             Что нужно найти?
           </label>
@@ -223,9 +281,10 @@ export function ChatExperience() {
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                submit();
+                void submit();
               }
             }}
+            disabled={stage === "loading"}
           />
           <div className="composer-tools">
             <button
@@ -239,7 +298,7 @@ export function ChatExperience() {
             <button
               className="submit-button pressable"
               type="submit"
-              disabled={!query.trim()}
+              disabled={!query.trim() || stage === "loading"}
               aria-label="Отправить запрос"
             >
               <ArrowUp size={20} />

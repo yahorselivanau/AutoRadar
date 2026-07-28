@@ -26,9 +26,14 @@ pnpm install
 pnpm dev
 ```
 
-После запуска открыть `http://localhost:3000`. Демонстрационный путь не
-требует внешних ключей. Все предложения в нём являются mock-данными и явно
-помечены в интерфейсе.
+После запуска открыть `http://localhost:3000`. AI-разбор запроса использует
+Vercel AI Gateway и модель из `AI_MODEL`. Для локальной работы связать проект
+с Vercel и выполнить `vercel env pull .env.local`; в production используется
+автоматический OIDC. Фиктивная выдача предложений отключена до появления
+первого проверенного адаптера.
+
+DeepSeek требует оплаченных AI Gateway credits или DeepSeek BYOK. Без одного
+из этих вариантов route вернёт понятный unavailable state вместо mock-ответа.
 
 Проверки:
 
@@ -45,6 +50,8 @@ pnpm test:e2e
 - GitHub: `yahorselivanau/AutoRadar`, production branch `main`.
 - Vercel production: https://autoradar.vercel.app
 - Vercel project: `autoradar`, web application: `apps/web`.
+- Vercel root directory: `apps/web`, framework preset: `Next.js`.
+- AI Gateway model: `deepseek/deepseek-v4-flash` через `AI_MODEL`.
 
 Для Git deployment проект Vercel должен быть подключён к GitHub-репозиторию
 через Vercel Git Integration. После подключения push в `main` создаёт

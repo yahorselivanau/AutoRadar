@@ -487,6 +487,18 @@
   gap: 10px;
 }
 
+.request-note {
+  margin: 0 0 18px;
+  color: var(--ar-foreground-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.button:disabled {
+  opacity: 0.48;
+  pointer-events: none;
+}
+
 .button {
   display: inline-flex;
   min-height: 44px;
