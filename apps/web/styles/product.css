@@ -1738,6 +1738,32 @@
   gap: 16px;
 }
 
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  background: var(--ar-surface-subtle);
+}
+
+.auth-mode-switch a {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--ar-foreground-secondary);
+  font-size: 14px;
+  font-weight: 550;
+  text-align: center;
+  transition-property: color, background-color, box-shadow;
+  transition-duration: 120ms;
+}
+
+.auth-mode-switch a.active {
+  background: var(--ar-surface);
+  box-shadow: var(--shadow-border);
+  color: var(--ar-foreground);
+}
+
 .input-with-icon {
   position: relative;
 }

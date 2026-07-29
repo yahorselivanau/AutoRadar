@@ -205,8 +205,8 @@ export const ConversationStateSchema = z.object({
 });
 
 export const GuestUsageSchema = z.object({
-  conversationsUsed: z.number().int().nonnegative(),
-  conversationsLimit: z.number().int().positive(),
+  requestsUsed: z.number().int().nonnegative(),
+  requestsLimit: z.number().int().positive(),
   searchesUsed: z.number().int().nonnegative(),
   searchesLimit: z.number().int().positive(),
   resetsAt: z.iso.datetime(),

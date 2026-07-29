@@ -4,16 +4,28 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+import { readPublicSupabaseConfig, readSupabaseSecretKey } from "./config";
+
 function getPublicConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
+  return readPublicSupabaseConfig({
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  });
+}
+
+function getSecretKey() {
+  return readSupabaseSecretKey({
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
+  });
+}
+
+export function isSupabaseAuthConfigured(): boolean {
+  return Boolean(getPublicConfig());
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    getPublicConfig() && process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
-  );
+  return Boolean(getPublicConfig() && getSecretKey());
 }
 
 export async function createSupabaseServerClient() {
@@ -35,10 +47,10 @@ export async function createSupabaseServerClient() {
 
 export function createSupabaseAdminClient() {
   const config = getPublicConfig();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!config || !serviceRoleKey) return null;
+  const secretKey = getSecretKey();
+  if (!config || !secretKey) return null;
 
-  return createClient(config.url, serviceRoleKey, {
+  return createClient(config.url, secretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

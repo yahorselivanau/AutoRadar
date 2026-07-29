@@ -20,8 +20,8 @@ async function mockConversation(page: Page, searchesUsed = 0) {
           messages: [],
           state: {},
           guestUsage: {
-            conversationsUsed: 1,
-            conversationsLimit: 3,
+            requestsUsed: 1,
+            requestsLimit: 5,
             searchesUsed,
             searchesLimit: 5,
             resetsAt: "2026-07-30T12:00:00.000Z",
@@ -44,8 +44,8 @@ async function mockConversation(page: Page, searchesUsed = 0) {
         messages: [],
         state: {},
         guestUsage: {
-          conversationsUsed: 1,
-          conversationsLimit: 3,
+          requestsUsed: 1,
+          requestsLimit: 5,
           searchesUsed,
           searchesLimit: 5,
           resetsAt: "2026-07-30T12:00:00.000Z",

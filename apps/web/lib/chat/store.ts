@@ -8,11 +8,7 @@ import {
 import type { UIMessage } from "ai";
 
 import type { RequestIdentity } from "@/lib/auth/identity";
-import {
-  assertGuestQuota,
-  getGuestUsage,
-  recordUsageEvent,
-} from "@/lib/auth/quota";
+import { getGuestUsage } from "@/lib/auth/quota";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export type ConversationRecord = {
@@ -54,9 +50,8 @@ function ownsRow(
 
 export async function createConversation(
   identity: RequestIdentity,
+  id = crypto.randomUUID(),
 ): Promise<ConversationRecord> {
-  await assertGuestQuota(identity, "conversation_created");
-  const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const state = ConversationStateSchema.parse({});
   const admin = createSupabaseAdminClient();
@@ -81,18 +76,26 @@ export async function createConversation(
     });
   }
 
-  await recordUsageEvent({
-    identity,
-    eventType: "conversation_created",
-    conversationId: id,
-  });
-
   return {
     id,
     title: "Новый поиск",
     updatedAt: now,
     messages: [],
     state,
+    guestUsage: await getGuestUsage(identity),
+  };
+}
+
+export async function createConversationDraft(
+  identity: RequestIdentity,
+  id = crypto.randomUUID(),
+): Promise<ConversationRecord> {
+  return {
+    id,
+    title: "Новый поиск",
+    updatedAt: new Date().toISOString(),
+    messages: [],
+    state: ConversationStateSchema.parse({}),
     guestUsage: await getGuestUsage(identity),
   };
 }
@@ -253,7 +256,11 @@ export async function listConversations(identity: RequestIdentity) {
   const admin = createSupabaseAdminClient();
   if (!admin) {
     return [...memoryConversations.values()]
-      .filter((conversation) => conversation.owner === ownerKey(identity))
+      .filter(
+        (conversation) =>
+          conversation.owner === ownerKey(identity) &&
+          conversation.messages.length > 0,
+      )
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .map(({ id, title, updatedAt }) => ({ id, title, updatedAt }));
   }
@@ -262,18 +269,35 @@ export async function listConversations(identity: RequestIdentity) {
     .from("conversations")
     .select("id,title,updated_at")
     .order("updated_at", { ascending: false })
-    .limit(20);
+    .limit(100);
   query =
     identity.kind === "user"
       ? query.eq("user_id", identity.userId)
       : query.eq("session_id_hash", identity.sessionIdHash);
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    updatedAt: row.updated_at,
-  }));
+  if (!data?.length) return [];
+
+  const { data: messageRows, error: messagesError } = await admin
+    .from("messages")
+    .select("conversation_id")
+    .in(
+      "conversation_id",
+      data.map((row) => row.id),
+    );
+  if (messagesError) throw messagesError;
+  const nonEmptyIds = new Set(
+    (messageRows ?? []).map((row) => row.conversation_id),
+  );
+
+  return data
+    .filter((row) => nonEmptyIds.has(row.id))
+    .slice(0, 20)
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      updatedAt: row.updated_at,
+    }));
 }
 
 export async function claimGuestData(sessionIdHash: string, userId: string) {

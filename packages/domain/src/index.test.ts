@@ -94,13 +94,14 @@ describe("domain schemas", () => {
 
   it("validates guest quota counters without treating messages as searches", () => {
     const usage = GuestUsageSchema.parse({
-      conversationsUsed: 2,
-      conversationsLimit: 3,
+      requestsUsed: 4,
+      requestsLimit: 5,
       searchesUsed: 4,
       searchesLimit: 5,
       resetsAt: "2026-07-30T12:00:00.000Z",
     });
 
+    expect(usage.requestsLimit - usage.requestsUsed).toBe(1);
     expect(usage.searchesLimit - usage.searchesUsed).toBe(1);
   });
 });

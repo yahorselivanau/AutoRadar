@@ -20,7 +20,8 @@ import { Wordmark } from "./wordmark";
 
 export function AppShell({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+  accountEmail,
+}: Readonly<{ children: React.ReactNode; accountEmail?: string | null }>) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -31,17 +32,33 @@ export function AppShell({
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/conversations", { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
-      .then(
-        (
-          payload: {
-            conversations?: Array<{ id: string; title: string }>;
-          } | null,
-        ) => setRecentConversations(payload?.conversations?.slice(0, 6) ?? []),
-      )
-      .catch(() => undefined);
-    return () => controller.abort();
+    const loadConversations = () => {
+      void fetch("/api/conversations", { signal: controller.signal })
+        .then((response) => (response.ok ? response.json() : null))
+        .then(
+          (
+            payload: {
+              conversations?: Array<{ id: string; title: string }>;
+            } | null,
+          ) =>
+            setRecentConversations(
+              payload?.conversations?.slice(0, 6) ?? [],
+            ),
+        )
+        .catch(() => undefined);
+    };
+    loadConversations();
+    window.addEventListener(
+      "autoradar:conversations-changed",
+      loadConversations,
+    );
+    return () => {
+      controller.abort();
+      window.removeEventListener(
+        "autoradar:conversations-changed",
+        loadConversations,
+      );
+    };
   }, [pathname]);
 
   const closeDrawer = () => setDrawerOpen(false);
@@ -128,8 +145,8 @@ export function AppShell({
               <UserRound size={17} />
             </span>
             <span>
-              <strong>Гостевой режим</strong>
-              <small>Войти и сохранить</small>
+              <strong>{accountEmail ?? "Гостевой режим"}</strong>
+              <small>{accountEmail ? "Аккаунт" : "Войти и сохранить"}</small>
             </span>
           </Link>
         </div>
@@ -165,7 +182,7 @@ export function AppShell({
           <Link
             className="icon-button pressable"
             href="/auth/sign-in"
-            aria-label="Войти"
+            aria-label={accountEmail ? "Открыть аккаунт" : "Войти"}
           >
             <UserRound size={20} />
           </Link>

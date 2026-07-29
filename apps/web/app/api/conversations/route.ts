@@ -1,15 +1,22 @@
 import { z } from "zod";
 
 import { resolveRequestIdentity } from "@/lib/auth/identity";
-import { createConversation, listConversations } from "@/lib/chat/store";
+import {
+  createConversationDraft,
+  listConversations,
+} from "@/lib/chat/store";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const identity = await resolveRequestIdentity();
-  return Response.json({
-    conversations: await listConversations(identity),
-  });
+  try {
+    const identity = await resolveRequestIdentity();
+    return Response.json({
+      conversations: await listConversations(identity),
+    });
+  } catch {
+    return configurationErrorResponse();
+  }
 }
 
 export async function POST(request: Request) {
@@ -19,21 +26,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "Некорректный запрос." }, { status: 400 });
   }
 
-  const identity = await resolveRequestIdentity();
   try {
-    const conversation = await createConversation(identity);
+    const identity = await resolveRequestIdentity();
+    const conversation = await createConversationDraft(identity);
     return Response.json(conversation, { status: 201 });
-  } catch (error) {
-    if (error instanceof Error && error.name === "GuestQuotaError") {
-      return Response.json(
-        {
-          code: "guest_conversation_limit",
-          error:
-            "Бесплатные новые диалоги на сегодня закончились. Войдите, чтобы продолжить и сохранить историю.",
-        },
-        { status: 403 },
-      );
-    }
-    throw error;
+  } catch {
+    return configurationErrorResponse();
   }
+}
+
+function configurationErrorResponse() {
+  return Response.json(
+    {
+      code: "server_not_configured",
+      error:
+        "Сервис временно не настроен. Администратору нужно проверить переменные окружения.",
+    },
+    { status: 503 },
+  );
 }

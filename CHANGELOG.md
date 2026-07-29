@@ -2,6 +2,27 @@
 
 ## 2026-07-29
 
+- Changed guest quota accounting from created conversations to five actual
+  AI requests per rolling 24 hours, including messages sent in older chats.
+- Made new chats lazy: empty routes are not persisted or charged, refreshes do
+  not add sidebar items, and legacy empty conversations are hidden from
+  history.
+- Added a complete responsive favicon set for desktop browsers, Apple devices
+  and Android/PWA installs, including the application manifest.
+- Replaced magic-link authentication with separate email/password sign-in and
+  sign-up states; registration expects Supabase email confirmation to be
+  disabled and creates a session immediately.
+- Added strict Supabase public URL validation, preserved authenticated account
+  state in the application shell, and stopped presenting arbitrary server
+  failures as authentication quota errors.
+- Added stable JSON configuration errors for conversation endpoints and
+  provisioned the missing Vercel signing/encryption secrets for production and
+  preview deployments.
+- Applied the foundation, agent-memory and RLS-hardening migrations to the
+  AutoRadar Supabase project; configured its production URL, API keys and
+  immediate email/password sessions without email confirmation.
+- Replaced the legacy Supabase `anon`/`service_role` environment contract with
+  modern `sb_publishable_` and `sb_secret_` keys only.
 - Replaced the one-shot extraction flow with an AI SDK `ToolLoopAgent` that
   keeps multi-turn context, uses explicit server tools and answers follow-up
   questions from persisted results without restarting search.
@@ -11,11 +32,10 @@
 - Added persisted `search_requests`, `search_jobs`, per-source statuses and
   normalized offers with deterministic idempotency and independent source
   failures.
-- Added signed HttpOnly guest sessions and value-first rolling 24-hour limits:
-  3 new conversations, 5 real searches and 30 assistant turns; existing
-  history and results remain readable after the limit.
-- Added Supabase magic-link authentication, automatic ownership transfer for
-  guest conversations/searches and cloud garage synchronization after login.
+- Added signed HttpOnly guest sessions and value-first rolling 24-hour limits;
+  existing history and results remain readable after the limit.
+- Added Supabase authentication, automatic ownership transfer for guest
+  conversations/searches and cloud garage synchronization after login.
 - Added server-only AES-256-GCM encryption for cloud VIN storage and kept VIN
   values out of AI prompts, Gateway tags and application logs.
 - Pinned the agent allowlist to `openai/gpt-5.4-nano`; model fallback and web

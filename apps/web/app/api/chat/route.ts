@@ -12,6 +12,8 @@ import { createPartsAgent, PARTS_AGENT_MODEL } from "@/lib/ai/parts-agent";
 import type { PartsAgentUIMessage } from "@/lib/ai/parts-agent";
 import { PARTS_AGENT_PROMPT_VERSION } from "@/lib/ai/prompts/parts-agent.v1";
 import {
+  createConversation,
+  createConversationDraft,
   loadConversation,
   saveConversationMessages,
   saveConversationState,
@@ -37,6 +39,30 @@ const InputSchema = z.object({
     .nullable()
     .optional(),
 });
+
+const IncomingUserMessageSchema = z
+  .object({
+    id: z.string().min(1),
+    role: z.literal("user"),
+    parts: z
+      .array(
+        z
+          .object({
+            type: z.string(),
+            text: z.string().optional(),
+          })
+          .passthrough(),
+      )
+      .min(1),
+  })
+  .passthrough()
+  .refine(
+    (message) =>
+      message.parts.some(
+        (part) => part.type === "text" && Boolean(part.text?.trim()),
+      ),
+    "empty_message",
+  );
 
 const vinPattern = /\b[A-HJ-NPR-Z0-9]{17}\b/gi;
 
@@ -65,28 +91,27 @@ export async function POST(request: Request) {
   }
 
   const identity = await resolveRequestIdentity();
-  const conversation = await loadConversation(payload.data.id, identity);
-  if (!conversation) {
-    return Response.json({ error: "Диалог не найден." }, { status: 404 });
+  const incoming = IncomingUserMessageSchema.safeParse(payload.data.message);
+  if (!incoming.success) {
+    return Response.json({ error: "Введите сообщение." }, { status: 400 });
   }
+  const storedConversation = await loadConversation(payload.data.id, identity);
+  let conversation =
+    storedConversation ??
+    (await createConversationDraft(identity, payload.data.id));
 
   try {
     await assertGuestQuota(identity, "assistant_turn");
   } catch {
     return guestLimitResponse(
-      "guest_dialogue_limit",
-      "Лимит ответов на сегодня исчерпан. Войдите, чтобы продолжить этот диалог без ограничений.",
+      "guest_ai_request_limit",
+      "Лимит AI-запросов на сегодня исчерпан. История останется доступна; войдите, чтобы продолжить.",
     );
   }
 
   let state = conversation.state;
   if (payload.data.activeVehicle) {
     state = { ...state, activeVehicle: payload.data.activeVehicle };
-    await saveConversationState({
-      identity,
-      conversationId: conversation.id,
-      state,
-    });
   }
 
   const agent = createPartsAgent({
@@ -97,14 +122,13 @@ export async function POST(request: Request) {
 
   let validated: PartsAgentUIMessage[];
   try {
-    const incoming = payload.data.message as PartsAgentUIMessage;
     const hasIncoming = conversation.messages.some(
-      (message) => message.id === incoming?.id,
+      (message) => message.id === incoming.data.id,
     );
     validated = (await validateUIMessages({
       messages: redactVin([
         ...conversation.messages,
-        ...(hasIncoming ? [] : [incoming]),
+        ...(hasIncoming ? [] : [incoming.data]),
       ] as PartsAgentUIMessage[]) as unknown[],
       tools: agent.tools,
     })) as PartsAgentUIMessage[];
@@ -118,12 +142,27 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!storedConversation) {
+    conversation = await createConversation(identity, payload.data.id);
+  }
+  if (payload.data.activeVehicle) {
+    await saveConversationState({
+      identity,
+      conversationId: conversation.id,
+      state,
+    });
+  }
   await saveConversationMessages({
     identity,
     conversationId: conversation.id,
     messages: validated,
     model: PARTS_AGENT_MODEL,
     promptVersion: PARTS_AGENT_PROMPT_VERSION,
+  });
+  await recordUsageEvent({
+    identity,
+    eventType: "assistant_turn",
+    conversationId: conversation.id,
   });
 
   return createAgentUIStreamResponse({
@@ -139,11 +178,6 @@ export async function POST(request: Request) {
         messages,
         model: PARTS_AGENT_MODEL,
         promptVersion: PARTS_AGENT_PROMPT_VERSION,
-      });
-      await recordUsageEvent({
-        identity,
-        eventType: "assistant_turn",
-        conversationId: conversation.id,
       });
     },
     onError: () =>

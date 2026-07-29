@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { resolveRequestIdentity } from "@/lib/auth/identity";
-import { loadConversation } from "@/lib/chat/store";
+import {
+  createConversationDraft,
+  loadConversation,
+} from "@/lib/chat/store";
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
 
@@ -16,7 +19,9 @@ export async function GET(
   const identity = await resolveRequestIdentity();
   const conversation = await loadConversation(params.data.id, identity);
   if (!conversation) {
-    return Response.json({ error: "Диалог не найден." }, { status: 404 });
+    return Response.json(
+      await createConversationDraft(identity, params.data.id),
+    );
   }
   return Response.json(conversation);
 }

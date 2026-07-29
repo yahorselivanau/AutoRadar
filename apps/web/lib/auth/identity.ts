@@ -11,7 +11,7 @@ import { cookies } from "next/headers";
 
 import {
   createSupabaseServerClient,
-  isSupabaseConfigured,
+  isSupabaseAuthConfigured,
 } from "@/lib/supabase/server";
 
 const GUEST_COOKIE = "autoradar_guest";
@@ -63,7 +63,7 @@ export async function readGuestSessionHash(): Promise<string | null> {
 }
 
 export async function resolveRequestIdentity(): Promise<RequestIdentity> {
-  if (isSupabaseConfigured()) {
+  if (isSupabaseAuthConfigured()) {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },

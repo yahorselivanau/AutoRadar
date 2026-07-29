@@ -105,23 +105,25 @@ function formatVehicle(vehicle: SearchRequest["vehicle"]) {
 }
 
 function GuestUsageNotice({ usage }: { usage: GuestUsage }) {
+  const requestsLeft = Math.max(usage.requestsLimit - usage.requestsUsed, 0);
   const searchesLeft = Math.max(usage.searchesLimit - usage.searchesUsed, 0);
-  const shouldShow =
-    searchesLeft <= 2 ||
-    usage.conversationsUsed >= usage.conversationsLimit - 1;
+  const shouldShow = requestsLeft <= 2 || searchesLeft <= 2;
   if (!shouldShow) return null;
+
+  const title =
+    requestsLeft === 0
+      ? "AI-запросы доступны после входа"
+      : searchesLeft === 0
+        ? "Новые поиски по источникам доступны после входа"
+        : `Осталось AI-запросов: ${requestsLeft}`;
 
   return (
     <aside className="guest-usage-card" aria-live="polite">
       <div>
-        <strong>
-          {searchesLeft > 0
-            ? `Осталось бесплатных поисков: ${searchesLeft}`
-            : "Новые поиски доступны после входа"}
-        </strong>
+        <strong>{title}</strong>
         <p>
-          История и найденные предложения не пропадут. Аккаунт также
-          синхронизирует гараж между устройствами.
+          Каждая отправка сообщения расходует один AI-запрос. Пустой новый
+          поиск лимит не расходует, а история и предложения не пропадут.
         </p>
       </div>
       <Link className="button secondary pressable" href="/auth/sign-in">
@@ -371,31 +373,46 @@ export function SmartChatExperience({
     return () => controller.abort();
   }, [conversationId, setMessages]);
 
-  const submitText = (value: string) => {
+  const refreshGuestUsage = async () => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`);
+      if (!response.ok) return;
+      const payload = (await response.json()) as ConversationPayload;
+      setGuestUsage(payload.guestUsage);
+    } catch {
+      // The message result remains authoritative; quota copy can refresh later.
+    }
+  };
+
+  const submitText = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed || busy) return;
     const vin = findVin(trimmed);
+    let text = trimmed;
     if (vin) {
       if (activeVehicle) updateActiveVehicle({ vin });
       else setPendingVin(vin);
-      void sendMessage({
-        text: activeVehicle
-          ? `VIN сохранён приложением для активной машины. Полный номер скрыт. ${
-              trimmed.replace(vin, "").trim() ||
-              "Подтверди, что данные автомобиля сохранены."
-            }`
-          : "VIN сохранён приложением локально и скрыт. Попроси меня указать марку, модель и год автомобиля.",
-      });
-      setInput("");
-      return;
+      text = activeVehicle
+        ? `VIN сохранён приложением для активной машины. Полный номер скрыт. ${
+            trimmed.replace(vin, "").trim() ||
+            "Подтверди, что данные автомобиля сохранены."
+          }`
+        : "VIN сохранён приложением локально и скрыт. Попроси меня указать марку, модель и год автомобиля.";
     }
-    void sendMessage({ text: trimmed });
     setInput("");
+    try {
+      await sendMessage({ text });
+      window.dispatchEvent(new Event("autoradar:conversations-changed"));
+    } catch {
+      // useChat exposes the transport error in the conversation UI.
+    } finally {
+      await refreshGuestUsage();
+    }
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    submitText(input);
+    void submitText(input);
   };
 
   if (loadError) {
@@ -446,7 +463,7 @@ export function SmartChatExperience({
                   className="suggestion pressable"
                   key={suggestion}
                   type="button"
-                  onClick={() => submitText(suggestion)}
+                  onClick={() => void submitText(suggestion)}
                 >
                   <CircleDot size={16} />
                   <span>{suggestion}</span>
@@ -525,7 +542,7 @@ export function SmartChatExperience({
                                   key={option}
                                   type="button"
                                   disabled={busy}
-                                  onClick={() => submitText(option)}
+                                  onClick={() => void submitText(option)}
                                 >
                                   <span>{option}</span>
                                   <ChevronRight size={17} />
@@ -609,7 +626,7 @@ export function SmartChatExperience({
                 !event.nativeEvent.isComposing
               ) {
                 event.preventDefault();
-                submitText(input);
+                void submitText(input);
               }
             }}
           />

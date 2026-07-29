@@ -10,17 +10,13 @@ function positiveIntegerEnv(name: string, fallback: number): number {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-export const GUEST_CONVERSATION_LIMIT = positiveIntegerEnv(
-  "GUEST_CONVERSATION_LIMIT_24H",
-  3,
-);
 export const GUEST_SEARCH_LIMIT = positiveIntegerEnv(
   "GUEST_SEARCH_LIMIT_24H",
   5,
 );
-export const GUEST_ASSISTANT_TURN_LIMIT = positiveIntegerEnv(
-  "GUEST_ASSISTANT_TURN_LIMIT_24H",
-  30,
+export const GUEST_AI_REQUEST_LIMIT = positiveIntegerEnv(
+  "GUEST_AI_REQUEST_LIMIT_24H",
+  5,
 );
 
 export type UsageEventType =
@@ -69,13 +65,13 @@ export async function getGuestUsage(
   identity: RequestIdentity,
 ): Promise<GuestUsage | null> {
   if (identity.kind === "user") return null;
-  const [conversationsUsed, searchesUsed] = await Promise.all([
-    countEvents(identity, "conversation_created"),
+  const [requestsUsed, searchesUsed] = await Promise.all([
+    countEvents(identity, "assistant_turn"),
     countEvents(identity, "search_started"),
   ]);
   return {
-    conversationsUsed,
-    conversationsLimit: GUEST_CONVERSATION_LIMIT,
+    requestsUsed,
+    requestsLimit: GUEST_AI_REQUEST_LIMIT,
     searchesUsed,
     searchesLimit: GUEST_SEARCH_LIMIT,
     resetsAt: resetAt(),
@@ -88,8 +84,7 @@ export async function assertGuestQuota(
 ): Promise<void> {
   if (identity.kind === "user") return;
   const limits: Partial<Record<UsageEventType, number>> = {
-    conversation_created: GUEST_CONVERSATION_LIMIT,
-    assistant_turn: GUEST_ASSISTANT_TURN_LIMIT,
+    assistant_turn: GUEST_AI_REQUEST_LIMIT,
     search_started: GUEST_SEARCH_LIMIT,
   };
   const limit = limits[eventType];

@@ -16,12 +16,17 @@ export function ChatBootstrap() {
       body: "{}",
     })
       .then(async (response) => {
-        const payload = (await response.json()) as {
+        const payload = (await response.json().catch(() => ({}))) as {
           id?: string;
           error?: string;
+          code?: string;
         };
         if (!response.ok || !payload.id) {
-          throw new Error(payload.error ?? "Не удалось начать диалог.");
+          const reason = new Error(
+            payload.error ?? "Не удалось начать диалог. Попробуйте ещё раз.",
+          );
+          reason.name = payload.code ?? "conversation_error";
+          throw reason;
         }
         if (!cancelled) router.replace(`/chat/${payload.id}`);
       })
@@ -44,11 +49,8 @@ export function ChatBootstrap() {
       <div className="empty-chat" aria-live="polite">
         {error ? (
           <>
-            <h1>Нужен вход</h1>
+            <h1>Не удалось начать диалог</h1>
             <p>{error}</p>
-            <a className="button primary pressable" href="/auth/sign-in">
-              Войти или создать аккаунт
-            </a>
           </>
         ) : (
           <>

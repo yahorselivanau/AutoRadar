@@ -84,7 +84,7 @@
 - `/chat` → основной интерфейс.
 - `/garage` → список автомобилей.
 - `/search/[id]` → самостоятельная страница результата для deep-link и восстановления.
-- `/auth/sign-in` → вход.
+- `/auth/sign-in` → вход и регистрация по email/паролю.
 - `/privacy` → приватность.
 - `/terms` → условия и disclaimer.
 
@@ -198,10 +198,10 @@ vehicle_aliases
 # Public
 NEXT_PUBLIC_APP_URL=
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 
 # Server
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEY=
 SUPABASE_DB_URL=
 APIFY_TOKEN=
 APIFY_SEARCH_ACTOR_ID=
