@@ -20,15 +20,29 @@ import {
   Search,
   Sparkles,
   Square,
-  UserRound,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { DefaultChatTransport, isToolUIPart } from "ai";
 
 import type { PartsAgentUIMessage } from "@/lib/ai/parts-agent";
 import { useGarage } from "@/lib/garage-store";
+
+import { GuestQuotaControl, VehicleSwitcher } from "./chat-context-controls";
+import { Bubble, BubbleContent } from "../ui/bubble";
+import { Marker, MarkerContent, MarkerIcon } from "../ui/marker";
+import { Message, MessageContent } from "../ui/message";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "../ui/message-scroller";
 
 const suggestions = [
   "Передний левый стеклоподъёмник на Peugeot 308 2008, 5 дверей",
@@ -104,33 +118,11 @@ function formatVehicle(vehicle: SearchRequest["vehicle"]) {
     .join(" · ");
 }
 
-function GuestUsageNotice({ usage }: { usage: GuestUsage }) {
-  const requestsLeft = Math.max(usage.requestsLimit - usage.requestsUsed, 0);
-  const searchesLeft = Math.max(usage.searchesLimit - usage.searchesUsed, 0);
-  const shouldShow = requestsLeft <= 2 || searchesLeft <= 2;
-  if (!shouldShow) return null;
-
-  const title =
-    requestsLeft === 0
-      ? "AI-запросы доступны после входа"
-      : searchesLeft === 0
-        ? "Новые поиски по источникам доступны после входа"
-        : `Осталось AI-запросов: ${requestsLeft}`;
-
+function AssistantMarkdown({ children }: { children: string }) {
   return (
-    <aside className="guest-usage-card" aria-live="polite">
-      <div>
-        <strong>{title}</strong>
-        <p>
-          Каждая отправка сообщения расходует один AI-запрос. Пустой новый
-          поиск лимит не расходует, а история и предложения не пропадут.
-        </p>
-      </div>
-      <Link className="button secondary pressable" href="/auth/sign-in">
-        <UserRound size={17} />
-        Войти
-      </Link>
-    </aside>
+    <div className="typeset typeset-chat assistant-typeset">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+    </div>
   );
 }
 
@@ -347,6 +339,8 @@ export function SmartChatExperience({
       transport,
     });
   const busy = status === "submitted" || status === "streaming";
+  const quotaExhausted =
+    guestUsage != null && guestUsage.requestsUsed >= guestUsage.requestsLimit;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -386,7 +380,7 @@ export function SmartChatExperience({
 
   const submitText = async (value: string) => {
     const trimmed = value.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || quotaExhausted) return;
     const vin = findVin(trimmed);
     let text = trimmed;
     if (vin) {
@@ -400,6 +394,7 @@ export function SmartChatExperience({
         : "VIN сохранён приложением локально и скрыт. Попроси меня указать марку, модель и год автомобиля.";
     }
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     try {
       await sendMessage({ text });
       window.dispatchEvent(new Event("autoradar:conversations-changed"));
@@ -442,222 +437,285 @@ export function SmartChatExperience({
 
   return (
     <section className="chat-page">
-      <div className="chat-scroll">
-        {guestUsage ? <GuestUsageNotice usage={guestUsage} /> : null}
-        {messages.length === 0 ? (
-          <div className="empty-chat">
-            <div className="empty-copy">
-              <span className="eyebrow">
-                <Sparkles size={15} />
-                AI-подбор с памятью
-              </span>
-              <h1>Какую запчасть ищем?</h1>
-              <p>
-                Опишите задачу своими словами. Я сохраню машину и параметры,
-                уточню только важное и сам выберу, когда нужен поиск.
-              </p>
-            </div>
-            <div className="suggestion-grid">
-              {suggestions.map((suggestion) => (
-                <button
-                  className="suggestion pressable"
-                  key={suggestion}
-                  type="button"
-                  onClick={() => void submitText(suggestion)}
-                >
-                  <CircleDot size={16} />
-                  <span>{suggestion}</span>
-                  <ChevronRight size={16} />
-                </button>
-              ))}
-            </div>
-            <p className="privacy-note">
-              Web search выключен. Полный VIN не передаётся модели.
-            </p>
-          </div>
-        ) : (
-          <div className="conversation">
-            {messages.map((message) => (
-              <div key={message.id}>
-                {message.role === "user" ? (
-                  <div className="user-message">
-                    {message.parts
-                      .filter((part) => part.type === "text")
-                      .map((part) => part.text)
-                      .join("")}
-                  </div>
-                ) : (
-                  <div className="assistant-block">
-                    <span className="assistant-kicker">
-                      <Sparkles size={15} /> Авто Радар
+      <MessageScrollerProvider
+        autoScroll
+        defaultScrollPosition="last-anchor"
+        scrollPreviousItemPeek={48}
+      >
+        <MessageScroller className="chat-transcript">
+          <MessageScrollerViewport>
+            <MessageScrollerContent aria-busy={busy}>
+              {messages.length === 0 ? (
+                <div className="empty-chat">
+                  <div className="empty-copy">
+                    <span className="eyebrow">
+                      <Sparkles size={15} />
+                      AI-подбор с памятью
                     </span>
-                    {message.parts.map((part, index) => {
-                      if (part.type === "text") {
-                        return (
-                          <p key={`${message.id}-${index}`}>{part.text}</p>
-                        );
-                      }
-                      if (!isToolUIPart(part)) return null;
-                      if (part.state !== "output-available") {
-                        return (
-                          <div
-                            className="tool-progress"
-                            key={part.toolCallId}
-                            aria-live="polite"
-                          >
-                            <LoaderCircle
-                              className="searching-icon"
-                              size={18}
-                            />
-                            Работаю с контекстом…
-                          </div>
-                        );
-                      }
-
-                      if (part.type === "tool-update_search_draft") {
-                        return (
-                          <DraftCard
-                            key={part.toolCallId}
-                            request={part.output.request}
-                            disabled={busy}
-                            onSearch={() =>
-                              submitText(
-                                "Ищи по текущему подтверждённому запросу.",
-                              )
-                            }
-                          />
-                        );
-                      }
-                      if (part.type === "tool-ask_clarification") {
-                        return (
-                          <article
-                            className="clarification-card"
-                            key={part.toolCallId}
-                          >
-                            <h2>{part.output.question}</h2>
-                            <div className="clarification-options">
-                              {part.output.options.map((option) => (
-                                <button
-                                  className="clarification-option pressable"
-                                  key={option}
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() => void submitText(option)}
-                                >
-                                  <span>{option}</span>
-                                  <ChevronRight size={17} />
-                                </button>
-                              ))}
-                            </div>
-                          </article>
-                        );
-                      }
-                      if (
-                        part.type === "tool-start_parts_search" ||
-                        part.type === "tool-get_search_results"
-                      ) {
-                        if (part.output.kind === "guest_quota_exceeded") {
-                          return (
-                            <aside
-                              className="guest-limit-card"
-                              key={part.toolCallId}
-                            >
-                              <strong>Бесплатные поиски закончились</strong>
-                              <p>{part.output.message}</p>
-                              <Link
-                                className="button primary pressable"
-                                href="/auth/sign-in"
-                              >
-                                Войти и продолжить
-                              </Link>
-                            </aside>
-                          );
-                        }
-                        if (part.output.kind === "search_result") {
-                          return (
-                            <SearchResultCard
-                              key={part.toolCallId}
-                              output={part.output}
-                            />
-                          );
-                        }
-                      }
-                      return null;
-                    })}
+                    <h1>Какую запчасть ищем?</h1>
+                    <p>
+                      Опишите задачу своими словами. Я сохраню машину и
+                      параметры, уточню только важное и сам выберу, когда нужен
+                      поиск.
+                    </p>
                   </div>
-                )}
-              </div>
-            ))}
-            {busy ? (
-              <div className="assistant-block" aria-live="polite">
-                <span className="assistant-kicker">
-                  <LoaderCircle className="searching-icon" size={15} />
-                  Авто Радар
-                </span>
-                <p>Понимаю контекст и выбираю следующий шаг…</p>
-              </div>
-            ) : null}
-            {error ? (
-              <div className="compatibility-warning" aria-live="polite">
-                <CircleDot size={20} />
-                <p>
-                  <strong>Ответ не получен.</strong> {error.message}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        )}
-      </div>
+                  <div className="suggestion-grid">
+                    {suggestions.map((suggestion) => (
+                      <button
+                        className="suggestion pressable"
+                        key={suggestion}
+                        type="button"
+                        onClick={() => void submitText(suggestion)}
+                      >
+                        <CircleDot size={16} />
+                        <span>{suggestion}</span>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="privacy-note">
+                    Web search выключен. Полный VIN не передаётся модели.
+                  </p>
+                </div>
+              ) : (
+                <div className="conversation">
+                  {messages.map((message) => {
+                    const hasClarification = message.parts.some(
+                      (part) =>
+                        isToolUIPart(part) &&
+                        part.type === "tool-ask_clarification" &&
+                        part.state === "output-available",
+                    );
 
-      <form className="composer-wrap" onSubmit={submit}>
-        <div className="composer">
-          <textarea
-            ref={inputRef}
-            value={input}
-            rows={1}
-            placeholder="Опишите деталь или задайте вопрос по результатам…"
-            aria-label="Сообщение Авто Радар"
-            disabled={busy}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                !event.shiftKey &&
-                !event.nativeEvent.isComposing
-              ) {
-                event.preventDefault();
-                void submitText(input);
+                    return (
+                      <MessageScrollerItem
+                        key={message.id}
+                        messageId={message.id}
+                        scrollAnchor={message.role === "user"}
+                      >
+                        {message.role === "user" ? (
+                          <Message align="end">
+                            <MessageContent>
+                              <Bubble align="end" variant="secondary">
+                                <BubbleContent>
+                                  {message.parts
+                                    .filter((part) => part.type === "text")
+                                    .map((part) => part.text)
+                                    .join("")}
+                                </BubbleContent>
+                              </Bubble>
+                            </MessageContent>
+                          </Message>
+                        ) : (
+                          <Message>
+                            <MessageContent className="assistant-message">
+                              {message.parts.map((part, index) => {
+                                if (part.type === "text") {
+                                  if (hasClarification) return null;
+                                  return (
+                                    <AssistantMarkdown
+                                      key={`${message.id}-${index}`}
+                                    >
+                                      {part.text}
+                                    </AssistantMarkdown>
+                                  );
+                                }
+                                if (!isToolUIPart(part)) return null;
+                                if (part.state !== "output-available") {
+                                  return (
+                                    <Marker
+                                      className="tool-progress"
+                                      key={part.toolCallId}
+                                      role="status"
+                                    >
+                                      <MarkerIcon>
+                                        <LoaderCircle
+                                          className="searching-icon"
+                                          size={16}
+                                        />
+                                      </MarkerIcon>
+                                      <MarkerContent>
+                                        Уточняю контекст…
+                                      </MarkerContent>
+                                    </Marker>
+                                  );
+                                }
+
+                                if (part.type === "tool-update_search_draft") {
+                                  return (
+                                    <DraftCard
+                                      key={part.toolCallId}
+                                      request={part.output.request}
+                                      disabled={busy}
+                                      onSearch={() =>
+                                        void submitText(
+                                          "Ищи по текущему подтверждённому запросу.",
+                                        )
+                                      }
+                                    />
+                                  );
+                                }
+                                if (part.type === "tool-ask_clarification") {
+                                  return (
+                                    <article
+                                      className="clarification-card"
+                                      key={part.toolCallId}
+                                    >
+                                      <span className="structured-label">
+                                        Нужно уточнение
+                                      </span>
+                                      <h2>{part.output.question}</h2>
+                                      <div className="clarification-options">
+                                        {part.output.options.map((option) => (
+                                          <button
+                                            className="clarification-option pressable"
+                                            key={option}
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() =>
+                                              void submitText(option)
+                                            }
+                                          >
+                                            <span>{option}</span>
+                                            <ChevronRight size={17} />
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </article>
+                                  );
+                                }
+                                if (
+                                  part.type === "tool-start_parts_search" ||
+                                  part.type === "tool-get_search_results"
+                                ) {
+                                  if (
+                                    part.output.kind === "guest_quota_exceeded"
+                                  ) {
+                                    return (
+                                      <aside
+                                        className="guest-limit-card"
+                                        key={part.toolCallId}
+                                      >
+                                        <strong>
+                                          Бесплатные поиски закончились
+                                        </strong>
+                                        <p>{part.output.message}</p>
+                                        <Link
+                                          className="button primary pressable"
+                                          href="/auth/sign-in"
+                                        >
+                                          Войти и продолжить
+                                        </Link>
+                                      </aside>
+                                    );
+                                  }
+                                  if (part.output.kind === "search_result") {
+                                    return (
+                                      <SearchResultCard
+                                        key={part.toolCallId}
+                                        output={part.output}
+                                      />
+                                    );
+                                  }
+                                }
+                                return null;
+                              })}
+                            </MessageContent>
+                          </Message>
+                        )}
+                      </MessageScrollerItem>
+                    );
+                  })}
+                  {busy ? (
+                    <MessageScrollerItem>
+                      <Marker className="assistant-thinking" role="status">
+                        <MarkerIcon>
+                          <LoaderCircle className="searching-icon" size={16} />
+                        </MarkerIcon>
+                        <MarkerContent>
+                          Понимаю запрос и выбираю следующий шаг
+                        </MarkerContent>
+                      </Marker>
+                    </MessageScrollerItem>
+                  ) : null}
+                  {error ? (
+                    <MessageScrollerItem>
+                      <div className="compatibility-warning" aria-live="polite">
+                        <CircleDot size={20} />
+                        <p>
+                          <strong>Ответ не получен.</strong> {error.message}
+                        </p>
+                      </div>
+                    </MessageScrollerItem>
+                  ) : null}
+                </div>
+              )}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+
+        <form className="composer-wrap" onSubmit={submit}>
+          <div className="composer">
+            <div className="composer-topbar">
+              <VehicleSwitcher />
+              <GuestQuotaControl usage={guestUsage} />
+            </div>
+            <textarea
+              ref={inputRef}
+              value={input}
+              rows={1}
+              placeholder={
+                quotaExhausted
+                  ? "Лимит AI-запросов исчерпан — войдите, чтобы продолжить"
+                  : "Опишите деталь или задайте вопрос…"
               }
-            }}
-          />
-          <div className="composer-context">
-            <span>
-              {activeVehicle
-                ? `${activeVehicle.make} ${activeVehicle.model} · ${activeVehicle.year}`
-                : "Без выбранной машины"}
-            </span>
-            {busy ? (
-              <button
-                className="submit-button pressable"
-                type="button"
-                aria-label="Остановить ответ"
-                onClick={stop}
-              >
-                <Square size={15} fill="currentColor" />
-              </button>
-            ) : (
-              <button
-                className="submit-button pressable"
-                type="submit"
-                disabled={!input.trim()}
-                aria-label="Отправить"
-              >
-                <ArrowUp size={19} />
-              </button>
-            )}
+              aria-label="Сообщение Авто Радар"
+              disabled={busy || quotaExhausted}
+              onChange={(event) => {
+                setInput(event.target.value);
+                event.target.style.height = "0px";
+                event.target.style.height = `${Math.min(
+                  event.target.scrollHeight,
+                  180,
+                )}px`;
+              }}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !event.nativeEvent.isComposing
+                ) {
+                  event.preventDefault();
+                  void submitText(input);
+                }
+              }}
+            />
+            <div className="composer-actions">
+              <span>Enter — отправить · Shift+Enter — новая строка</span>
+              {busy ? (
+                <button
+                  className="submit-button pressable"
+                  type="button"
+                  aria-label="Остановить ответ"
+                  onClick={stop}
+                >
+                  <Square size={15} fill="currentColor" />
+                </button>
+              ) : (
+                <button
+                  className="submit-button pressable"
+                  type="submit"
+                  disabled={!input.trim() || quotaExhausted}
+                  aria-label="Отправить"
+                >
+                  <ArrowUp size={19} />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </MessageScrollerProvider>
     </section>
   );
 }

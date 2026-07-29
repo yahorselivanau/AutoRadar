@@ -2,6 +2,17 @@
 
 ## 2026-07-29
 
+- Reworked the responsive chat around shadcn-style primitives and Base UI
+  popovers: a calmer message stream, compact user bubbles, typed status
+  markers, reliable scroll anchoring and a jump-to-latest control.
+- Added a Typeset-based Markdown renderer for AI responses, removing exposed
+  Markdown syntax and improving headings, lists, tables, links and code.
+- Moved active-vehicle switching and guest AI-request balance into the
+  composer context rail, with accessible anchored selectors designed for both
+  multi-car garages and narrow mobile screens.
+- Simplified the sidebar and empty state, reduced oversized chat cards and
+  aligned desktop/mobile spacing, motion and focus states with the v1.2 design
+  system.
 - Changed guest quota accounting from created conversations to five actual
   AI requests per rolling 24 hours, including messages sent in older chats.
 - Made new chats lazy: empty routes are not persisted or charged, refreshes do

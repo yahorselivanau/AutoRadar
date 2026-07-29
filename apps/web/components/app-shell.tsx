@@ -4,6 +4,7 @@ import {
   CircleHelp,
   Menu,
   MessageCirclePlus,
+  MessageSquareText,
   PanelLeftClose,
   PanelLeftOpen,
   UserRound,
@@ -28,7 +29,7 @@ export function AppShell({
   const [recentConversations, setRecentConversations] = useState<
     Array<{ id: string; title: string }>
   >([]);
-  const { garage, activeVehicle } = useGarage();
+  const { garage } = useGarage();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,9 +42,7 @@ export function AppShell({
               conversations?: Array<{ id: string; title: string }>;
             } | null,
           ) =>
-            setRecentConversations(
-              payload?.conversations?.slice(0, 6) ?? [],
-            ),
+            setRecentConversations(payload?.conversations?.slice(0, 6) ?? []),
         )
         .catch(() => undefined);
     };
@@ -125,8 +124,12 @@ export function AppShell({
                 }`}
                 href={`/chat/${conversation.id}`}
                 key={conversation.id}
+                aria-current={
+                  pathname === `/chat/${conversation.id}` ? "page" : undefined
+                }
                 onClick={closeDrawer}
               >
+                <MessageSquareText size={17} />
                 <span>{conversation.title}</span>
               </Link>
             ))
@@ -173,11 +176,6 @@ export function AppShell({
           </button>
           <div className="mobile-header-center">
             <Wordmark />
-            <Link className="mobile-vehicle-link" href="/garage">
-              {activeVehicle
-                ? `${activeVehicle.make} ${activeVehicle.model} · ${activeVehicle.year}`
-                : "Выбрать автомобиль"}
-            </Link>
           </div>
           <Link
             className="icon-button pressable"

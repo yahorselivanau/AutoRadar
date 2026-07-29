@@ -1,0 +1,124 @@
+@layer components {
+  .typeset {
+    --typeset-size: 16px;
+    --typeset-leading: 1.65;
+    --typeset-flow: 0.9em;
+
+    color: var(--ar-foreground);
+    font-family: var(--font-sans);
+    font-size: var(--typeset-size);
+    line-height: var(--typeset-leading);
+    overflow-wrap: anywhere;
+  }
+
+  .typeset-chat {
+    --typeset-size: 16px;
+    --typeset-leading: 1.65;
+    --typeset-flow: 0.9em;
+  }
+
+  .typeset :where(p, ul, ol, blockquote, pre, table, hr) {
+    margin: 0;
+  }
+
+  .typeset :where(* + p, * + ul, * + ol, * + blockquote, * + pre, * + table) {
+    margin-block-start: var(--typeset-flow);
+  }
+
+  .typeset :where(h1, h2, h3, h4) {
+    margin: 0;
+    color: var(--ar-foreground);
+    font-weight: 620;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+
+  .typeset :where(* + h1, * + h2, * + h3, * + h4) {
+    margin-block-start: calc(var(--typeset-flow) * 1.35);
+  }
+
+  .typeset h1 {
+    font-size: 1.45em;
+  }
+
+  .typeset h2 {
+    font-size: 1.25em;
+  }
+
+  .typeset h3,
+  .typeset h4 {
+    font-size: 1.08em;
+  }
+
+  .typeset :where(ul, ol) {
+    padding-inline-start: 1.4em;
+  }
+
+  .typeset li + li {
+    margin-block-start: 0.25em;
+  }
+
+  .typeset strong {
+    font-weight: 650;
+  }
+
+  .typeset a {
+    color: var(--ar-brand-foreground);
+    text-decoration: underline;
+    text-decoration-color: var(--ar-brand-border);
+    text-underline-offset: 3px;
+  }
+
+  .typeset blockquote {
+    padding-inline-start: 1em;
+    border-inline-start: 2px solid var(--ar-border-strong);
+    color: var(--ar-foreground-secondary);
+  }
+
+  .typeset :where(code, pre) {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.88em;
+  }
+
+  .typeset code {
+    padding: 0.15em 0.35em;
+    border-radius: var(--radius-xs);
+    background: var(--ar-surface-muted);
+  }
+
+  .typeset pre {
+    overflow-x: auto;
+    padding: 14px;
+    border-radius: var(--radius-md);
+    background: var(--ar-surface-inverse);
+    color: var(--ar-foreground-inverse);
+  }
+
+  .typeset pre code {
+    padding: 0;
+    background: transparent;
+  }
+
+  .typeset table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+  }
+
+  .typeset :where(th, td) {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--ar-border);
+    text-align: start;
+  }
+
+  .typeset th {
+    font-weight: 600;
+  }
+}
+
+@media (max-width: 767px) {
+  .typeset-chat {
+    --typeset-size: 16px;
+    --typeset-leading: 1.6;
+  }
+}

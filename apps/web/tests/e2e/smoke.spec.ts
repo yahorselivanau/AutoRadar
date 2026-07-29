@@ -206,7 +206,7 @@ test("agent keeps the draft, searches explicitly and answers a follow-up without
   ).toBeVisible();
 
   const input = page.getByRole("textbox", {
-    name: "Сообщение AutoRadar",
+    name: "Сообщение Авто Радар",
   });
   await input.fill("Найди по артикулу 7700274177");
   await page.getByRole("button", { name: "Отправить" }).click();
@@ -227,15 +227,30 @@ test("agent keeps the draft, searches explicitly and answers a follow-up without
   expect(chatCalls).toBe(3);
 });
 
-test("guest sees a soft warning before the real-search limit", async ({
+test("guest sees request quota and vehicle context inside the composer", async ({
   page,
 }) => {
   await mockConversation(page, 4);
   await page.goto(`/chat/${conversationId}`);
 
-  await expect(page.getByText("Осталось бесплатных поисков: 1")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Войти", exact: true }),
+    page.getByRole("button", { name: "Выбрать автомобиль для поиска" }),
+  ).toBeVisible();
+  const quota = page.getByRole("button", {
+    name: "Осталось AI-запросов: 4",
+  });
+  await expect(quota).toBeVisible();
+  await quota.click();
+  const quotaDialog = page.getByRole("dialog");
+  await expect(quotaDialog.getByText("4", { exact: true })).toBeVisible();
+  await expect(
+    quotaDialog.getByText("из 5 AI-запросов осталось"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Реальных поисков по каталогам осталось: 1."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Войти без ограничений" }),
   ).toBeVisible();
 });
 
@@ -301,7 +316,7 @@ test("VIN entered in chat stays out of the model-visible message", async ({
   });
 
   await page.goto(`/chat/${conversationId}`);
-  const input = page.getByRole("textbox", { name: "Сообщение AutoRadar" });
+  const input = page.getByRole("textbox", { name: "Сообщение Авто Радар" });
   await input.fill("Сохрани VIN VF3LBBHZHES123456");
   await page.getByRole("button", { name: "Отправить" }).click();
 

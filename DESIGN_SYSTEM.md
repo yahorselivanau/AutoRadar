@@ -242,7 +242,7 @@ Loading:
 
 ### Mobile
 
-- compact 56px header with menu, wordmark and active vehicle;
+- compact 56px header with menu, wordmark and account action;
 - navigation is a drawer `min(88vw, 360px)` with scrim;
 - composer floats 16–20px from the sides;
 - activity, sources, auth and filters use bottom/full-height sheets;
@@ -268,6 +268,8 @@ Empty state:
 Assistant message:
 
 - ordinary prose has no avatar or persistent bubble;
+- Markdown uses the shared `Typeset` rhythm for headings, lists, links, code
+  and tables instead of exposing raw syntax;
 - tool/source metadata is muted and collapsible;
 - structured content may use cards across the chat column.
 
@@ -283,11 +285,18 @@ User message:
 - white surface, quiet shadow-ring, radius 26–30px;
 - collapsed height at least 64px;
 - textarea auto-grows to 160px mobile / 220px desktop;
+- the top context rail contains the active-vehicle switcher and guest
+  AI-request balance; both open lightweight anchored popovers;
 - secondary tools live in the lower toolbar row;
 - send is a 40×40px Radar Blue Strong circle; empty/disabled is neutral;
 - Enter sends, Shift+Enter adds newline;
 - while responding, send becomes stop;
 - attachment control is absent until the feature exists.
+
+Chat primitives use shadcn-style local wrappers with Base UI behavior:
+`Message`, `Bubble`, `Marker`, `MessageScroller` and `Popover`. Vehicle and
+quota popovers remain keyboard accessible, return focus to their trigger and
+adapt to the narrow mobile composer without becoming full-screen dialogs.
 
 ### Request confirmation
 

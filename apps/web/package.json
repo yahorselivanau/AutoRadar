@@ -16,6 +16,8 @@
     "@autoradar/domain": "workspace:*",
     "@autoradar/search-actor": "workspace:*",
     "@autoradar/ui": "workspace:*",
+    "@base-ui/react": "^1.6.0",
+    "@shadcn/react": "^0.2.1",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.9",
     "ai": "^6.0.235",
@@ -23,6 +25,8 @@
     "next": "^16.2.12",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^4.1.5"
   },
   "devDependencies": {
