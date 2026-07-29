@@ -2,7 +2,7 @@
 
 ## 2026-07-29
 
-- Replaced the browser, Apple and Android/PWA icons with the new blue car
+- Replaced the browser, Apple and Android/PWA icons with the new black-and-white
   favicon set supplied by the project owner.
 - Added a Supabase session-refresh proxy and made the Server Component cookie
   adapter read-only-safe, preventing expired auth sessions from attempting to
