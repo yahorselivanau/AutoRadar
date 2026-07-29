@@ -6,6 +6,8 @@ import {
 import { AdapterError } from "@autoradar/search-actor/types";
 import { NextResponse } from "next/server";
 
+import { safeSearchLogContext } from "@/lib/search-observability";
+
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
@@ -26,10 +28,26 @@ export async function POST(request: Request) {
     );
   }
 
+  const startedAt = Date.now();
+  const context = safeSearchLogContext(parsed.data);
   try {
-    return NextResponse.json(await new ZapPartsAdapter().search(parsed.data));
+    const result = await new ZapPartsAdapter().search(parsed.data);
+    console.info("[search:zap] completed", {
+      ...context,
+      durationMs: Date.now() - startedAt,
+      offers: result.offers.length,
+      clarification: result.clarification?.field,
+    });
+    return NextResponse.json(result);
   } catch (error) {
     if (error instanceof AdapterError) {
+      console.warn("[search:zap] adapter error", {
+        ...context,
+        durationMs: Date.now() - startedAt,
+        code: error.code,
+        diagnosticReason: getZapDiagnosticReason(error),
+        message: error.message,
+      });
       const status =
         error.code === "unsupported-query"
           ? 422
@@ -46,6 +64,11 @@ export async function POST(request: Request) {
         { status },
       );
     }
+    console.error("[search:zap] unexpected error", {
+      ...context,
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: "Не удалось выполнить поиск Zap.by." },
       { status: 500 },

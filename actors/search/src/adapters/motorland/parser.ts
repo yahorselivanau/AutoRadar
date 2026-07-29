@@ -94,7 +94,9 @@ function readCompatibility(
   const values = ["Год", "Кузов", "КПП", "Маркировка"]
     .flatMap((key) => attributes[key] ?? [])
     .filter(Boolean);
-  return values.length > 0 ? values.join(" · ") : undefined;
+  return values.length > 0
+    ? `Автомобиль-донор: ${values.join(" · ")}`
+    : undefined;
 }
 
 function isUsedPartsPage(html: string): boolean {
@@ -186,8 +188,6 @@ export function parseMotorlandSearchHtml(
         sellerName: "Motorland.by",
         compatibilityText: readCompatibility(attributes),
         sourceAttributes: attributes,
-        matchStatus: "possible",
-        matchReasons: ["Категория и автомобиль совпали с публичной выдачей"],
         fetchedAt,
         rawPayloadHash,
       }),

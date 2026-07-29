@@ -117,6 +117,149 @@ test("guest can search real sources from the AI confirmation card", async ({
   );
 });
 
+test("ambiguous BMW 3 search asks for generation and excludes unrelated cars", async ({
+  page,
+}) => {
+  let selectedGeneration: string | null = null;
+
+  await page.route("**/api/ai/parse-part-request", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        extraction: {
+          summary: "Капот для BMW 3 2016 года.",
+          partName: "Капот",
+          rawPartNumber: null,
+          normalizedPartNumber: null,
+          vehicle: {
+            make: "BMW",
+            model: "3",
+            year: 2016,
+            generation: null,
+            body: null,
+            engine: null,
+            transmission: null,
+            doors: null,
+          },
+          side: "unknown",
+          position: "unknown",
+          condition: "any",
+          constraints: [],
+          needsClarification: false,
+          clarificationQuestion: null,
+        },
+      }),
+    });
+  });
+  await page.route("**/api/search/zap", async (route) => {
+    const request = route.request().postDataJSON() as {
+      vehicle?: { generation?: string | null };
+    };
+    selectedGeneration = request.vehicle?.generation ?? null;
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(
+        selectedGeneration
+          ? { method: "html", offers: [] }
+          : {
+              method: "html",
+              offers: [],
+              clarification: {
+                id: "zap-generation",
+                field: "generation",
+                question: "Уточните поколение или кузов автомобиля.",
+                options: [
+                  {
+                    id: "9831",
+                    label: "3 (F30, F80) · 2011–2018",
+                    value: "3 (F30, F80)",
+                  },
+                  {
+                    id: "9832",
+                    label: "3 Touring (F31) · 2012–2019",
+                    value: "3 Touring (F31)",
+                  },
+                ],
+              },
+            },
+      ),
+    });
+  });
+  await page.route("**/api/search/motorland", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        method: "html",
+        offers: [
+          {
+            sourceId: "motorland",
+            externalId: "21361901",
+            externalUrl:
+              "https://motorland.by/auto-parts/bmw/3/f30-2012-2019/kapot/sku-21361901/",
+            title: "Капот BMW 3 F30",
+            brand: "BMW",
+            rawPartNumber: "21361901",
+            normalizedPartNumber: "21361901",
+            oemNumbers: [],
+            condition: "used",
+            partKind: "unknown",
+            priceAmount: "725",
+            priceSource: "data_attribute",
+            currency: "BYN",
+            sellerName: "Motorland.by",
+            matchStatus: "possible",
+            matchReasons: [
+              "точная категория Капот",
+              "год 2016 входит в 2012–2019",
+            ],
+            fetchedAt: "2026-07-29T20:00:00.000Z",
+            rawPayloadHash: "1".repeat(64),
+          },
+          {
+            sourceId: "motorland",
+            externalId: "21361742",
+            externalUrl:
+              "https://motorland.by/auto-parts/bmw/3/f30-2012-2019/kapot/sku-21361742/",
+            title: "Капот BMW 3 F30",
+            brand: "BMW",
+            rawPartNumber: "21361742",
+            normalizedPartNumber: "21361742",
+            oemNumbers: [],
+            condition: "used",
+            partKind: "unknown",
+            priceAmount: "700",
+            priceSource: "data_attribute",
+            currency: "BYN",
+            sellerName: "Motorland.by",
+            matchStatus: "possible",
+            fetchedAt: "2026-07-29T20:00:00.000Z",
+            rawPayloadHash: "2".repeat(64),
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/chat");
+  const queryInput = page.getByRole("textbox", { name: "Что нужно найти?" });
+  await queryInput.fill("нужен капот на BMW 3 2016 года");
+  await page.getByRole("button", { name: "Отправить запрос" }).click();
+  await page.getByRole("button", { name: "Искать", exact: true }).click();
+
+  await expect(
+    page.getByText("Уточните поколение или кузов автомобиля."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "3 (F30, F80) · 2011–2018" }).click();
+
+  await expect(page.getByText("Нашёл 2 реальных предложения.")).toBeVisible();
+  expect(selectedGeneration).toBe("3 (F30, F80)");
+  await expect(page.getByText(/BMW X3|BMW X5/)).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "На Motorland.by" })).toHaveCount(
+    2,
+  );
+});
+
 test("garage starts empty and persists a manually added vehicle", async ({
   page,
 }) => {

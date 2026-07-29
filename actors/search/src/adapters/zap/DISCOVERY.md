@@ -151,8 +151,15 @@ Researcher: Codex
   `confirmed`; missing evidence produces `possible`. Supported placement
   examples include `левый`/`правый`, `front`/`rear`, `LEWY`/`PRAWY`,
   `PRZÓD` (including observed mixed `PRZаD`) and `TY`/`TYŁ`.
+- model aliases: a numeric family such as user input `BMW 3` resolves to the
+  unique decorated catalogue label `3 Series`; exact matching still takes
+  precedence, so it cannot resolve to `X3`.
+- part identity: non-OEM catalogue results must start with the requested part
+  words after reproducibly removing a leading brand/article. Related
+  sub-parts such as `Тросик замка капота` are rejected for a `Капот` request.
 - clarification: if viable offers differ by a missing critical value such as
-  `doorCount`, the adapter returns options instead of mixing variants.
+  `generation`, `body` or `doorCount`, the adapter returns options instead of
+  silently choosing a base model or mixing variants.
 
 ## Verified examples
 
@@ -194,6 +201,11 @@ Direct live HTTP on 2026-07-29 returned:
 - Only the first SSR page is read; query-string pagination is not used.
 - Category matching first uses an exact normalized label, then a conservative
   token similarity threshold.
+- Numeric model-family aliases are accepted only when the normalized alias is
+  unique within the chosen make.
+- Part-title identity is intentionally conservative: a seller synonym that
+  does not begin with the requested part words can be omitted rather than
+  admitting related but different parts.
 - Price and delivery are volatile and should be treated as fetched-at values.
 - No source-specific proxy is supported or required.
 

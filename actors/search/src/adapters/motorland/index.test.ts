@@ -3,7 +3,12 @@ import { readFile } from "node:fs/promises";
 import { SearchRequestSchema } from "@autoradar/domain";
 import { describe, expect, it, vi } from "vitest";
 
-import { getMotorlandQuery, MotorlandPartsAdapter } from ".";
+import {
+  evaluateMotorlandOffer,
+  getMotorlandQuery,
+  MotorlandPartsAdapter,
+  parseMotorlandProductIdentity,
+} from ".";
 import type { MotorlandTransportConfig } from "./config";
 import { createMotorlandSearchLoader } from "./loader";
 import { normalizeMotorlandPrice, parseMotorlandSearchHtml } from "./parser";
@@ -35,7 +40,7 @@ describe("Motorland parser", () => {
     expect(normalizeMotorlandPrice("1 305,50 р.")).toBe("1305.50");
     expect(normalizeMotorlandPrice("725.000")).toBe("725");
     expect(normalizeMotorlandPrice("725.125")).toBeUndefined();
-    expect(offers).toHaveLength(2);
+    expect(offers).toHaveLength(4);
     expect(offers[0]).toMatchObject({
       sourceId: "motorland",
       externalId: "21361901",
@@ -49,7 +54,8 @@ describe("Motorland parser", () => {
       priceAmount: "725",
       priceSource: "data_attribute",
       deliveryText: "Доставка по РБ",
-      compatibilityText: "2016 · Седан · КПП 6-ст.мех.(МКПП) · B38B15A",
+      compatibilityText:
+        "Автомобиль-донор: 2016 · Седан · КПП 6-ст.мех.(МКПП) · B38B15A",
     });
   });
 
@@ -69,8 +75,8 @@ describe("Motorland parser", () => {
 });
 
 describe("Motorland adapter", () => {
-  it("builds the observed free-text query and filters related categories", async () => {
-    expect(getMotorlandQuery(request)).toBe("Капот BMW 3 F30");
+  it("uses year in the query and rejects substring-model and wrong-generation matches", async () => {
+    expect(getMotorlandQuery(request)).toBe("Капот BMW 3 2016 F30");
     const adapter = new MotorlandPartsAdapter(
       async () => ({
         html: await fixture("search-success.html"),
@@ -84,6 +90,57 @@ describe("Motorland adapter", () => {
 
     expect(result.method).toBe("html");
     expect(result.offers).toHaveLength(2);
+    expect(result.offers.map((offer) => offer.externalId)).toEqual([
+      "21361901",
+      "21361742",
+    ]);
+    expect(
+      result.offers.every((offer) =>
+        offer.matchReasons?.some((reason) =>
+          reason.includes("Год входит в диапазон 2012–2019"),
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("parses the source URL structurally instead of matching model substrings", async () => {
+    const offers = parseMotorlandSearchHtml(
+      await fixture("search-success.html"),
+      "2026-07-29T00:00:00.000Z",
+    );
+    const x5 = offers.find((offer) => offer.externalId === "21361962");
+    const e90 = offers.find((offer) => offer.externalId === "21353027");
+
+    expect(parseMotorlandProductIdentity(x5!.externalUrl)).toMatchObject({
+      make: "bmw",
+      model: "x5",
+      generation: "e53-2000-2006",
+      yearFrom: 2000,
+      yearTo: 2006,
+    });
+    expect(evaluateMotorlandOffer(x5!, request)).toMatchObject({
+      matches: false,
+      reason: "model",
+    });
+    expect(evaluateMotorlandOffer(e90!, request)).toMatchObject({
+      matches: false,
+      reason: "generation",
+    });
+    expect(
+      evaluateMotorlandOffer(
+        offers.find((offer) => offer.externalId === "21361901")!,
+        SearchRequestSchema.parse({
+          query: "Капот BMW 3 F30",
+          vehicle: {
+            make: "BMW",
+            model: "3",
+            year: 2016,
+            generation: "3 (F30, F80)",
+          },
+          part: { name: "Капот" },
+        }),
+      ),
+    ).toMatchObject({ matches: true });
   });
 
   it("does not query a used-only source for a new-only request", async () => {

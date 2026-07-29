@@ -131,7 +131,7 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
         clarification: this.vehicleClarification(
           "generation",
           "Уточните поколение или кузов автомобиля.",
-          selectedVariants.map((variant) => ({
+          selectedVariants.slice(0, 8).map((variant) => ({
             id: variant.id,
             label: [
               variant.label,
@@ -345,6 +345,7 @@ export {
   createZapPageLoader,
   resolveZapCatalogUrl,
 } from "./loader";
+export { matchesZapPartIdentity } from "./matcher";
 export {
   detectZapPlacement,
   filterZapOffersByPlacement,

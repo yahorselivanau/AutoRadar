@@ -124,18 +124,31 @@ matching `/auto-parts/.../sku-<digits>/`. Image URLs are accepted only from
 ## Query and matching
 
 - Article request: send the supplied raw/normalized article alone.
-- Text request: join part name, vehicle make, model and generation.
+- Text request: join part name, vehicle make, model, year and generation.
 - The public text search can return related categories, for example `Замок
 капота` for `Капот`. The adapter keeps only cards whose verified Motorland
   category equals the requested part after deterministic normalization.
-- If make/model are supplied, both must occur in the card title.
+- Vehicle identity is read from the verified product URL segments
+  `/auto-parts/{make}/{model}/{generation}/{part}/sku-{id}/`, not from loose
+  title substrings. Make, model and category must match their corresponding
+  normalized URL segments exactly. This prevents a request for BMW `3` from
+  accepting BMW `X3`, BMW `X5` or a digit that occurs only in a year.
+- When a year is supplied and the generation URL contains a year range, that
+  year must be inside the range. The donor vehicle year shown on a card is
+  retained as informational text and is not treated as the model's
+  compatibility range.
+- A supplied generation/body must match a reproducible token from the
+  generation URL. If several year-compatible generation branches remain and
+  the request omitted generation, the adapter returns a structured
+  clarification instead of mixing them.
 - Compatibility remains `possible`: a matching search card is not proof of
   applicability to a specific VIN or modification.
 
 ## Fixtures
 
 - success: `fixtures/search-success.html`, a minimized verified excerpt of the
-  supplied/live BMW F30 hood result with two real cards.
+  supplied/live BMW hood result with two correct F30 cards and deliberately
+  mixed X5/E90 cards used to verify rejection.
 - empty: `fixtures/search-empty.html`, the verified no-results state.
 - error: `fixtures/search-error.html`, the blocking signature used by the
   typed 429 test.
@@ -148,5 +161,8 @@ matching `/auto-parts/.../sku-<digits>/`. Image URLs are accepted only from
 - No hidden inference of original/analog or compatibility.
 - Search relevance is intentionally conservative and can omit a synonym whose
   Motorland category differs from the user's normalized part name.
+- A URL without a parseable generation year range cannot prove year
+  compatibility; the result remains conservative and may require
+  clarification.
 - Price and availability must be reconfirmed on the seller site, as also
   required by Motorland's public offer.

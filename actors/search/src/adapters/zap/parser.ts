@@ -36,6 +36,13 @@ function comparableWords(value: string): string[] {
     .filter(Boolean);
 }
 
+function comparableModelFamily(value: string): string {
+  const decorativeSuffixes = new Set(["series", "serie", "серия", "серии"]);
+  return comparableWords(value)
+    .filter((word) => !decorativeSuffixes.has(word))
+    .join("");
+}
+
 function searchablePlacementText(value: string): string {
   return value
     .toLocaleLowerCase("ru")
@@ -143,7 +150,24 @@ export function findZapModelPath(
   model: string,
 ): string | undefined {
   const $ = load(html);
-  return exactLinkPath($, "a.ajax[href]", model, `${makePath}/`);
+  const exact = exactLinkPath($, "a.ajax[href]", model, `${makePath}/`);
+  if (exact) return exact;
+
+  const target = comparableModelFamily(model);
+  const aliases = $("a.ajax[href]")
+    .toArray()
+    .map((node) => {
+      const link = $(node);
+      return {
+        label: comparableModelFamily(cleanText(link.text())),
+        path: safeZapPath(link.attr("href"), `${makePath}/`),
+      };
+    })
+    .filter(
+      (candidate): candidate is { label: string; path: string } =>
+        Boolean(candidate.path) && candidate.label === target,
+    );
+  return aliases.length === 1 ? aliases[0]?.path : undefined;
 }
 
 export function findZapCategoryPath(
@@ -279,6 +303,9 @@ export function resolveZapVehicleVariants(
     .filter(({ score }) => score >= 0)
     .sort((left, right) => right.score - left.score);
   if (scored.length === 0) return [];
+  if (!request.generation && !request.body) {
+    return scored.map(({ variant }) => variant);
+  }
   const first = scored[0];
   if (!first) return [];
   const best = first.score;

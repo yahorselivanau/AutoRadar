@@ -2,6 +2,17 @@
 
 ## 2026-07-29
 
+- Fixed the BMW 3 / 2016 hood relevance incident: Motorland now matches exact
+  make, model, generation, category and generation year range from structured
+  product URL segments instead of loose title substrings.
+- Added safe per-source search diagnostics with query fingerprints, normalized
+  constraints, durations, offer counts, clarifications and typed failures;
+  raw queries and VIN values are not logged.
+- Added Zap.by numeric series aliases (`BMW 3` → unique `3 Series`), strict
+  requested-part identity checks and generation/body clarification instead of
+  silently preferring a broad base variant.
+- Added mixed-model/year adapter fixtures, live BMW 3 smoke verification and
+  mobile/desktop E2E coverage for the generation clarification flow.
 - Added the Motorland.by HTTP/Cheerio adapter for robots-allowed SSR text
   search of used parts, including strict URL boundaries, pacing, timeout,
   result limit and typed access errors.

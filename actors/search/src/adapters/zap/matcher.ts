@@ -23,6 +23,38 @@ function normalize(value: string): string {
     .trim();
 }
 
+function words(value: string): string[] {
+  return normalize(value).split(/\s+/).filter(Boolean);
+}
+
+function sameWords(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const remaining = [...right];
+  return left.every((word) => {
+    const index = remaining.indexOf(word);
+    if (index < 0) return false;
+    remaining.splice(index, 1);
+    return true;
+  });
+}
+
+export function matchesZapPartIdentity(
+  offer: NormalizedOffer,
+  input: SearchRequest,
+): boolean {
+  if (input.part.rawPartNumber || input.part.normalizedPartNumber) return true;
+  const requested = words(input.part.name);
+  if (requested.length === 0) return false;
+
+  const removablePrefix = new Set([
+    ...words(offer.brand ?? ""),
+    ...words(offer.rawPartNumber ?? ""),
+  ]);
+  const title = words(offer.title);
+  while (title[0] && removablePrefix.has(title[0])) title.shift();
+  return sameWords(title.slice(0, requested.length), requested);
+}
+
 function valuesFor(
   offer: NormalizedOffer,
   key: PartConstraintKey | "applicabilityModelId",
@@ -69,8 +101,11 @@ export function evaluateZapOffers(
   return offers
     .map((offer): EvaluatedOffer => {
       const reasons: string[] = [];
-      let rejected = false;
+      let rejected = !matchesZapPartIdentity(offer, input);
       let missingEvidence = false;
+      if (!rejected) {
+        appendReason(reasons, "Название детали совпало с запросом");
+      }
       const placement = detectZapPlacement(
         [
           ...(offer.sourceAttributes?.mounting ?? []),

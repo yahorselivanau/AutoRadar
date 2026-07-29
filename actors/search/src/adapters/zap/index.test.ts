@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   detectZapPlacement,
   filterZapOffersByPlacement,
+  matchesZapPartIdentity,
   ZapPartsAdapter,
 } from ".";
 import type { ZapTransportConfig } from "./config";
@@ -150,7 +151,43 @@ describe("Zap.by SSR parser", () => {
         model: "308",
         year: 2008,
       }).map((variant) => variant.id),
-    ).toEqual(["6432"]);
+    ).toEqual(["6432", "7376"]);
+  });
+});
+
+describe("Zap.by part identity", () => {
+  const partRequest = SearchRequestSchema.parse({
+    query: "Капот BMW 3",
+    vehicle: { make: "BMW", model: "3", year: 2016 },
+    part: { name: "Капот" },
+  });
+  const baseOffer = {
+    sourceId: "zap" as const,
+    externalId: "test",
+    externalUrl: "https://zap.by/test/1",
+    brand: "OSSCA",
+    rawPartNumber: "58541",
+    oemNumbers: [],
+    condition: "unknown" as const,
+    partKind: "unknown" as const,
+    currency: "BYN" as const,
+    fetchedAt: "2026-07-29T00:00:00.000Z",
+    rawPayloadHash: "0".repeat(64),
+  };
+
+  it("rejects related subcomponents from a broad category page", () => {
+    expect(
+      matchesZapPartIdentity(
+        { ...baseOffer, title: "OSSCA 58541 Тросик замка капота" },
+        partRequest,
+      ),
+    ).toBe(false);
+    expect(
+      matchesZapPartIdentity(
+        { ...baseOffer, title: "OSSCA 58541 Капот BMW 3 F30" },
+        partRequest,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -168,6 +205,15 @@ describe("Zap.by allowed catalog navigation", () => {
     expect(findZapMakePath(root, "Audi")).toBe("/carparts/audi");
     expect(findZapModelPath(make, "/carparts/audi", "A4")).toBe(
       "/carparts/audi/a4",
+    );
+    const bmw = `
+      <a class="ajax" href="/carparts/bmw/3-series">3 Series</a>
+      <a class="ajax" href="/carparts/bmw/x3">X3</a>`;
+    expect(findZapModelPath(bmw, "/carparts/bmw", "3")).toBe(
+      "/carparts/bmw/3-series",
+    );
+    expect(findZapModelPath(bmw, "/carparts/bmw", "X3")).toBe(
+      "/carparts/bmw/x3",
     );
     expect(
       findZapCategoryPath(model, "/carparts/audi/a4", "Масляный фильтр"),

@@ -1,4 +1,4 @@
-import type { NormalizedOffer, SearchRequest } from "@autoradar/domain";
+import { NormalizedOfferSchema, type SearchRequest } from "@autoradar/domain";
 
 import {
   AdapterError,
@@ -7,7 +7,12 @@ import {
 } from "../types";
 import { readMotorlandTransportConfig } from "./config";
 import { loadMotorlandSearchHtml, type LoadedMotorlandHtml } from "./loader";
-import { comparableMotorlandText, parseMotorlandSearchHtml } from "./parser";
+import {
+  evaluateMotorlandOffer,
+  formatMotorlandGeneration,
+  parseMotorlandProductIdentity,
+} from "./matcher";
+import { parseMotorlandSearchHtml } from "./parser";
 
 export type MotorlandHtmlLoader = (
   query: string,
@@ -22,6 +27,7 @@ export function getMotorlandQuery(input: SearchRequest): string {
     input.part.name,
     input.vehicle?.make,
     input.vehicle?.model,
+    input.vehicle?.year ? String(input.vehicle.year) : undefined,
     input.vehicle?.generation,
   ].filter((value): value is string => Boolean(value?.trim()));
   const query = [...new Set(values.map((value) => value.trim()))].join(" ");
@@ -33,31 +39,6 @@ export function getMotorlandQuery(input: SearchRequest): string {
     );
   }
   return query;
-}
-
-function matchesRequest(offer: NormalizedOffer, input: SearchRequest): boolean {
-  const requestedPartNumber =
-    input.part.normalizedPartNumber ??
-    (input.part.rawPartNumber
-      ? input.part.rawPartNumber.replace(/[^a-zа-я0-9]/gi, "").toUpperCase()
-      : undefined);
-  if (requestedPartNumber) {
-    return offer.normalizedPartNumber === requestedPartNumber;
-  }
-
-  const category =
-    offer.sourceAttributes?.["Категория Motorland"]?.[0] ?? offer.title;
-  if (
-    comparableMotorlandText(category) !==
-    comparableMotorlandText(input.part.name)
-  ) {
-    return false;
-  }
-
-  const title = comparableMotorlandText(offer.title);
-  return [input.vehicle?.make, input.vehicle?.model]
-    .filter((value): value is string => Boolean(value))
-    .every((value) => title.includes(comparableMotorlandText(value)));
 }
 
 export class MotorlandPartsAdapter implements PartsSourceAdapter {
@@ -74,14 +55,67 @@ export class MotorlandPartsAdapter implements PartsSourceAdapter {
       return { method: "html", offers: [] };
     }
     const loaded = await this.loadHtml(getMotorlandQuery(input));
-    const offers = parseMotorlandSearchHtml(
+    const parsedOffers = parseMotorlandSearchHtml(
       loaded.html,
       new Date().toISOString(),
       this.resultLimit,
-    ).filter((offer) => matchesRequest(offer, input));
+    );
+    const rejections: Record<string, number> = {};
+    const offers = parsedOffers.flatMap((offer) => {
+      const evaluation = evaluateMotorlandOffer(offer, input);
+      if (!evaluation.matches) {
+        const reason = evaluation.reason ?? "unknown";
+        rejections[reason] = (rejections[reason] ?? 0) + 1;
+        return [];
+      }
+      return [
+        NormalizedOfferSchema.parse({
+          ...offer,
+          matchStatus: "possible",
+          matchReasons: evaluation.matchReasons,
+        }),
+      ];
+    });
+
+    console.info("[motorland] match summary", {
+      parsed: parsedOffers.length,
+      accepted: offers.length,
+      rejections,
+    });
+
+    if (input.vehicle && !input.vehicle.generation) {
+      const generations = new Map<
+        string,
+        NonNullable<ReturnType<typeof parseMotorlandProductIdentity>>
+      >();
+      for (const offer of offers) {
+        const identity = parseMotorlandProductIdentity(offer.externalUrl);
+        if (identity) generations.set(identity.generation, identity);
+      }
+      if (generations.size > 1) {
+        return {
+          method: "html",
+          offers: [],
+          clarification: {
+            id: "motorland-generation",
+            field: "generation",
+            question: "Уточните поколение автомобиля.",
+            options: [...generations.values()].slice(0, 8).map((identity) => ({
+              id: `motorland-${identity.generation}`,
+              label: formatMotorlandGeneration(identity),
+              value: identity.generation,
+            })),
+          },
+        };
+      }
+    }
     return { method: "html", offers };
   }
 }
 
 export { createMotorlandSearchLoader, loadMotorlandSearchHtml } from "./loader";
 export { normalizeMotorlandPrice, parseMotorlandSearchHtml } from "./parser";
+export {
+  evaluateMotorlandOffer,
+  parseMotorlandProductIdentity,
+} from "./matcher";
