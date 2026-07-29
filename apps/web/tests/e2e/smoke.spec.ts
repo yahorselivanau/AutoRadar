@@ -20,26 +20,28 @@ test("guest can search real sources from the AI confirmation card", async ({
             body: null,
             engine: null,
             transmission: null,
+            doors: null,
           },
           side: "unknown",
           position: "unknown",
           condition: "new",
+          constraints: [],
           needsClarification: false,
           clarificationQuestion: null,
         },
       }),
     });
   });
-  await page.route("**/api/search/remzona", async (route) => {
+  await page.route("**/api/search/zap", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
         method: "html",
         offers: [
           {
-            sourceId: "remzona",
+            sourceId: "zap",
             externalId: "renault/7700274177",
-            externalUrl: "https://remzona.by/renault/7700274177",
+            externalUrl: "https://zap.by/oem/7700274177",
             title: "7700274177 - Масляный фильтр",
             brand: "RENAULT",
             rawPartNumber: "7700274177",
@@ -48,7 +50,7 @@ test("guest can search real sources from the AI confirmation card", async ({
             condition: "unknown",
             partKind: "unknown",
             currency: "BYN",
-            sellerName: "Remzona.by",
+            sellerName: "Zap.by",
             fetchedAt: "2026-07-28T20:00:00.000Z",
             rawPayloadHash: "0".repeat(64),
           },
@@ -71,11 +73,11 @@ test("guest can search real sources from the AI confirmation card", async ({
     page.getByRole("heading", { name: "Масляный фильтр" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Искать" }).click();
+  await page.getByRole("button", { name: "Искать на Zap.by" }).click();
   await expect(page.getByText("Нашёл 1 реальное предложение.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "На Remzona" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "На Zap.by" })).toHaveAttribute(
     "href",
-    "https://remzona.by/renault/7700274177",
+    "https://zap.by/oem/7700274177",
   );
 });
 

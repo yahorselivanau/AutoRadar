@@ -58,25 +58,27 @@
 ```text
 Client
   |
-  | POST /api/search
+  | natural-language request
   v
-Next.js Route Handler
+AI extraction + Zod validation
   |
-  | validate + create search_job
-  +--> Remzona public XHR --> normalized product cards
-  +--> future source adapters / optional Actor
-  |
-  | normalize + upsert partial results
+  | SearchRequest (vehicle + part constraints)
   v
-Supabase PostgreSQL
-  ^
+Zap.by adapter
   |
-  | polling /api/search/:id
+  +--> catalogue/model/engine resolution
+  +--> product characteristics + applicability
+  +--> deterministic matcher
   |
-Client renders progressive results
+  +--> confirmed/possible offers
+  `--> structured clarification --> saved vehicle/part context --> repeat search
 ```
 
-Для MVP прогресс получать polling-запросом раз в 1–2 секунды. Supabase Realtime оставить как дальнейшую оптимизацию, чтобы не усложнять первую реализацию.
+В текущем закрытом MVP web-поток вызывает только Zap.by. Контекст уточнений
+хранится в `localStorage`, валидируется Zod и привязан к автомобилю и названию
+детали. Для будущего серверного search-job потока прогресс получать
+polling-запросом раз в 1–2 секунды; Supabase Realtime оставить дальнейшей
+оптимизацией.
 
 ## 4. Где исполняются адаптеры
 

@@ -1,10 +1,15 @@
-import type { NormalizedOffer, SearchRequest } from "@autoradar/domain";
+import type {
+  NormalizedOffer,
+  SearchClarification,
+  SearchRequest,
+} from "@autoradar/domain";
 
 export type RetrievalMethod = "mock" | "http" | "html" | "json" | "playwright";
 
 export interface AdapterResult {
   method: RetrievalMethod;
   offers: NormalizedOffer[];
+  clarification?: SearchClarification;
 }
 
 export type AdapterErrorCode =

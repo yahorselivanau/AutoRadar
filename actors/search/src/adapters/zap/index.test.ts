@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises";
 import { SearchRequestSchema } from "@autoradar/domain";
 import { describe, expect, it, vi } from "vitest";
 
-import { ZapPartsAdapter } from ".";
+import {
+  detectZapPlacement,
+  filterZapOffersByPlacement,
+  ZapPartsAdapter,
+} from ".";
 import type { ZapTransportConfig } from "./config";
 import { createZapPageLoader, resolveZapCatalogUrl } from "./loader";
 import {
@@ -11,6 +15,9 @@ import {
   findZapMakePath,
   findZapModelPath,
   parseZapCatalogHtml,
+  parseZapProductHtml,
+  parseZapVehicleVariants,
+  resolveZapVehicleVariants,
 } from "./parser";
 
 const fixture = (name: string) =>
@@ -22,6 +29,8 @@ const config: ZapTransportConfig = {
   ZAP_HTTP_TIMEOUT_MS: 3_000,
   ZAP_REQUEST_INTERVAL_MS: 250,
   ZAP_RESULT_LIMIT: 50,
+  ZAP_ENRICH_LIMIT: 12,
+  ZAP_EXPERIMENTAL_SEARCH_ENABLED: false,
 };
 
 const request = SearchRequestSchema.parse({
@@ -67,6 +76,81 @@ describe("Zap.by SSR parser", () => {
     expect(parseZapCatalogHtml(await fixture("catalog-empty.html"))).toEqual(
       [],
     );
+  });
+
+  it("keeps only explicitly front-left offers from the verified six cards", async () => {
+    const offers = parseZapCatalogHtml(await fixture("catalog-placement.html"));
+    const filtered = filterZapOffersByPlacement(offers, {
+      name: "Стеклоподъемник",
+      side: "left",
+      position: "front",
+      condition: "any",
+      constraints: [],
+    });
+
+    expect(filtered.map((offer) => offer.externalId)).toEqual([
+      "NTYEPSPE014",
+      "NTYEPSPE018",
+    ]);
+  });
+
+  it("understands Polish labels and mixed Cyrillic spelling", () => {
+    expect(detectZapPlacement("LEWY PRZаD")).toEqual({
+      side: "left",
+      position: "front",
+    });
+    expect(detectZapPlacement("PRAWY TY")).toEqual({
+      side: "right",
+      position: "rear",
+    });
+    expect(detectZapPlacement("передний левый")).toEqual({
+      side: "left",
+      position: "front",
+    });
+  });
+
+  it("parses structured product characteristics and applicability", async () => {
+    const [offer] = parseZapProductHtml(
+      await fixture("product-front-left-5d.html"),
+      "/nty/epspe014",
+    );
+
+    expect(offer).toMatchObject({
+      externalId: "NTYEPSPE014",
+      oemNumbers: ["9221 CW"],
+      sourceAttributes: {
+        mounting: ["спереди слева"],
+        operation: ["электрический"],
+        motorIncluded: ["false"],
+        doorCount: ["5"],
+        applicabilityModelId: ["6432"],
+      },
+    });
+  });
+
+  it("resolves the best year-compatible vehicle generation", () => {
+    const variants = parseZapVehicleVariants(`
+      <a data-item="model" data-value="6432">
+        <span class="font-14">308 I (4A_, 4C_)</span>
+        <span class="small">.2007 - .2016</span>
+      </a>
+      <a data-item="model" data-value="11292">
+        <span class="font-14">308 II (LB_)</span>
+        <span class="small">.2013 - .2021</span>
+      </a>
+      <a data-item="model" data-value="7376">
+        <span class="font-14">308 SW I (4E_)</span>
+        <span class="small">.2007 - .2014</span>
+      </a>
+    `);
+
+    expect(
+      resolveZapVehicleVariants(variants, {
+        make: "PEUGEOT",
+        model: "308",
+        year: 2008,
+      }).map((variant) => variant.id),
+    ).toEqual(["6432"]);
   });
 });
 
@@ -129,12 +213,13 @@ describe("Zap.by adapter", () => {
       "/carparts/audi",
       "/carparts/audi/a4",
       "/carparts/audi/a4/maslyanyi-filtr",
+      "/nakayama/fo169ny",
     ]);
   });
 
   it("does not call the forbidden search route for an OEM-only request", async () => {
     const loader = vi.fn();
-    const adapter = new ZapPartsAdapter(loader, 50);
+    const adapter = new ZapPartsAdapter(loader, 50, false);
     const oemRequest = SearchRequestSchema.parse({
       query: "7700274177",
       part: { name: "Масляный фильтр", rawPartNumber: "7700274177" },
@@ -144,6 +229,65 @@ describe("Zap.by adapter", () => {
       "ROBOTS_DISALLOWED",
     );
     expect(loader).not.toHaveBeenCalled();
+  });
+
+  it("allows the explicitly enabled experimental search route", async () => {
+    const placementHtml = await fixture("catalog-placement.html");
+    const loader = vi.fn(async (path: string) => ({
+      html: placementHtml,
+      path,
+      status: 200,
+    }));
+    const adapter = new ZapPartsAdapter(loader, 50, true);
+    const textRequest = SearchRequestSchema.parse({
+      query: "передний левый стеклоподъемник",
+      part: {
+        name: "Стеклоподъемник",
+        side: "left",
+        position: "front",
+      },
+    });
+
+    const result = await adapter.search(textRequest);
+
+    expect(loader).toHaveBeenCalledWith(
+      "/carparts/search/%D0%A1%D1%82%D0%B5%D0%BA%D0%BB%D0%BE%D0%BF%D0%BE%D0%B4%D1%8A%D0%B5%D0%BC%D0%BD%D0%B8%D0%BA",
+    );
+    expect(result.offers).toEqual([]);
+    expect(result.clarification).toMatchObject({
+      field: "doors",
+      options: [
+        { value: 3, label: "3 дверей" },
+        { value: 5, label: "5 дверей" },
+      ],
+    });
+  });
+
+  it("returns only the requested door variant after clarification", async () => {
+    const placementHtml = await fixture("catalog-placement.html");
+    const loader = vi.fn(async (path: string) => ({
+      html: placementHtml,
+      path,
+      status: 200,
+    }));
+    const adapter = new ZapPartsAdapter(loader, 50, true);
+    const textRequest = SearchRequestSchema.parse({
+      query: "передний левый стеклоподъемник на пятидверный Peugeot 308",
+      part: {
+        name: "Стеклоподъемник",
+        side: "left",
+        position: "front",
+        constraints: [{ key: "doorCount", value: "5" }],
+      },
+    });
+
+    const result = await adapter.search(textRequest);
+
+    expect(result.clarification).toBeUndefined();
+    expect(result.offers.map((offer) => offer.externalId)).toEqual([
+      "NTYEPSPE014",
+    ]);
+    expect(result.offers[0]?.matchStatus).toBe("confirmed");
   });
 
   it("uses a descriptive user agent over ordinary HTTP", async () => {

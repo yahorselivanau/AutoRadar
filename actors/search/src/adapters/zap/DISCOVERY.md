@@ -13,9 +13,13 @@ Researcher: Codex
 - robots.txt: `https://zap.by/robots.txt`.
   - `User-agent: *` disallows `/*?*`, `/*&*`, `/*search`,
     `/*route=product/search`, `/catalog` and account/checkout paths.
-  - The adapter therefore never calls `/carparts/search/...`, query-string
-    catalogue views or `index.php?route=catalog/parts/choice3d`.
-  - The allowed, path-based `/carparts/...` SSR catalogue is used.
+  - The default safe transport uses the path-based `/carparts/...` SSR
+    catalogue and never calls query-string catalogue views or
+    `index.php?route=catalog/parts/choice3d`.
+  - On 2026-07-29 the project owner explicitly authorized
+    `/carparts/search/{query}` for a closed, non-public MVP. This temporary
+    behavior is isolated behind `ZAP_EXPERIMENTAL_SEARCH_ENABLED` and must be
+    disabled before public production.
 - Terms checked: `https://zap.by/publichnaja-oferta`. This is a retail public
   offer rather than an API/scraping licence. It does not grant a bulk catalogue
   feed. AutoRadar only performs a live user-requested lookup and links back to
@@ -34,25 +38,24 @@ Researcher: Codex
 
 ## Search modes
 
-- OEM: public `/carparts/search/{search}` was verified manually, but
-  `robots.txt` disallows `/*search`; unsupported by the adapter.
+- OEM: public `/carparts/search/{search}` was verified manually and is
+  temporarily supported in the owner-authorized private-MVP mode.
 - VIN: the guest UI links to `/laximo?type=searchvin&vin=...`. Query-string
   routes are disallowed by `robots.txt`, and VIN is sensitive; unsupported.
-- Vehicle: supported at the public make + model family level through allowed
-  `/carparts/...` links found in SSR HTML.
-- Text: the public search route works, but is disallowed by `robots.txt`;
-  unsupported.
-- Exact generation/engine: present in the UI and in the supplied result page,
-  but the picker resolves it through
-  `index.php?route=catalog/parts/choice3d`. That query route is disallowed.
-  The production adapter does not call it and does not claim engine-level
-  compatibility.
+- Vehicle: supported through public make/model SSR links. Generation and engine
+  are resolved from observed picker responses in the owner-authorized private
+  MVP mode.
+- Text: temporarily supported through the same private-MVP search route.
+- Exact generation/engine: the picker resolves it through the observed
+  `index.php?route=catalog/parts/choice3d` route. It is used only in the same
+  owner-authorized private-MVP mode as experimental text search.
 
 ## Mandatory ladder
 
 1. **HTTP + URL parameters**
    - Direct HTTPS works.
-   - The URL search route is not used because robots disallows `/*search`.
+   - The path-parameter search route works with ordinary HTTP and is used only
+     when the private-MVP feature flag is enabled.
 2. **Server-rendered HTML + Cheerio**
    - Chosen. Allowed `/carparts/...` pages contain navigation, product cards,
      prices, availability and delivery without JavaScript.
@@ -61,8 +64,7 @@ Researcher: Codex
      `index.php?route=catalog/parts/choice3d`, with observed fields
      `manufacturer`, `manufacturer_name`, `model`, `type`, `category` and
      `category_id`.
-   - It is not called because the wildcard query-string rule in `robots.txt`
-     disallows it.
+   - It is called only behind the private-MVP experimental flag.
 4. **Playwright**
    - Not required. SSR HTML is complete for the chosen mode.
 
@@ -80,17 +82,31 @@ Researcher: Codex
      `.carparts-category-cards__item[href]` or
      `.cct-node__content[href]`;
   5. parse `.product-block`.
-- XHR/fetch: no endpoint is used by production.
+- Experimental navigation:
+  1. `GET /carparts/search/{encodeURIComponent(query)}`;
+  2. parse `.product-block`, or follow the first verified brand/article
+     candidate link and parse its product/analog cards.
+- Picker XHR:
+  - `GET index.php?route=catalog/parts/choice3d&model={modelId}`;
+  - `GET index.php?route=catalog/parts/choice3d&type={typeId}&category={slug}&category_id={id}`;
+  - JSON field `html` contains engine options; JSON field `uri` contains the
+    resolved catalogue path.
+- Product applicability:
+  product HTML already contains model buttons with `data-mod-id`. The
+  `/info/apps` route was also observed during discovery, but is not required by
+  the chosen parser.
 - Required headers: descriptive `User-Agent` and
   `Accept: text/html,application/xhtml+xml`.
-- Cookies: the server may set `language`, `currency` and `PHPSESSID`, but the
-  allowed SSR flow did not require replaying cookies.
-- Redirects: disabled. Navigation targets must remain HTTPS, on `zap.by`, under
-  `/carparts`, without query parameters.
+- Cookies: `language`, `currency` and `PHPSESSID` are retained in one adapter
+  session for picker/product requests.
+- Redirects: disabled. Navigation targets must remain HTTPS, on `zap.by`,
+  without query parameters. Standard mode is limited to `/carparts`;
+  experimental mode additionally permits the exact search path and verified
+  two-segment brand/article product paths.
 
 ## Chosen implementation
 
-- Mode: ordinary HTTP + server-rendered HTML + Cheerio.
+- Mode: ordinary HTTP + server-rendered HTML/JSON + Cheerio.
 - Reason: complete allowed SSR result cards are available without login,
   JavaScript, proxy or browser automation.
 - Timeout: 10 seconds per HTTP request by default.
@@ -98,10 +114,14 @@ Researcher: Codex
 - Pagination: intentionally not followed because pagination uses query
   parameters disallowed by `robots.txt`.
 - Result limit: first 50 SSR cards, configurable from 1 to 100.
+- Product enrichment limit: first 12 viable candidates by default, configurable
+  with `ZAP_ENRICH_LIMIT`.
 - Empty result: a page with no `.product-block` produces typed
   `EMPTY_RESPONSE`; a known card container with missing required data produces
   `DOM_CHANGED`.
 - Feature flag: `SOURCE_ZAP_ENABLED`.
+- Private-MVP search flag: `ZAP_EXPERIMENTAL_SEARCH_ENABLED`; currently true by
+  default for the closed test deployment, must be false before public release.
 
 ## Data mapping
 
@@ -122,6 +142,17 @@ Researcher: Codex
 - URL: `a.td-info-name[href]`, normalized to absolute HTTPS on `zap.by`;
 - compatibility: breadcrumb context is retained as informational text, never as
   a compatibility guarantee.
+- product characteristics:
+  `.td-feature-item-name` + `.td-feature-item-value`; known labels are mapped
+  to reproducible canonical constraints while original values are retained.
+- applicability: product model buttons (`data-mod-id`) and labels are retained
+  as source attributes.
+- matching: explicit conflicts are rejected. Full evidence produces
+  `confirmed`; missing evidence produces `possible`. Supported placement
+  examples include `левый`/`правый`, `front`/`rear`, `LEWY`/`PRAWY`,
+  `PRZÓD` (including observed mixed `PRZаD`) and `TY`/`TYŁ`.
+- clarification: if viable offers differ by a missing critical value such as
+  `doorCount`, the adapter returns options instead of mixing variants.
 
 ## Verified examples
 
@@ -150,17 +181,19 @@ Direct live HTTP on 2026-07-29 returned:
 - 200 for the broader
   `/carparts/audi/a4/maslyanyi-filtr` model-family page;
 - 21 first-page `.product-block` cards and a total heading of 1,639 offers.
+- six cards for Peugeot 308 / `Стеклоподъемник`; explicit front-left filtering
+  retained `NTYEPSPE014` and `NTYEPSPE018`, while rear, right and unknown
+  placement cards were excluded.
 
 ## Known limitations
 
-- OEM, free-text and VIN lookup are intentionally blocked in the adapter by the
-  current robots rules.
-- Generation, body and engine from `VehicleContext` cannot be applied through
-  the allowed picker transport. Results are model-family candidates and must be
-  checked with the seller.
+- OEM and free-text lookup are temporary private-MVP capabilities and must be
+  disabled before public production; VIN remains unsupported.
+- Applicability evidence is limited to what Zap.by exposes; an offer is never
+  promoted from `possible` to `confirmed` by AI inference.
 - Only the first SSR page is read; query-string pagination is not used.
-- A category name must exactly match a public SSR category label after
-  case/punctuation normalization.
+- Category matching first uses an exact normalized label, then a conservative
+  token similarity threshold.
 - Price and delivery are volatile and should be treated as fetched-at values.
 - No source-specific proxy is supported or required.
 
@@ -172,6 +205,13 @@ Direct live HTTP on 2026-07-29 returned:
 - empty:
   `actors/search/src/adapters/zap/fixtures/catalog-empty.html`
   (curated from the verified public vehicle page before a category is chosen);
+- placement:
+  `actors/search/src/adapters/zap/fixtures/catalog-placement.html`
+  (six verified Peugeot 308 window-regulator cards covering front/rear,
+  left/right and unknown placement);
+- product details:
+  `product-front-left-5d.html` and `product-front-left-3d.html` (curated
+  structured characteristics, applicability and OEM fields);
 - error behavior: covered with mocked HTTP 403/429/timeout and strict URL
   validation in unit tests; raw block pages are not stored.
 
@@ -181,4 +221,5 @@ No network is used unless explicitly enabled:
 
 ```bash
 ZAP_LIVE_SMOKE=true pnpm zap:smoke -- AUDI A4 2010 "Масляный фильтр"
+ZAP_LIVE_SMOKE=true pnpm zap:smoke -- PEUGEOT 308 2008 "Стеклоподъемник" left front 5
 ```

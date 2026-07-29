@@ -15,7 +15,9 @@
     "ZAP_USER_AGENT",
     "ZAP_HTTP_TIMEOUT_MS",
     "ZAP_REQUEST_INTERVAL_MS",
-    "ZAP_RESULT_LIMIT"
+    "ZAP_RESULT_LIMIT",
+    "ZAP_ENRICH_LIMIT",
+    "ZAP_EXPERIMENTAL_SEARCH_ENABLED"
   ],
   "tasks": {
     "dev": {

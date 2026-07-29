@@ -12,8 +12,16 @@ import {
   Search,
   Sparkles,
 } from "lucide-react";
-import type { NormalizedOffer } from "@autoradar/domain";
-import { useState } from "react";
+import type {
+  NormalizedOffer,
+  PartConstraint,
+  PartRequestExtraction,
+  SavedSearchContext,
+  SearchClarification,
+  VehicleContext,
+} from "@autoradar/domain";
+import { SavedSearchContextSchema } from "@autoradar/domain";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 
 const suggestions = [
@@ -23,29 +31,117 @@ const suggestions = [
   "Добавить автомобиль по VIN",
 ];
 
-type Extraction = {
-  summary: string;
-  partName: string | null;
-  rawPartNumber: string | null;
+type Extraction = PartRequestExtraction & {
   normalizedPartNumber: string | null;
-  vehicle: {
-    make: string | null;
-    model: string | null;
-    year: number | null;
-    generation: string | null;
-    body: string | null;
-    engine: string | null;
-    transmission: string | null;
-  };
-  side: "left" | "right" | "unknown";
-  position: "front" | "rear" | "unknown";
-  condition: "new" | "used" | "any";
-  needsClarification: boolean;
-  clarificationQuestion: string | null;
 };
 
 type Stage = "empty" | "loading" | "review" | "error";
-type SearchStage = "idle" | "searching" | "results" | "error";
+type SearchStage = "idle" | "searching" | "clarification" | "results" | "error";
+
+const savedContextKey = "autoradar.search-context.v1";
+const savedContextEvent = "autoradar:saved-context";
+const emptySavedContext: SavedSearchContext = { partPreferences: {} };
+
+function subscribeSavedContext(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(savedContextEvent, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(savedContextEvent, onStoreChange);
+  };
+}
+
+function readSavedContext(): string | null {
+  try {
+    return window.localStorage.getItem(savedContextKey);
+  } catch {
+    return null;
+  }
+}
+
+function parseSavedContext(value: string | null): SavedSearchContext {
+  if (!value) return emptySavedContext;
+  try {
+    const parsed = SavedSearchContextSchema.safeParse(JSON.parse(value));
+    return parsed.success ? parsed.data : emptySavedContext;
+  } catch {
+    return emptySavedContext;
+  }
+}
+
+function vehicleKey(vehicle: VehicleContext): string {
+  return `${vehicle.make}:${vehicle.model}:${vehicle.year}`.toLocaleLowerCase(
+    "ru",
+  );
+}
+
+function preferenceKey(vehicle: VehicleContext, partName: string): string {
+  return `${vehicleKey(vehicle)}:${partName
+    .toLocaleLowerCase("ru")
+    .replaceAll("ё", "е")
+    .replace(/[^a-zа-я0-9]+/gi, "")}`;
+}
+
+function asSavedVehicle(extraction: Extraction): VehicleContext | undefined {
+  const { vehicle } = extraction;
+  if (!vehicle.make || !vehicle.model || !vehicle.year) return undefined;
+  return {
+    make: vehicle.make,
+    model: vehicle.model,
+    year: vehicle.year,
+    generation: vehicle.generation ?? undefined,
+    body: vehicle.body ?? undefined,
+    engine: vehicle.engine ?? undefined,
+    transmission: vehicle.transmission ?? undefined,
+    doors: vehicle.doors ?? undefined,
+  };
+}
+
+function mergeSavedContext(
+  extraction: Extraction,
+  saved: SavedSearchContext,
+): Extraction {
+  const extractedVehicle = asSavedVehicle(extraction);
+  const active = saved.activeVehicle;
+  const canUseActive =
+    active &&
+    (!extraction.vehicle.make ||
+      (extractedVehicle &&
+        vehicleKey(extractedVehicle) === vehicleKey(active)));
+  const vehicle = canUseActive
+    ? {
+        make: extraction.vehicle.make ?? active.make,
+        model: extraction.vehicle.model ?? active.model,
+        year: extraction.vehicle.year ?? active.year,
+        generation: extraction.vehicle.generation ?? active.generation ?? null,
+        body: extraction.vehicle.body ?? active.body ?? null,
+        engine: extraction.vehicle.engine ?? active.engine ?? null,
+        transmission:
+          extraction.vehicle.transmission ?? active.transmission ?? null,
+        doors: extraction.vehicle.doors ?? active.doors ?? null,
+      }
+    : extraction.vehicle;
+  const merged = { ...extraction, vehicle };
+  const resolvedVehicle = asSavedVehicle(merged);
+  const preferences =
+    resolvedVehicle && merged.partName
+      ? (saved.partPreferences[
+          preferenceKey(resolvedVehicle, merged.partName)
+        ] ?? [])
+      : [];
+  return {
+    ...merged,
+    constraints: [
+      ...merged.constraints,
+      ...preferences.filter(
+        (savedValue) =>
+          !merged.constraints.some(
+            (constraint) => constraint.key === savedValue.key,
+          ),
+      ),
+    ],
+  };
+}
 
 const sideLabels = {
   left: "Левая",
@@ -95,6 +191,26 @@ export function ChatExperience() {
   const [searchStage, setSearchStage] = useState<SearchStage>("idle");
   const [searchError, setSearchError] = useState("");
   const [offers, setOffers] = useState<NormalizedOffer[]>([]);
+  const [clarification, setClarification] =
+    useState<SearchClarification | null>(null);
+  const savedContextValue = useSyncExternalStore(
+    subscribeSavedContext,
+    readSavedContext,
+    () => null,
+  );
+  const savedContext = useMemo(
+    () => parseSavedContext(savedContextValue),
+    [savedContextValue],
+  );
+
+  const persistContext = (next: SavedSearchContext) => {
+    try {
+      window.localStorage.setItem(savedContextKey, JSON.stringify(next));
+      window.dispatchEvent(new Event(savedContextEvent));
+    } catch {
+      // Private browsing/storage limits must not block search.
+    }
+  };
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -104,6 +220,9 @@ export function ChatExperience() {
     setSubmittedQuery(normalized);
     setStage("loading");
     setErrorMessage("");
+    setSearchStage("idle");
+    setClarification(null);
+    setOffers([]);
 
     try {
       const response = await fetch("/api/ai/parse-part-request", {
@@ -120,7 +239,12 @@ export function ChatExperience() {
         throw new Error(payload.error ?? "Не удалось разобрать запрос.");
       }
 
-      setExtraction(payload.extraction);
+      const merged = mergeSavedContext(payload.extraction, savedContext);
+      setExtraction(merged);
+      const vehicle = asSavedVehicle(merged);
+      if (vehicle) {
+        persistContext({ ...savedContext, activeVehicle: vehicle });
+      }
       setStage("review");
     } catch (error) {
       setErrorMessage(
@@ -134,44 +258,45 @@ export function ChatExperience() {
     setQuery(suggestion);
   };
 
-  const searchParts = async () => {
-    if (!extraction) return;
+  const searchParts = async (currentExtraction = extraction) => {
+    if (!currentExtraction) return;
 
     setSearchStage("searching");
     setSearchError("");
     setOffers([]);
+    setClarification(null);
 
     const hasVehicle =
-      extraction.vehicle.make &&
-      extraction.vehicle.model &&
-      extraction.vehicle.year;
+      currentExtraction.vehicle.make &&
+      currentExtraction.vehicle.model &&
+      currentExtraction.vehicle.year;
 
     const searchRequest = {
       query: submittedQuery,
       vehicle: hasVehicle
         ? {
-            make: extraction.vehicle.make,
-            model: extraction.vehicle.model,
-            year: extraction.vehicle.year,
-            generation: extraction.vehicle.generation ?? undefined,
-            body: extraction.vehicle.body ?? undefined,
-            engine: extraction.vehicle.engine ?? undefined,
-            transmission: extraction.vehicle.transmission ?? undefined,
+            make: currentExtraction.vehicle.make,
+            model: currentExtraction.vehicle.model,
+            year: currentExtraction.vehicle.year,
+            generation: currentExtraction.vehicle.generation ?? undefined,
+            body: currentExtraction.vehicle.body ?? undefined,
+            engine: currentExtraction.vehicle.engine ?? undefined,
+            transmission: currentExtraction.vehicle.transmission ?? undefined,
+            doors: currentExtraction.vehicle.doors ?? undefined,
           }
         : undefined,
       part: {
-        name: extraction.partName ?? "Неизвестная деталь",
-        side: extraction.side,
-        position: extraction.position,
-        condition: extraction.condition,
-        rawPartNumber: extraction.rawPartNumber ?? undefined,
-        normalizedPartNumber: extraction.normalizedPartNumber ?? undefined,
+        name: currentExtraction.partName ?? "Неизвестная деталь",
+        side: currentExtraction.side,
+        position: currentExtraction.position,
+        condition: currentExtraction.condition,
+        rawPartNumber: currentExtraction.rawPartNumber ?? undefined,
+        normalizedPartNumber:
+          currentExtraction.normalizedPartNumber ?? undefined,
+        constraints: currentExtraction.constraints,
       },
     };
-    const sources = [
-      { name: "Remzona", endpoint: "/api/search/remzona" },
-      ...(hasVehicle ? [{ name: "Zap.by", endpoint: "/api/search/zap" }] : []),
-    ];
+    const sources = [{ name: "Zap.by", endpoint: "/api/search/zap" }];
 
     try {
       const results = await Promise.all(
@@ -184,10 +309,14 @@ export function ChatExperience() {
             });
             const payload = (await response.json()) as {
               offers?: NormalizedOffer[];
+              clarification?: SearchClarification;
               error?: string;
             };
             return response.ok && payload.offers
-              ? { offers: payload.offers }
+              ? {
+                  offers: payload.offers,
+                  clarification: payload.clarification,
+                }
               : {
                   error: `${source.name}: ${payload.error ?? "источник не ответил"}`,
                 };
@@ -201,6 +330,7 @@ export function ChatExperience() {
           result,
         ): result is {
           offers: NormalizedOffer[];
+          clarification?: SearchClarification;
         } => "offers" in result,
       );
       if (successfulResults.length === 0) {
@@ -212,6 +342,14 @@ export function ChatExperience() {
         );
       }
 
+      const nextClarification = successfulResults.find(
+        (result) => result.clarification,
+      )?.clarification;
+      if (nextClarification) {
+        setClarification(nextClarification);
+        setSearchStage("clarification");
+        return;
+      }
       setOffers(successfulResults.flatMap((result) => result.offers));
       setSearchStage("results");
     } catch (error) {
@@ -222,24 +360,101 @@ export function ChatExperience() {
     }
   };
 
+  const applyClarification = (
+    selected: SearchClarification["options"][number],
+  ) => {
+    if (!extraction || !clarification) return;
+    let nextExtraction: Extraction;
+    if (clarification.field === "part_attribute") {
+      if (!clarification.attributeKey) return;
+      const nextConstraint: PartConstraint = {
+        key: clarification.attributeKey,
+        value: String(selected.value),
+      };
+      nextExtraction = {
+        ...extraction,
+        constraints: [
+          ...extraction.constraints.filter(
+            (constraint) => constraint.key !== clarification.attributeKey,
+          ),
+          nextConstraint,
+        ],
+      };
+    } else if (clarification.field === "doors") {
+      nextExtraction = {
+        ...extraction,
+        vehicle: {
+          ...extraction.vehicle,
+          doors: Number(selected.value),
+        },
+      };
+    } else {
+      nextExtraction = {
+        ...extraction,
+        vehicle: {
+          ...extraction.vehicle,
+          [clarification.field]: String(selected.value),
+        },
+      };
+    }
+
+    setExtraction(nextExtraction);
+    const vehicle = asSavedVehicle(nextExtraction);
+    if (vehicle) {
+      const nextSaved: SavedSearchContext = {
+        ...savedContext,
+        activeVehicle: vehicle,
+        partPreferences: { ...savedContext.partPreferences },
+      };
+      if (clarification.field === "part_attribute" && nextExtraction.partName) {
+        nextSaved.partPreferences[
+          preferenceKey(vehicle, nextExtraction.partName)
+        ] = nextExtraction.constraints;
+      }
+      persistContext(nextSaved);
+    }
+    void searchParts(nextExtraction);
+  };
+
   const vehicleLabel = extraction
     ? [
         extraction.vehicle.make,
         extraction.vehicle.model,
         extraction.vehicle.year,
+        extraction.vehicle.generation,
+        extraction.vehicle.body,
+        extraction.vehicle.engine,
+        extraction.vehicle.doors ? `${extraction.vehicle.doors} дверей` : null,
       ]
         .filter(Boolean)
         .join(" · ") || "Не указан"
     : "Не указан";
+  const activeVehicle = savedContext.activeVehicle;
 
   return (
     <section className="chat-page">
       <div className="desktop-context">
         <button className="vehicle-context pressable" type="button">
-          <span className="vehicle-mark">+</span>
+          <span className="vehicle-mark">{activeVehicle ? "✓" : "+"}</span>
           <span>
-            <strong>Автомобиль не выбран</strong>
-            <small>Добавить для точного поиска</small>
+            <strong>
+              {activeVehicle
+                ? `${activeVehicle.make} ${activeVehicle.model} ${activeVehicle.year}`
+                : "Автомобиль не выбран"}
+            </strong>
+            <small>
+              {activeVehicle
+                ? [
+                    activeVehicle.generation,
+                    activeVehicle.engine,
+                    activeVehicle.doors
+                      ? `${activeVehicle.doors} дверей`
+                      : undefined,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Используется для следующих запросов"
+                : "Добавить для точного поиска"}
+            </small>
           </span>
           <ChevronRight size={17} />
         </button>
@@ -330,12 +545,24 @@ export function ChatExperience() {
                     <dt>Состояние</dt>
                     <dd>{conditionLabels[extraction.condition]}</dd>
                   </div>
+                  <div>
+                    <dt>Дополнительные параметры</dt>
+                    <dd>
+                      {extraction.constraints.length > 0
+                        ? extraction.constraints
+                            .map(
+                              (constraint) =>
+                                `${constraint.key}: ${constraint.value}`,
+                            )
+                            .join(" · ")
+                        : "Не указаны"}
+                    </dd>
+                  </div>
                 </dl>
                 <p className="request-note">
-                  Remzona ищет по артикулу или названию. Zap.by подключается для
-                  запросов с маркой и моделью через публичный каталог.
-                  Совместимость показывается только когда источник вернул её
-                  явно.
+                  Zap.by проверяет поколение автомобиля, характеристики и
+                  применимость карточек. Если данных недостаточно, AutoRadar
+                  задаст один уточняющий вопрос и запомнит ответ.
                 </p>
                 <div className="request-actions">
                   <button
@@ -354,9 +581,35 @@ export function ChatExperience() {
                   >
                     <Search size={17} />
                     {searchStage === "searching"
-                      ? "Ищу предложения…"
-                      : "Искать"}
+                      ? "Ищу на Zap.by…"
+                      : "Искать на Zap.by"}
                   </button>
+                </div>
+              </article>
+            ) : null}
+
+            {searchStage === "clarification" && clarification ? (
+              <article className="clarification-card" aria-live="polite">
+                <span className="assistant-kicker">
+                  <Sparkles size={15} /> Нужно уточнить
+                </span>
+                <h2>{clarification.question}</h2>
+                <p>
+                  Zap.by нашёл несколько совместимых вариантов. Ответ нужен,
+                  чтобы не смешивать разные исполнения детали.
+                </p>
+                <div className="clarification-options">
+                  {clarification.options.map((option) => (
+                    <button
+                      className="clarification-option pressable"
+                      key={option.id}
+                      type="button"
+                      onClick={() => applyClarification(option)}
+                    >
+                      <span>{option.label}</span>
+                      <ChevronRight size={17} />
+                    </button>
+                  ))}
                 </div>
               </article>
             ) : null}
@@ -392,11 +645,19 @@ export function ChatExperience() {
                       >
                         <div className="offer-main">
                           <div className="offer-badges">
-                            <span className="offer-badge unknown">
+                            <span
+                              className={`offer-badge ${
+                                offer.matchStatus === "confirmed"
+                                  ? "confirmed"
+                                  : "unknown"
+                              }`}
+                            >
                               {sourceLabels[offer.sourceId]}
                             </span>
                             <span className="offer-badge unknown">
-                              Состояние не указано
+                              {offer.matchStatus === "confirmed"
+                                ? "Совпадение подтверждено"
+                                : "Нужно проверить"}
                             </span>
                           </div>
                           <span className="offer-brand">
@@ -417,9 +678,15 @@ export function ChatExperience() {
                           {offer.deliveryText ? (
                             <span>Доставка: {offer.deliveryText}</span>
                           ) : null}
-                          <small>
-                            Совместимость нужно подтвердить у продавца.
-                          </small>
+                          {offer.matchReasons?.map((reason) => (
+                            <small key={reason}>✓ {reason}</small>
+                          ))}
+                          {offer.matchStatus !== "confirmed" ? (
+                            <small>
+                              В карточке Zap.by не хватает данных для полного
+                              подтверждения.
+                            </small>
+                          ) : null}
                         </div>
                         <div className="offer-action">
                           <span className="price">

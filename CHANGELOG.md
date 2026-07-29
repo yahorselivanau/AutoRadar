@@ -2,15 +2,31 @@
 
 ## 2026-07-29
 
+- Rebuilt Zap.by search around structured vehicle and part constraints,
+  generation/engine picker resolution, product-page characteristics and
+  applicability.
+- Added deterministic conflict filtering, `confirmed`/`possible` match
+  evidence and structured clarification for ambiguous variants such as
+  three-door versus five-door parts.
+- Added persisted active-vehicle and per-vehicle/per-part clarification context
+  in the chat, validated with Zod and reused automatically on later searches.
+- Added product-card fixtures for Peugeot 308 front-left 3D/5D window
+  regulators and configurable candidate enrichment through
+  `ZAP_ENRICH_LIMIT`.
+- Added conservative Zap.by side/position filtering for Russian, English and
+  Polish labels; the verified Peugeot 308 fixture now narrows six mixed
+  window-regulator offers to the two explicitly front-left offers.
+- Switched the chat search flow to Zap.by only and disabled Remzona in the
+  example environment without removing its adapter.
+- Added owner-authorized private-MVP `/carparts/search/{query}` support behind
+  `ZAP_EXPERIMENTAL_SEARCH_ENABLED`; it must be disabled before public
+  production and replaced with the planned Zap.by feed.
 - Added the Zap.by HTTP/Cheerio adapter for robots-allowed SSR vehicle
-  catalogue pages, with strict URL boundaries and no `/search`/query requests.
+  catalogue pages, with strict URL boundaries.
 - Added Zap.by make/model/category resolution, normalized BYN offers, source
   route, feature flag, live smoke, verified fixtures and unit tests.
-- Connected Zap.by as an independent second source in the chat search flow;
-  source failures no longer hide successful offers from another source.
-- Documented that Zap.by OEM, VIN, exact generation/engine picker and
-  pagination remain disabled because current robots rules disallow the
-  necessary search/query routes.
+- Documented that Zap.by VIN, exact generation/engine picker and pagination
+  remain disabled.
 - Added headed Remzona Playwright discovery with trace, network capture,
   storage state (including IndexedDB), final HTML and screenshot artifacts.
 - Remzona now resolves a public category/product path, loads SSR catalog HTML,

@@ -8,6 +8,30 @@ export const VehicleContextSchema = z.object({
   body: z.string().optional(),
   engine: z.string().optional(),
   transmission: z.string().optional(),
+  doors: z.number().int().min(2).max(6).optional(),
+});
+
+export const PartConstraintKeySchema = z.enum([
+  "mounting",
+  "axle",
+  "operation",
+  "motorIncluded",
+  "doorCount",
+  "body",
+  "brakeSystem",
+  "diameter",
+  "length",
+  "width",
+  "height",
+  "thread",
+  "connector",
+  "color",
+  "material",
+]);
+
+export const PartConstraintSchema = z.object({
+  key: PartConstraintKeySchema,
+  value: z.string().trim().min(1),
 });
 
 export const PartRequestSchema = z.object({
@@ -17,6 +41,7 @@ export const PartRequestSchema = z.object({
   condition: z.enum(["new", "used", "any"]).default("any"),
   rawPartNumber: z.string().optional(),
   normalizedPartNumber: z.string().optional(),
+  constraints: z.array(PartConstraintSchema).max(12).default([]),
 });
 
 export const SearchRequestSchema = z.object({
@@ -39,12 +64,35 @@ export const PartRequestExtractionSchema = z.object({
     body: z.string().min(1).nullable(),
     engine: z.string().min(1).nullable(),
     transmission: z.string().min(1).nullable(),
+    doors: z.number().int().min(2).max(6).nullable(),
   }),
   side: z.enum(["left", "right", "unknown"]),
   position: z.enum(["front", "rear", "unknown"]),
   condition: z.enum(["new", "used", "any"]),
+  constraints: z.array(PartConstraintSchema).max(12),
   needsClarification: z.boolean(),
   clarificationQuestion: z.string().min(1).nullable(),
+});
+
+export const SearchClarificationOptionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  value: z.union([z.string(), z.number(), z.boolean()]),
+});
+
+export const SearchClarificationSchema = z.object({
+  id: z.string().min(1),
+  field: z.enum(["generation", "body", "engine", "doors", "part_attribute"]),
+  attributeKey: PartConstraintKeySchema.optional(),
+  question: z.string().min(1),
+  options: z.array(SearchClarificationOptionSchema).min(2).max(8),
+});
+
+export const SavedSearchContextSchema = z.object({
+  activeVehicle: VehicleContextSchema.optional(),
+  partPreferences: z
+    .record(z.string(), z.array(PartConstraintSchema).max(12))
+    .default({}),
 });
 
 export const SourceIdSchema = z.enum([
@@ -82,6 +130,9 @@ export const NormalizedOfferSchema = z.object({
   sellerName: z.string().optional(),
   sellerRatingPercent: z.number().int().min(0).max(100).optional(),
   compatibilityText: z.string().optional(),
+  sourceAttributes: z.record(z.string(), z.array(z.string().min(1))).optional(),
+  matchStatus: z.enum(["confirmed", "possible"]).optional(),
+  matchReasons: z.array(z.string().min(1)).optional(),
   fetchedAt: z.iso.datetime(),
   rawPayloadHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
@@ -97,9 +148,13 @@ export const SearchJobStatusSchema = z.enum([
 ]);
 
 export type VehicleContext = z.infer<typeof VehicleContextSchema>;
+export type PartConstraintKey = z.infer<typeof PartConstraintKeySchema>;
+export type PartConstraint = z.infer<typeof PartConstraintSchema>;
 export type PartRequest = z.infer<typeof PartRequestSchema>;
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 export type PartRequestExtraction = z.infer<typeof PartRequestExtractionSchema>;
+export type SearchClarification = z.infer<typeof SearchClarificationSchema>;
+export type SavedSearchContext = z.infer<typeof SavedSearchContextSchema>;
 export type NormalizedOffer = z.infer<typeof NormalizedOfferSchema>;
 export type SearchJobStatus = z.infer<typeof SearchJobStatusSchema>;
 

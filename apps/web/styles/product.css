@@ -387,6 +387,7 @@
 }
 
 .request-card,
+.clarification-card,
 .progress-card,
 .summary-card,
 .add-vehicle-card,
@@ -400,10 +401,59 @@
 }
 
 .request-card,
+.clarification-card,
 .progress-card,
 .summary-card {
   padding: 20px;
   border-radius: var(--radius-lg);
+}
+
+.clarification-card h2 {
+  margin: 10px 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+}
+
+.clarification-card > p {
+  margin: 0;
+  color: var(--ar-foreground-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.clarification-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.clarification-option {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px 0 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--ar-surface-subtle);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 6%),
+    0 1px 2px -1px rgb(0 0 0 / 6%);
+  color: var(--ar-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.clarification-option:hover {
+  background: var(--ar-brand-soft);
+  box-shadow:
+    0 0 0 1px rgb(10 132 255 / 18%),
+    0 2px 4px rgb(10 132 255 / 7%);
 }
 
 .card-heading,
@@ -1078,6 +1128,11 @@
   color: var(--ar-foreground-secondary);
 }
 
+.offer-badge.confirmed {
+  background: var(--ar-green-soft);
+  color: var(--ar-green);
+}
+
 .offer-brand {
   margin-top: 18px;
   color: var(--ar-foreground-muted);
@@ -1137,6 +1192,7 @@
 .price {
   font-size: 22px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.025em;
 }
 
@@ -1368,6 +1424,7 @@
   }
 
   .request-card,
+  .clarification-card,
   .progress-card,
   .summary-card {
     padding: 16px;
