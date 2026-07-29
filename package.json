@@ -20,7 +20,8 @@
     "actor:dev": "pnpm --filter @autoradar/search-actor dev",
     "actor:test": "pnpm --filter @autoradar/search-actor test",
     "remzona:discover": "pnpm --filter @autoradar/search-actor remzona:discover",
-    "remzona:smoke": "pnpm --filter @autoradar/search-actor remzona:smoke"
+    "remzona:smoke": "pnpm --filter @autoradar/search-actor remzona:smoke",
+    "zap:smoke": "pnpm --filter @autoradar/search-actor zap:smoke"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

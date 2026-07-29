@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("guest can search Remzona from the AI confirmation card", async ({
+test("guest can search real sources from the AI confirmation card", async ({
   page,
 }) => {
   await page.route("**/api/ai/parse-part-request", async (route) => {
@@ -71,7 +71,7 @@ test("guest can search Remzona from the AI confirmation card", async ({
     page.getByRole("heading", { name: "Масляный фильтр" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Искать на Remzona" }).click();
+  await page.getByRole("button", { name: "Искать" }).click();
   await expect(page.getByText("Нашёл 1 реальное предложение.")).toBeVisible();
   await expect(page.getByRole("link", { name: "На Remzona" })).toHaveAttribute(
     "href",

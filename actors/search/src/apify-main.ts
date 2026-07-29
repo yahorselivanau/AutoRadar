@@ -5,10 +5,11 @@ import { z } from "zod";
 import { MockPartsAdapter } from "./adapters/mock";
 import { RemzonaPartsAdapter } from "./adapters/remzona";
 import type { PartsSourceAdapter } from "./adapters/types";
+import { ZapPartsAdapter } from "./adapters/zap";
 import { runFederatedSearch } from "./federated-search";
 
 const ActorInputSchema = SearchRequestSchema.extend({
-  sources: z.array(z.enum(["remzona", "mock"])).default(["remzona"]),
+  sources: z.array(z.enum(["remzona", "zap", "mock"])).default(["remzona"]),
 });
 
 await Actor.main(async () => {
@@ -17,6 +18,9 @@ await Actor.main(async () => {
 
   if (input.sources.includes("remzona")) {
     adapters.push(new RemzonaPartsAdapter());
+  }
+  if (input.sources.includes("zap")) {
+    adapters.push(new ZapPartsAdapter());
   }
   if (input.sources.includes("mock")) {
     adapters.push(new MockPartsAdapter());

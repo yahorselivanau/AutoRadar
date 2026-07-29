@@ -29,6 +29,7 @@ pnpm dev
 Vercel AI Gateway и модель из `AI_MODEL`. Для локальной работы связать проект
 с Vercel и выполнить `vercel env pull .env.local`; в production используется
 автоматический OIDC. Реальная выдача Remzona доступна без регистрации.
+Zap.by подключён как второй источник для запросов с маркой и моделью.
 
 Модель `openai/gpt-5.4-nano` проверена реальным запросом через AI Gateway и
 доступна на текущем Free Credit.
@@ -71,6 +72,22 @@ REMZONA_LIVE_SMOKE=true pnpm remzona:smoke -- стеклоподъемник
 Web-приложение вызывает `POST /api/search/remzona`. Источник можно мгновенно
 отключить через `SOURCE_REMZONA_ENABLED=false`. Браузерный fallback отдельно
 включается через `REMZONA_PLAYWRIGHT_FALLBACK_ENABLED=true`.
+
+## Zap.by adapter
+
+Zap.by использует только разрешённые server-rendered страницы
+`/carparts/...`: адаптер проходит по проверенным ссылкам марки, модели и
+категории, затем парсит карточки обычным HTTP + Cheerio. `/search`, VIN и
+picker XHR не вызываются, потому что `robots.txt` запрещает search/query
+маршруты. Точные ограничения, fixtures и селекторы:
+`actors/search/src/adapters/zap/DISCOVERY.md`.
+
+```bash
+pnpm actor:test
+ZAP_LIVE_SMOKE=true pnpm zap:smoke -- AUDI A4 2010 "Масляный фильтр"
+```
+
+Источник отключается через `SOURCE_ZAP_ENABLED=false`.
 
 Для Git deployment проект Vercel должен быть подключён к GitHub-репозиторию
 через Vercel Git Integration. После подключения push в `main` создаёт

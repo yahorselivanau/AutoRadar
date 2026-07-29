@@ -5,11 +5,13 @@
   "type": "module",
   "exports": {
     "./remzona": "./src/adapters/remzona/index.ts",
+    "./zap": "./src/adapters/zap/index.ts",
     "./types": "./src/adapters/types.ts"
   },
   "scripts": {
     "remzona:discover": "tsx src/discovery/remzona.ts",
     "remzona:smoke": "tsx src/adapters/remzona/live-smoke.ts",
+    "zap:smoke": "tsx src/adapters/zap/live-smoke.ts",
     "dev": "tsx src/main.ts",
     "actor:start": "tsx src/apify-main.ts",
     "build": "tsc --noEmit",

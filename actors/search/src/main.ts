@@ -2,6 +2,7 @@ import { SearchRequestSchema } from "@autoradar/domain";
 
 import { MockPartsAdapter } from "./adapters/mock";
 import { RemzonaPartsAdapter } from "./adapters/remzona";
+import { ZapPartsAdapter } from "./adapters/zap";
 import { runFederatedSearch } from "./federated-search";
 
 const request = SearchRequestSchema.parse({
@@ -14,6 +15,7 @@ const adapters = [
   ...(process.env.SOURCE_REMZONA_ENABLED === "true"
     ? [new RemzonaPartsAdapter()]
     : []),
+  ...(process.env.SOURCE_ZAP_ENABLED === "true" ? [new ZapPartsAdapter()] : []),
 ];
 const result = await runFederatedSearch(request, adapters);
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

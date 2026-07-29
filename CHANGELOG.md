@@ -2,6 +2,15 @@
 
 ## 2026-07-29
 
+- Added the Zap.by HTTP/Cheerio adapter for robots-allowed SSR vehicle
+  catalogue pages, with strict URL boundaries and no `/search`/query requests.
+- Added Zap.by make/model/category resolution, normalized BYN offers, source
+  route, feature flag, live smoke, verified fixtures and unit tests.
+- Connected Zap.by as an independent second source in the chat search flow;
+  source failures no longer hide successful offers from another source.
+- Documented that Zap.by OEM, VIN, exact generation/engine picker and
+  pagination remain disabled because current robots rules disallow the
+  necessary search/query routes.
 - Added headed Remzona Playwright discovery with trace, network capture,
   storage state (including IndexedDB), final HTML and screenshot artifacts.
 - Remzona now resolves a public category/product path, loads SSR catalog HTML,

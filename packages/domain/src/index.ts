@@ -47,7 +47,13 @@ export const PartRequestExtractionSchema = z.object({
   clarificationQuestion: z.string().min(1).nullable(),
 });
 
-export const SourceIdSchema = z.enum(["mock", "armtek", "av-parts", "remzona"]);
+export const SourceIdSchema = z.enum([
+  "mock",
+  "armtek",
+  "av-parts",
+  "remzona",
+  "zap",
+]);
 
 export const NormalizedOfferSchema = z.object({
   sourceId: SourceIdSchema,

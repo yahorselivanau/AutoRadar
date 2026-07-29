@@ -65,6 +65,14 @@ const conditionLabels = {
   any: "Любое",
 } as const;
 
+const sourceLabels: Record<NormalizedOffer["sourceId"], string> = {
+  mock: "Mock",
+  armtek: "ARMTEK",
+  "av-parts": "AV-parts",
+  remzona: "Remzona",
+  zap: "Zap.by",
+};
+
 function formatOffersCount(count: number): string {
   const mod100 = count % 100;
   const mod10 = count % 10;
@@ -126,7 +134,7 @@ export function ChatExperience() {
     setQuery(suggestion);
   };
 
-  const searchRemzona = async () => {
+  const searchParts = async () => {
     if (!extraction) return;
 
     setSearchStage("searching");
@@ -138,46 +146,77 @@ export function ChatExperience() {
       extraction.vehicle.model &&
       extraction.vehicle.year;
 
+    const searchRequest = {
+      query: submittedQuery,
+      vehicle: hasVehicle
+        ? {
+            make: extraction.vehicle.make,
+            model: extraction.vehicle.model,
+            year: extraction.vehicle.year,
+            generation: extraction.vehicle.generation ?? undefined,
+            body: extraction.vehicle.body ?? undefined,
+            engine: extraction.vehicle.engine ?? undefined,
+            transmission: extraction.vehicle.transmission ?? undefined,
+          }
+        : undefined,
+      part: {
+        name: extraction.partName ?? "Неизвестная деталь",
+        side: extraction.side,
+        position: extraction.position,
+        condition: extraction.condition,
+        rawPartNumber: extraction.rawPartNumber ?? undefined,
+        normalizedPartNumber: extraction.normalizedPartNumber ?? undefined,
+      },
+    };
+    const sources = [
+      { name: "Remzona", endpoint: "/api/search/remzona" },
+      ...(hasVehicle ? [{ name: "Zap.by", endpoint: "/api/search/zap" }] : []),
+    ];
+
     try {
-      const response = await fetch("/api/search/remzona", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: submittedQuery,
-          vehicle: hasVehicle
-            ? {
-                make: extraction.vehicle.make,
-                model: extraction.vehicle.model,
-                year: extraction.vehicle.year,
-                generation: extraction.vehicle.generation ?? undefined,
-                body: extraction.vehicle.body ?? undefined,
-                engine: extraction.vehicle.engine ?? undefined,
-                transmission: extraction.vehicle.transmission ?? undefined,
-              }
-            : undefined,
-          part: {
-            name: extraction.partName ?? "Неизвестная деталь",
-            side: extraction.side,
-            position: extraction.position,
-            condition: extraction.condition,
-            rawPartNumber: extraction.rawPartNumber ?? undefined,
-            normalizedPartNumber: extraction.normalizedPartNumber ?? undefined,
-          },
+      const results = await Promise.all(
+        sources.map(async (source) => {
+          try {
+            const response = await fetch(source.endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(searchRequest),
+            });
+            const payload = (await response.json()) as {
+              offers?: NormalizedOffer[];
+              error?: string;
+            };
+            return response.ok && payload.offers
+              ? { offers: payload.offers }
+              : {
+                  error: `${source.name}: ${payload.error ?? "источник не ответил"}`,
+                };
+          } catch {
+            return { error: `${source.name}: источник не ответил` };
+          }
         }),
-      });
-      const payload = (await response.json()) as {
-        offers?: NormalizedOffer[];
-        error?: string;
-      };
-      if (!response.ok || !payload.offers) {
-        throw new Error(payload.error ?? "Remzona не ответила.");
+      );
+      const successfulResults = results.filter(
+        (
+          result,
+        ): result is {
+          offers: NormalizedOffer[];
+        } => "offers" in result,
+      );
+      if (successfulResults.length === 0) {
+        throw new Error(
+          results
+            .map((result) => ("error" in result ? result.error : undefined))
+            .filter(Boolean)
+            .join(" · ") || "Источники не ответили.",
+        );
       }
 
-      setOffers(payload.offers);
+      setOffers(successfulResults.flatMap((result) => result.offers));
       setSearchStage("results");
     } catch (error) {
       setSearchError(
-        error instanceof Error ? error.message : "Remzona не ответила.",
+        error instanceof Error ? error.message : "Источники не ответили.",
       );
       setSearchStage("error");
     }
@@ -293,9 +332,10 @@ export function ChatExperience() {
                   </div>
                 </dl>
                 <p className="request-note">
-                  Remzona ищет новые запчасти по артикулу или названию. Цена,
-                  наличие и совместимость показываются только когда источник
-                  вернул их явно.
+                  Remzona ищет по артикулу или названию. Zap.by подключается для
+                  запросов с маркой и моделью через публичный каталог.
+                  Совместимость показывается только когда источник вернул её
+                  явно.
                 </p>
                 <div className="request-actions">
                   <button
@@ -310,12 +350,12 @@ export function ChatExperience() {
                     className="button primary pressable"
                     type="button"
                     disabled={searchStage === "searching"}
-                    onClick={() => void searchRemzona()}
+                    onClick={() => void searchParts()}
                   >
                     <Search size={17} />
                     {searchStage === "searching"
-                      ? "Ищу на Remzona…"
-                      : "Искать на Remzona"}
+                      ? "Ищу предложения…"
+                      : "Искать"}
                   </button>
                 </div>
               </article>
@@ -334,7 +374,7 @@ export function ChatExperience() {
               <>
                 <div className="assistant-block" aria-live="polite">
                   <span className="assistant-kicker">
-                    <Sparkles size={15} /> Remzona
+                    <Sparkles size={15} /> AutoRadar
                   </span>
                   <p>
                     {offers.length > 0
@@ -352,7 +392,9 @@ export function ChatExperience() {
                       >
                         <div className="offer-main">
                           <div className="offer-badges">
-                            <span className="offer-badge unknown">Remzona</span>
+                            <span className="offer-badge unknown">
+                              {sourceLabels[offer.sourceId]}
+                            </span>
                             <span className="offer-badge unknown">
                               Состояние не указано
                             </span>
@@ -368,8 +410,13 @@ export function ChatExperience() {
                         <div className="offer-logistics">
                           <span>
                             <MapPin size={15} />
-                            {offer.location ?? "Город не указан"}
+                            {offer.availability ??
+                              offer.location ??
+                              "Наличие не указано"}
                           </span>
+                          {offer.deliveryText ? (
+                            <span>Доставка: {offer.deliveryText}</span>
+                          ) : null}
                           <small>
                             Совместимость нужно подтвердить у продавца.
                           </small>
@@ -389,7 +436,8 @@ export function ChatExperience() {
                             target="_blank"
                             rel="noreferrer"
                           >
-                            На Remzona <ExternalLink size={16} />
+                            На {sourceLabels[offer.sourceId]}{" "}
+                            <ExternalLink size={16} />
                           </a>
                         </div>
                       </article>
