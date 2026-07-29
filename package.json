@@ -19,6 +19,7 @@
     "format:check": "prettier --check .",
     "actor:dev": "pnpm --filter @autoradar/search-actor dev",
     "actor:test": "pnpm --filter @autoradar/search-actor test",
+    "motorland:smoke": "pnpm --filter @autoradar/search-actor motorland:smoke",
     "remzona:discover": "pnpm --filter @autoradar/search-actor remzona:discover",
     "remzona:smoke": "pnpm --filter @autoradar/search-actor remzona:smoke",
     "zap:smoke": "pnpm --filter @autoradar/search-actor zap:smoke"

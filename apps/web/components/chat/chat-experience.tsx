@@ -82,6 +82,7 @@ const sourceLabels: Record<NormalizedOffer["sourceId"], string> = {
   mock: "Mock",
   armtek: "ARMTEK",
   "av-parts": "AV-parts",
+  motorland: "Motorland.by",
   remzona: "Remzona",
   zap: "Zap.by",
 };
@@ -290,25 +291,48 @@ export function ChatExperience() {
     };
 
     try {
-      const response = await fetch("/api/search/zap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(searchRequest),
-      });
-      const payload = (await response.json()) as {
-        offers?: NormalizedOffer[];
-        clarification?: SearchClarification;
-        error?: string;
-      };
-      if (!response.ok || !payload.offers) {
-        throw new Error(payload.error ?? "Zap.by не ответил.");
+      const responses = await Promise.all(
+        ["/api/search/zap", "/api/search/motorland"].map(async (endpoint) => {
+          try {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(searchRequest),
+            });
+            const payload = (await response.json()) as {
+              offers?: NormalizedOffer[];
+              clarification?: SearchClarification;
+              error?: string;
+            };
+            return { ok: response.ok, payload };
+          } catch {
+            return {
+              ok: false,
+              payload: { error: "Один из источников не ответил." },
+            };
+          }
+        }),
+      );
+      const successful = responses.filter(
+        (result) => result.ok && result.payload.offers,
+      );
+      if (successful.length === 0) {
+        throw new Error(
+          responses
+            .map((result) => result.payload.error)
+            .filter(Boolean)
+            .join(" ") || "Источники не ответили.",
+        );
       }
-      if (payload.clarification) {
-        setClarification(payload.clarification);
+      const requestedClarification = successful.find(
+        (result) => result.payload.clarification,
+      )?.payload.clarification;
+      if (requestedClarification) {
+        setClarification(requestedClarification);
         setSearchStage("clarification");
         return;
       }
-      setOffers(payload.offers);
+      setOffers(successful.flatMap((result) => result.payload.offers ?? []));
       setSearchStage("results");
     } catch (error) {
       setSearchError(
@@ -711,7 +735,7 @@ export function ChatExperience() {
                 <div className="progress-heading">
                   <div>
                     <span>Реальный поиск</span>
-                    <strong>Запрашиваю предложения Zap.by</strong>
+                    <strong>Запрашиваю Zap.by и Motorland.by</strong>
                   </div>
                   <CircleDot className="searching-icon" size={22} />
                 </div>
@@ -719,8 +743,8 @@ export function ChatExperience() {
                   <span />
                 </div>
                 <p className="request-note">
-                  Проверяю карточки, характеристики и применимость. Это может
-                  занять несколько секунд.
+                  Сопоставляю новые и б/у предложения, характеристики и
+                  применимость. Это может занять несколько секунд.
                 </p>
               </article>
             ) : null}

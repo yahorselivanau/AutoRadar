@@ -1,6 +1,7 @@
 import { SearchRequestSchema } from "@autoradar/domain";
 
 import { MockPartsAdapter } from "./adapters/mock";
+import { MotorlandPartsAdapter } from "./adapters/motorland";
 import { RemzonaPartsAdapter } from "./adapters/remzona";
 import { ZapPartsAdapter } from "./adapters/zap";
 import { runFederatedSearch } from "./federated-search";
@@ -12,6 +13,9 @@ const request = SearchRequestSchema.parse({
 
 const adapters = [
   new MockPartsAdapter(),
+  ...(process.env.SOURCE_MOTORLAND_ENABLED === "true"
+    ? [new MotorlandPartsAdapter()]
+    : []),
   ...(process.env.SOURCE_REMZONA_ENABLED === "true"
     ? [new RemzonaPartsAdapter()]
     : []),

@@ -3,19 +3,25 @@ import { SearchRequestSchema } from "@autoradar/domain";
 import { z } from "zod";
 
 import { MockPartsAdapter } from "./adapters/mock";
+import { MotorlandPartsAdapter } from "./adapters/motorland";
 import { RemzonaPartsAdapter } from "./adapters/remzona";
 import type { PartsSourceAdapter } from "./adapters/types";
 import { ZapPartsAdapter } from "./adapters/zap";
 import { runFederatedSearch } from "./federated-search";
 
 const ActorInputSchema = SearchRequestSchema.extend({
-  sources: z.array(z.enum(["remzona", "zap", "mock"])).default(["remzona"]),
+  sources: z
+    .array(z.enum(["motorland", "remzona", "zap", "mock"]))
+    .default(["motorland"]),
 });
 
 await Actor.main(async () => {
   const input = ActorInputSchema.parse(await Actor.getInput());
   const adapters: PartsSourceAdapter[] = [];
 
+  if (input.sources.includes("motorland")) {
+    adapters.push(new MotorlandPartsAdapter());
+  }
   if (input.sources.includes("remzona")) {
     adapters.push(new RemzonaPartsAdapter());
   }

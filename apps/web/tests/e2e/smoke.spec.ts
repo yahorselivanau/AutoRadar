@@ -24,7 +24,7 @@ test("guest can search real sources from the AI confirmation card", async ({
           },
           side: "unknown",
           position: "unknown",
-          condition: "new",
+          condition: "any",
           constraints: [],
           needsClarification: false,
           clarificationQuestion: null,
@@ -58,6 +58,36 @@ test("guest can search real sources from the AI confirmation card", async ({
       }),
     });
   });
+  await page.route("**/api/search/motorland", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        method: "html",
+        offers: [
+          {
+            sourceId: "motorland",
+            externalId: "21361901",
+            externalUrl:
+              "https://motorland.by/auto-parts/bmw/3/f30/kapot/sku-21361901/",
+            title: "Капот BMW 3 F30",
+            brand: "BMW",
+            rawPartNumber: "21361901",
+            normalizedPartNumber: "21361901",
+            oemNumbers: [],
+            condition: "used",
+            partKind: "unknown",
+            priceAmount: "725",
+            priceSource: "data_attribute",
+            currency: "BYN",
+            sellerName: "Motorland.by",
+            matchStatus: "possible",
+            fetchedAt: "2026-07-29T20:00:00.000Z",
+            rawPayloadHash: "1".repeat(64),
+          },
+        ],
+      }),
+    });
+  });
 
   await page.goto("/chat");
   await expect(
@@ -74,10 +104,16 @@ test("guest can search real sources from the AI confirmation card", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Искать", exact: true }).click();
-  await expect(page.getByText("Нашёл 1 реальное предложение.")).toBeVisible();
+  await expect(page.getByText("Нашёл 2 реальных предложения.")).toBeVisible();
   await expect(page.getByRole("link", { name: "На Zap.by" })).toHaveAttribute(
     "href",
     "https://zap.by/oem/7700274177",
+  );
+  await expect(
+    page.getByRole("link", { name: "На Motorland.by" }),
+  ).toHaveAttribute(
+    "href",
+    "https://motorland.by/auto-parts/bmw/3/f30/kapot/sku-21361901/",
   );
 });
 

@@ -2,6 +2,17 @@
 
 ## 2026-07-29
 
+- Added the Motorland.by HTTP/Cheerio adapter for robots-allowed SSR text
+  search of used parts, including strict URL boundaries, pacing, timeout,
+  result limit and typed access errors.
+- Added verified Motorland success/empty/error fixtures, conservative
+  category/vehicle filtering, BYN prices, source article numbers, images,
+  characteristics and reproducible `used` classification.
+- Connected Motorland to the web search alongside Zap.by with independent
+  failure handling, a server route, feature flag, Actor support and opt-in
+  live smoke command.
+- Documented Motorland's live robots/terms checks, observed form fields,
+  selectors, public URLs and unsupported OEM/VIN claims.
 - Removed all prefilled UI data: the hard-coded Peugeot/Golf garage, mobile
   vehicle label, sample conversations and default window-regulator scenario.
 - Added a free-form contextual chat flow. Follow-up messages now update the

@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./motorland": "./src/adapters/motorland/index.ts",
     "./remzona": "./src/adapters/remzona/index.ts",
     "./zap": "./src/adapters/zap/index.ts",
     "./types": "./src/adapters/types.ts"
   },
   "scripts": {
+    "motorland:smoke": "tsx src/adapters/motorland/live-smoke.ts",
     "remzona:discover": "tsx src/discovery/remzona.ts",
     "remzona:smoke": "tsx src/adapters/remzona/live-smoke.ts",
     "zap:smoke": "tsx src/adapters/zap/live-smoke.ts",

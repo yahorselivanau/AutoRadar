@@ -9,6 +9,7 @@
 | `armtek.by`                   | новые оригиналы и аналоги | поиск по VIN, номеру и автомобилю; официальный web-service доступен после договора       |            P0 | Для MVP исследовать публичный розничный поиск; конечная цель — официальный договор/API.                   |
 | `remzona.by`                  | новые детали              | публичный XHR разрешает категорию; SSR-каталог возвращает карточки, цены и наличие       |            P0 | HTTP + Cheerio основной режим; Playwright только opt-in fallback/discovery, без proxy.                    |
 | `zap.by`                      | новые детали              | SSR-каталог по марке/модели; цены, наличие и сроки без логина                            |            P0 | HTTP + Cheerio; `/search` временно включён только для закрытого MVP, VIN и query/XHR picker отключены.    |
+| `motorland.by`                | б/у детали                | robots-разрешённый SSR-текстовый поиск; цены, фото и характеристики без логина           |            P0 | HTTP + Cheerio; первый источник б/у, без cookies/Playwright/proxy, совместимость только `possible`.       |
 | `av-parts.by`                 | агрегатор новых деталей   | поиск по артикулу/названию, каталог и предложения зарегистрированных магазинов           |         P0/P1 | Возможны дубли поставщиков и конкуренция с самим продуктом. Не терять исходного продавца, если он указан. |
 | `uparts.by`                   | новые детали              | публично заявлены поиск по артикулу, OEM, названию, автомобилю и VIN; есть гараж         |            P1 | Сильный кандидат вместо технически недоступного P0-источника.                                             |
 | `1000km.by`                   | новые детали              | строка поиска по артикулу, детали или VIN; выбор автомобиля                              |            P1 | Проверить качество выдачи и доступность цены без регистрации.                                             |
@@ -93,6 +94,15 @@ Path-based страницы `/carparts/...` возвращают SSR-карто�
 Полное доказательство и ограничения:
 `actors/search/src/adapters/zap/DISCOVERY.md`.
 
+### Motorland.by
+
+`GET /auto-parts/?Filter.TextSearch=...` возвращает SSR-карточки с внутренним
+артикулом, названием, брендом, BYN-ценой, фото и характеристиками. Robots.txt
+явно разрешает `Filter.TextSearch`; логин, cookies, proxy и браузер не нужны.
+Каталог и публичная оферта прямо описывают автозапчасти как б/у. OEM и VIN не
+подтверждены. Полное доказательство и ограничения:
+`actors/search/src/adapters/motorland/DISCOVERY.md`.
+
 ## 4. Обязательный отчёт по каждому источнику
 
 ```md
@@ -171,6 +181,9 @@ Researcher:
 - https://zap.by/
 - https://zap.by/robots.txt
 - https://zap.by/publichnaja-oferta
+- https://motorland.by/
+- https://motorland.by/robots.txt
+- https://motorland.by/pokupatelyam/publichnaya-oferta/
 - https://armtek.by/
 - https://armtek.by/catalog/identification-auto
 - https://armtek.by/wholesale

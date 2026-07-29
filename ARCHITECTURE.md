@@ -64,17 +64,17 @@ AI extraction + Zod validation
   |
   | SearchRequest (vehicle + part constraints)
   v
-Zap.by adapter
+Zap.by + Motorland.by adapters
   |
-  +--> catalogue/model/engine resolution
-  +--> product characteristics + applicability
-  +--> deterministic matcher
+  +--> Zap: catalogue/model/engine resolution + applicability
+  +--> Motorland: SSR text search + conservative category/vehicle matching
   |
-  +--> confirmed/possible offers
+  +--> independent normalized offers
   `--> structured clarification --> saved vehicle/part context --> repeat search
 ```
 
-В текущем закрытом MVP web-поток вызывает только Zap.by. Гостевой гараж
+В текущем закрытом MVP web-поток независимо вызывает Zap.by и Motorland.by;
+ошибка одного источника не скрывает ответ второго. Гостевой гараж
 хранится в `localStorage`, валидируется Zod и используется как единый источник
 активного автомобиля для шапки, чата и страницы гаража. Контекст текущего
 диалога остаётся в памяти страницы: каждая новая реплика передаёт модели
@@ -90,8 +90,9 @@ polling-запросом раз в 1–2 секунды; Supabase Realtime ос�
 
 ## 4. Где исполняются адаптеры
 
-Remzona вызывается напрямую из серверного Next.js route через общий адаптер из
-`actors/search`. Это оставляет один внешний network hop и тот же
+Zap.by, Motorland.by и сохранённый Remzona вызываются напрямую из серверных
+Next.js routes через общие адаптеры из `actors/search`. Это оставляет один
+внешний network hop и тот же
 нормализованный контракт для локального Actor и web runtime.
 
 Apify используется только для источника, если ему действительно необходим

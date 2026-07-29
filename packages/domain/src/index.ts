@@ -127,6 +127,7 @@ export const SourceIdSchema = z.enum([
   "mock",
   "armtek",
   "av-parts",
+  "motorland",
   "remzona",
   "zap",
 ]);
