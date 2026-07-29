@@ -24,17 +24,18 @@ export function SearchResults({ searchId }: Readonly<{ searchId: string }>) {
       <div className="compatibility-warning">
         <TriangleAlert size={20} />
         <p>
-          <strong>Совместимость нужно проверить.</strong> AutoRadar показывает
-          реальные карточки Remzona, но не подтверждает применяемость детали.
+          <strong>Совместимость нужно проверить.</strong> Авто Радар показывает
+          реальные предложения источников, но не подтверждает применяемость без
+          их данных.
         </p>
       </div>
 
       <div className="filter-empty">
         <Search size={28} />
-        <h2>Поиск Remzona доступен в чате</h2>
+        <h2>Новый поиск начинается в чате</h2>
         <p>
           Введите артикул или название детали, подтвердите распознанные
-          параметры и запустите поиск.
+          параметры и запустите проверку Zap.by, Motorland.by и Auto1.by.
         </p>
         <Link className="button primary pressable" href="/chat">
           Вернуться к AI-запросу

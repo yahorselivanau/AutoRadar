@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="9" fill="#0a84ff"/>
+  <title>Авто Радар</title>
+  <rect width="32" height="32" rx="9" fill="#0A84FF"/>
   <path
-    d="M9 21.5 12.4 11h7.2L23 21.5h-3.2l-.7-2.4h-6.3l-.7 2.4H9Zm4.5-5h4.8L16.7 11h-1.6l-1.6 5.5Z"
-    fill="#fff"
+    d="M16 6.75 24.25 25h-4.1l-1.8-4.35h-4.7L11.85 25h-4.1L16 6.75Zm0 6.1-1.35 4.45h2.7L16 12.85Z"
+    fill="#FFF"
   />
 </svg>

@@ -2,6 +2,56 @@
 
 ## 2026-07-29
 
+- Replaced the one-shot extraction flow with an AI SDK `ToolLoopAgent` that
+  keeps multi-turn context, uses explicit server tools and answers follow-up
+  questions from persisted results without restarting search.
+- Added addressable `/chat/[id]` conversations, validated `UIMessage`
+  persistence, structured conversation state, prompt/model metadata and
+  server-side completion after client disconnect.
+- Added persisted `search_requests`, `search_jobs`, per-source statuses and
+  normalized offers with deterministic idempotency and independent source
+  failures.
+- Added signed HttpOnly guest sessions and value-first rolling 24-hour limits:
+  3 new conversations, 5 real searches and 30 assistant turns; existing
+  history and results remain readable after the limit.
+- Added Supabase magic-link authentication, automatic ownership transfer for
+  guest conversations/searches and cloud garage synchronization after login.
+- Added server-only AES-256-GCM encryption for cloud VIN storage and kept VIN
+  values out of AI prompts, Gateway tags and application logs.
+- Pinned the agent allowlist to `openai/gpt-5.4-nano`; model fallback and web
+  search remain disabled.
+- Replaced the former icon-plus-name logo with the Russian-only
+  `Авто Радар` wordmark, tuned in Inter Variable for desktop and mobile.
+- Self-hosted the official Inter 4.1 normal and italic variable fonts from
+  `rsms/inter`, including Latin and Cyrillic, with optical sizing, kerning,
+  ligatures and contextual alternates enabled.
+- Updated user-facing product naming, metadata and the Radar Blue favicon with
+  a white Cyrillic `А`; documented that no standalone logo icon is allowed.
+- Refreshed the existing application UI around the v1.2 design system:
+  quieter canvas, compact navigation, responsive brand header and a real
+  collapsible desktop sidebar.
+- Rebuilt the chat hierarchy with pill suggestions, softer messages and
+  request cards, a two-level floating composer and clearer multi-source search
+  progress.
+- Added source-backed product images and a data-first hierarchy to offer
+  cards, with price, source, condition and compatibility actions adapted for
+  desktop and mobile.
+- Restyled garage, vehicle editor, empty results and sign-in as consistent
+  cards/dialogs/sheets, including a mobile account sheet and a single primary
+  action in empty states.
+- Replaced the oversized design-system specification with concise v1.2 rules
+  synthesized from 28 owner-provided desktop/mobile references.
+- Defined the quiet content-first shell, floating composer, adaptive
+  activity/sources layer, mobile sheets, conversational refinement and
+  data-first offer hierarchy for all future UI work.
+- Refined the neutral palette and added shared layout, inverse surface,
+  concentric radius, layered shadow-ring, composer, image-outline and motion
+  tokens.
+- Split the bright blue focus signal from the deeper primary-button blue and
+  darkened muted copy so ordinary text meets WCAG AA contrast on white.
+- Synchronized the repository reference tokens with the runtime tokens in
+  `packages/ui`, and documented adopted/rejected reference patterns separately
+  to keep the main design system lightweight.
 - Added the Auto1.by HTTP/Cheerio adapter from owner-supplied offline HTML,
   JavaScript and robots captures without contacting the source during
   discovery.

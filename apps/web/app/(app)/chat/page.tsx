@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
-import { ChatExperience } from "@/components/chat/chat-experience";
+import { ChatBootstrap } from "@/components/chat/chat-bootstrap";
 
 export const metadata: Metadata = {
   title: "Поиск запчастей",
 };
 
 export default function ChatPage() {
-  return <ChatExperience />;
+  return <ChatBootstrap />;
 }

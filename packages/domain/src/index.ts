@@ -177,6 +177,57 @@ export const SearchJobStatusSchema = z.enum([
   "expired",
 ]);
 
+export const SearchJobSourceStatusSchema = z.enum([
+  "queued",
+  "running",
+  "completed",
+  "empty",
+  "timeout",
+  "blocked",
+  "failed",
+  "disabled",
+]);
+
+export const ConversationStateSchema = z.object({
+  activeVehicle: VehicleContextSchema.nullable().default(null),
+  searchDraft: SearchRequestSchema.nullable().default(null),
+  latestSearchJobId: z.string().uuid().nullable().default(null),
+  latestSearchSummary: z
+    .object({
+      offerCount: z.number().int().nonnegative(),
+      sourceCount: z.number().int().nonnegative(),
+      failedSourceCount: z.number().int().nonnegative(),
+      minPrice: z.string().nullable(),
+      maxPrice: z.string().nullable(),
+    })
+    .nullable()
+    .default(null),
+});
+
+export const GuestUsageSchema = z.object({
+  conversationsUsed: z.number().int().nonnegative(),
+  conversationsLimit: z.number().int().positive(),
+  searchesUsed: z.number().int().nonnegative(),
+  searchesLimit: z.number().int().positive(),
+  resetsAt: z.iso.datetime(),
+});
+
+export const SearchSourceProgressSchema = z.object({
+  sourceId: SourceIdSchema,
+  status: SearchJobSourceStatusSchema,
+  offerCount: z.number().int().nonnegative(),
+  durationMs: z.number().int().nonnegative().nullable(),
+  errorMessage: z.string().nullable(),
+});
+
+export const SearchJobResultSchema = z.object({
+  jobId: z.string().uuid(),
+  status: SearchJobStatusSchema,
+  offers: z.array(NormalizedOfferSchema),
+  sources: z.array(SearchSourceProgressSchema),
+  clarification: SearchClarificationSchema.nullable(),
+});
+
 export type VehicleContext = z.infer<typeof VehicleContextSchema>;
 export type SavedVehicle = z.infer<typeof SavedVehicleSchema>;
 export type GarageState = z.infer<typeof GarageStateSchema>;
@@ -188,7 +239,13 @@ export type PartRequestExtraction = z.infer<typeof PartRequestExtractionSchema>;
 export type SearchClarification = z.infer<typeof SearchClarificationSchema>;
 export type SavedSearchContext = z.infer<typeof SavedSearchContextSchema>;
 export type NormalizedOffer = z.infer<typeof NormalizedOfferSchema>;
+export type SourceId = z.infer<typeof SourceIdSchema>;
 export type SearchJobStatus = z.infer<typeof SearchJobStatusSchema>;
+export type SearchJobSourceStatus = z.infer<typeof SearchJobSourceStatusSchema>;
+export type ConversationState = z.infer<typeof ConversationStateSchema>;
+export type GuestUsage = z.infer<typeof GuestUsageSchema>;
+export type SearchSourceProgress = z.infer<typeof SearchSourceProgressSchema>;
+export type SearchJobResult = z.infer<typeof SearchJobResultSchema>;
 
 export function normalizePartNumber(value: string): string {
   return value.toUpperCase().replace(/[\s./-]+/g, "");

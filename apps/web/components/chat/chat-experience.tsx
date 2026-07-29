@@ -22,6 +22,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -77,6 +78,18 @@ const conditionLabels = {
   used: "Б/у",
   any: "Любое",
 } as const;
+
+const offerConditionLabels: Record<NormalizedOffer["condition"], string> = {
+  new: "Новая",
+  used: "Б/у",
+  unknown: "Состояние не указано",
+};
+
+const offerKindLabels: Record<NormalizedOffer["partKind"], string> = {
+  original: "Оригинал",
+  analog: "Аналог",
+  unknown: "Тип не указан",
+};
 
 const sourceLabels: Record<NormalizedOffer["sourceId"], string> = {
   mock: "Mock",
@@ -522,7 +535,7 @@ export function ChatExperience() {
               ) : (
                 <div className="assistant-block" key={message.id}>
                   <span className="assistant-kicker">
-                    <Sparkles size={15} /> AutoRadar
+                    <Sparkles size={15} /> Авто Радар
                   </span>
                   <p>{message.text}</p>
                   {message.text.includes("подготовлен к сохранению") ? (
@@ -537,7 +550,7 @@ export function ChatExperience() {
             {stage === "loading" ? (
               <div className="assistant-block" aria-live="polite">
                 <span className="assistant-kicker">
-                  <Sparkles size={15} /> AutoRadar
+                  <Sparkles size={15} /> Авто Радар
                 </span>
                 <p>Понимаю запрос и обновляю параметры…</p>
               </div>
@@ -738,12 +751,17 @@ export function ChatExperience() {
                 <div className="progress-heading">
                   <div>
                     <span>Реальный поиск</span>
-                    <strong>Запрашиваю Zap.by и Motorland.by</strong>
+                    <strong>Проверяю три подключённых источника</strong>
                   </div>
                   <CircleDot className="searching-icon" size={22} />
                 </div>
                 <div className="progress-track">
                   <span />
+                </div>
+                <div className="source-pills" aria-label="Источники поиска">
+                  <span>Zap.by</span>
+                  <span>Motorland.by</span>
+                  <span>Auto1.by</span>
                 </div>
                 <p className="request-note">
                   Сопоставляю новые и б/у предложения, характеристики и
@@ -788,7 +806,7 @@ export function ChatExperience() {
               <>
                 <div className="assistant-block" aria-live="polite">
                   <span className="assistant-kicker">
-                    <Sparkles size={15} /> AutoRadar
+                    <Sparkles size={15} /> Авто Радар
                   </span>
                   <p>
                     {offers.length > 0
@@ -804,6 +822,22 @@ export function ChatExperience() {
                         className="offer-card"
                         key={`${offer.sourceId}-${offer.externalId}`}
                       >
+                        {offer.imageUrl ? (
+                          <div className="offer-media">
+                            <Image
+                              className="media-outline"
+                              src={offer.imageUrl}
+                              alt={offer.title}
+                              width={176}
+                              height={132}
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <div className="offer-media offer-media-empty">
+                            <Search aria-hidden="true" size={24} />
+                          </div>
+                        )}
                         <div className="offer-main">
                           <div className="offer-badges">
                             <span
@@ -820,6 +854,18 @@ export function ChatExperience() {
                                 ? "Совпадение подтверждено"
                                 : "Нужно проверить"}
                             </span>
+                            {offer.partKind !== "unknown" ? (
+                              <span className={`offer-badge ${offer.partKind}`}>
+                                {offerKindLabels[offer.partKind]}
+                              </span>
+                            ) : null}
+                            {offer.condition !== "unknown" ? (
+                              <span
+                                className={`offer-badge ${offer.condition}`}
+                              >
+                                {offerConditionLabels[offer.condition]}
+                              </span>
+                            ) : null}
                           </div>
                           <span className="offer-brand">
                             {offer.brand ?? "Бренд не указан"}
@@ -851,12 +897,12 @@ export function ChatExperience() {
                           </span>
                           <small>Проверьте цену и наличие у продавца.</small>
                           <a
-                            className="button secondary pressable"
+                            className="button primary pressable"
                             href={offer.externalUrl}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            На {sourceLabels[offer.sourceId]}{" "}
+                            Открыть на {sourceLabels[offer.sourceId]}{" "}
                             <ExternalLink size={16} />
                           </a>
                         </div>
@@ -926,7 +972,7 @@ export function ChatExperience() {
           </div>
         </form>
         <p className="composer-caption">
-          AutoRadar не подтверждает совместимость без данных источника.
+          Авто Радар не подтверждает совместимость без данных источника.
         </p>
       </div>
     </section>

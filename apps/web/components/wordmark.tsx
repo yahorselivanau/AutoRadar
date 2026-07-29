@@ -5,9 +5,9 @@ export function Wordmark() {
     <Link
       className="wordmark"
       href="/chat"
-      aria-label="AutoRadar — новый поиск"
+      aria-label="Авто Радар — новый поиск"
     >
-      AutoRadar
+      <span>Авто Радар</span>
     </Link>
   );
 }

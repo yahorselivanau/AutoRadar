@@ -52,14 +52,16 @@ export function GarageView() {
             новые запросы.
           </p>
         </div>
-        <button
-          className="button primary pressable"
-          type="button"
-          onClick={openNew}
-        >
-          <Plus size={18} />
-          Добавить автомобиль
-        </button>
+        {garage.vehicles.length > 0 ? (
+          <button
+            className="button primary pressable"
+            type="button"
+            onClick={openNew}
+          >
+            <Plus size={18} />
+            Добавить автомобиль
+          </button>
+        ) : null}
       </header>
 
       {editorOpen || pendingVin ? (

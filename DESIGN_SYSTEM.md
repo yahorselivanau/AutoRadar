@@ -1,1156 +1,466 @@
-# DESIGN_SYSTEM — AutoRadar
+# DESIGN_SYSTEM — Авто Радар
 
-Статус: **implementation-ready**  
-Версия: **1.0**  
-Дата: **28 июля 2026**  
-Продукт: **AutoRadar** — AI-first агрегатор автозапчастей для Беларуси.
+Статус: **source of truth**
 
-Этот файл является источником истины для визуального языка, UI-компонентов и responsive-поведения. Codex не должен придумывать новые цвета, радиусы, типографические уровни или паттерны без обновления этого документа.
+Версия: **1.2**
 
----
+Дата: **29 июля 2026**
 
-## 1. Дизайн-направление
+Этот файл задаёт визуальный язык и responsive-поведение «Авто Радар». Точные
+значения находятся в `DESIGN_TOKENS.css`. Не добавлять случайные цвета,
+радиусы, тени и типографические уровни без обновления этих двух файлов.
 
-AutoRadar сочетает четыре идеи:
+## 1. Направление
 
-- спокойный, текстоцентричный интерфейс ChatGPT;
-- тёплые бумажные нейтрали и уверенная типографика xAI;
-- мягкие кремовые поверхности и дружелюбные акценты Family;
-- функциональный электрический синий и чёткие состояния Superwhisper.
+> **Тихий content-first AI-инструмент с точным синим сигналом.**
 
-Итоговый характер:
+«Авто Радар» объединяет спокойную композицию современных AI-чатов, мягкие
+нейтральные поверхности и рабочую плотность агрегатора. Интерфейс не должен
+выглядеть как перегруженный каталог, рекламный маркетплейс или игровой AI.
 
-> **Тёплый нейтральный AI-инструмент с точным синим сигналом.**
+Основные принципы:
 
-Интерфейс должен выглядеть современно, профессионально и спокойно. Он не должен напоминать традиционный перегруженный каталог автозапчастей, маркетплейс с десятками баннеров или игровой AI-продукт.
+1. **Сначала задача.** Запрос, уточнение и результат важнее application chrome.
+2. **Progressive disclosure.** На экране только следующий полезный шаг;
+   активность, источники и фильтры раскрываются по запросу.
+3. **Одно сильное действие.** В каждой зоне один визуально доминирующий CTA.
+4. **Воздух, не пустота.** Узкая колонка текста, широкая рабочая выдача.
+5. **Доверие через данные.** Цена, источник, состояние и совместимость
+   читаются раньше декоративных деталей.
+6. **Одна сущность на всех экранах.** Desktop panel превращается в mobile
+   sheet; смысл и состояние не меняются.
 
-### Распределение визуального внимания
+Распределение внимания: около 90% нейтрали и текст, 8% Radar Blue, 2%
+семантические цвета. Цвет не заменяет заголовок, spacing или иконку.
 
-- 85% — тёплые нейтральные поверхности и текст;
-- 10% — Radar Blue для действий, ссылок и активного поиска;
-- 5% — семантические цвета состояний и типов предложений.
+Не переносить из референсов буквально:
 
-Не использовать декоративный цвет там, где смысл можно выразить типографикой, расстоянием или границей.
-
----
+- lifestyle-фото как фон рабочего приложения;
+- чужие логотипы, медицинские сценарии и fashion-serif;
+- чёрный вместо Radar Blue для продуктового CTA;
+- плотную каталожную сетку с постоянной синей заливкой;
+- скрытый chain-of-thought в панели активности.
 
 ## 2. Бренд
 
-### 2.1. Название
+Название и wordmark в интерфейсе — только **Авто Радар**: кириллица, пробел
+между словами, без транслитерации и сокращений. `AutoRadar` допустим только во
+внутренних технических идентификаторах. Тон: спокойный, точный, полезный.
 
-Точное написание:
+Wordmark:
 
-```text
-AutoRadar
-```
+- только текст, без иконки, точки, дуги или automotive-мотива;
+- Inter Variable 650, optical sizing on;
+- 20px на desktop, 18px на mobile, line-height 1;
+- tracking `-0.045em` на desktop и `-0.04em` на mobile;
+- основной цвет `foreground`;
+- одна строка, не переносить и не растягивать;
+- без gradient, glow, chrome и декоративных эффектов.
 
-- одно слово;
-- латиница;
-- заглавные `A` и `R`;
-- не писать `AUTORADAR`, `Auto Radar`, `Autoradar` или `autoRadar`;
-- не добавлять знак `™` в продуктовый интерфейс;
-- в русском тексте название не склонять.
+Логотип-иконка не используется. Единственное исключение — системный favicon:
+Radar Blue Signal `#0A84FF` и белая кириллическая «А».
 
-### 2.2. Логотип
+## 3. Технологическая база
 
-Логотип MVP — **только текстовый wordmark `AutoRadar`**.
-
-```text
-Font: Inter
-Weight: 600
-Tracking: -0.035em
-Color: foreground / white on dark surface
-```
-
-Размеры:
-
-| Контекст               | Размер | Line-height |
-| ---------------------- | -----: | ----------: |
-| Mobile header          |   18px |        22px |
-| Desktop sidebar/header |   20px |        24px |
-| Auth/onboarding        |   24px |        28px |
-
-Правила:
-
-- wordmark всегда расположен горизонтально;
-- не добавлять автомобиль, руль, шестерёнку, лупу, радарную дугу или молнию;
-- не окрашивать отдельные буквы без отдельного решения владельца продукта;
-- минимальная свободная зона вокруг wordmark — 50% высоты заглавной `A`;
-- не растягивать и не использовать контурную версию;
-- favicon/app icon не входит в текущий объём и не должен изобретаться автоматически.
-
----
-
-## 3. Технологическая основа UI
-
-### Обязательно
-
-- Next.js App Router;
-- React 19;
-- Tailwind CSS 4;
-- shadcn/ui с **Base UI** primitives;
-- Inter через `next/font/google`;
+- Next.js App Router, Server Components по умолчанию;
+- Tailwind CSS v4;
+- shadcn/ui для primitives;
 - Lucide icons;
-- Vercel AI SDK;
-- shadcn AI chat components и AI Elements.
+- AI Elements допустим как headless/composition reference;
+- Base UI допустим для сложных drawer/dialog primitives;
+- официальный Inter 4.1 Variable из `rsms/inter`, normal и italic, локально
+  через `next/font/local`; Latin и Cyrillic обязательны, CDN запрещён;
+- light theme only до отдельной продуктовой задачи.
 
-Для нового проекта Base UI является выбранной основой. Инициализация:
+Компоненты сторонних библиотек всегда приводить к токенам AutoRadar.
 
-```bash
-pnpm dlx shadcn@latest init -b base
-```
+## 4. Цвет
 
-В Base UI композиция выполняется через `render`, а не через устаревший `asChild`:
+### Core
 
-```tsx
-<DialogTrigger render={<Button variant="outline" />}>Открыть</DialogTrigger>
-```
+| Role             | Token                       | Value     |
+| ---------------- | --------------------------- | --------- |
+| canvas           | `--ar-canvas`               | `#F8F8F6` |
+| surface          | `--ar-surface`              | `#FFFFFF` |
+| subtle surface   | `--ar-surface-subtle`       | `#F4F4F2` |
+| selected/chip    | `--ar-surface-muted`        | `#ECECEA` |
+| pressed/disabled | `--ar-surface-strong`       | `#E4E3DF` |
+| inverse neutral  | `--ar-surface-inverse`      | `#211E1B` |
+| text             | `--ar-foreground`           | `#211E1B` |
+| secondary text   | `--ar-foreground-secondary` | `#67625D` |
+| muted text       | `--ar-foreground-muted`     | `#756F69` |
+| border           | `--ar-border`               | `#E6E5E2` |
+| strong border    | `--ar-border-strong`        | `#D7D5D1` |
 
-### Chat layer
+### Brand and state
 
-Для нового приложения использовать:
+- Radar Blue `#0A84FF`: focus and active-search signal.
+- Radar Blue Strong `#0072DC`: accessible main CTA with white text.
+- Green: success/available/confirmed.
+- Yellow: clarification/attention.
+- Orange: partial/limited.
+- Red: error/destructive only.
+- Violet: AI-generated signal only when a neutral treatment is insufficient.
 
-**shadcn/ui core chat components**
+Use soft backgrounds for badges; never turn a result list into a rainbow.
+Original/analog/new/used are labels backed by source data, not decoration.
 
-- `MessageScroller` — прокрутка, anchoring, auto-follow;
-- `Message`;
-- `Bubble`;
-- `Attachment`;
-- `Marker` и `shimmer` для потоковых состояний.
+## 5. Typography
 
-**AI Elements — только более высокоуровневые AI-паттерны**
-
-- `PromptInput`;
-- `Suggestion` / `Suggestions`;
-- `Tool`;
-- `Reasoning` — закрытый по умолчанию, если вообще показывается;
-- `Sources` — только для информационных ответов, не как доказательство совместимости;
-- attachment utilities при необходимости.
-
-Не устанавливать одновременно две конкурирующие реализации одного слоя. Core messages/scrolling берутся из актуальных shadcn chat components; AI Elements используется для инструментов и специальных блоков.
-
-### Базовый набор shadcn
-
-```bash
-pnpm dlx shadcn@latest add \
-  button button-group card badge avatar separator skeleton spinner sonner \
-  field input input-group textarea select native-select combobox command \
-  tabs toggle-group tooltip dropdown-menu popover dialog drawer sheet \
-  sidebar scroll-area progress empty item message message-scroller bubble \
-  attachment marker
-
-pnpm dlx shadcn@latest add \
-  @ai-elements/prompt-input \
-  @ai-elements/suggestion \
-  @ai-elements/tool \
-  @ai-elements/reasoning \
-  @ai-elements/sources
-```
-
-Использовать только реально нужные части добавленных компонентов. Код shadcn находится в репозитории и должен адаптироваться под токены AutoRadar, а не оставаться в дефолтном стиле.
-
----
-
-## 4. Цветовая система
-
-### 4.1. Core neutrals
-
-| Token                  | Hex                      | Назначение                          |
-| ---------------------- | ------------------------ | ----------------------------------- |
-| `canvas`               | `#FBFAF8`                | общий фон приложения, тёплая бумага |
-| `surface`              | `#FFFFFF`                | основной чат, карточки, dialog      |
-| `surface-subtle`       | `#F6F4F0`                | sidebar, вторичные панели           |
-| `surface-muted`        | `#F0EDE8`                | hover, выбранные строки, chips      |
-| `foreground`           | `#171717`                | заголовки, основной текст, wordmark |
-| `foreground-secondary` | `#56534F`                | вторичный текст                     |
-| `foreground-muted`     | `#7C7872`                | metadata, placeholder, helper copy  |
-| `foreground-disabled`  | `#A8A39B`                | disabled text/icons                 |
-| `border`               | `#E5E1DA`                | основной hairline border            |
-| `border-strong`        | `#D4CFC6`                | inputs, выделенные границы          |
-| `overlay`              | `rgba(17, 17, 17, 0.48)` | modal/drawer scrim                  |
-
-### 4.2. Brand
-
-| Token                   | Hex       | Назначение                      |
-| ----------------------- | --------- | ------------------------------- |
-| `radar-blue`            | `#0A84FF` | главный брендовый и action-цвет |
-| `radar-blue-hover`      | `#0077E6` | hover primary action            |
-| `radar-blue-active`     | `#0068CC` | pressed state                   |
-| `radar-blue-soft`       | `#EAF4FF` | selected/active background      |
-| `radar-blue-soft-hover` | `#DCEEFF` | hover на soft surface           |
-| `radar-blue-border`     | `#B9DAFF` | border branded soft components  |
-| `radar-blue-foreground` | `#075DAA` | текст на blue-soft              |
-
-`Radar Blue` используется для:
-
-- главной кнопки «Найти» / «Продолжить»;
-- активной ссылки;
-- focus ring;
-- прогресса поиска;
-- активного автомобиля или выбранного режима;
-- verified exact-match indicator;
-- небольших AI/tool call accents.
-
-Не использовать его как большой фон страницы или всех карточек.
-
-### 4.3. Supporting accents
-
-| Token                | Hex       | Назначение                              |
-| -------------------- | --------- | --------------------------------------- |
-| `signal-violet`      | `#7664E8` | новый аналог, AI-assisted tag           |
-| `signal-violet-soft` | `#F0EEFF` | фон violet badge                        |
-| `signal-yellow`      | `#F2BE3E` | предупреждение, ожидание, б/у категория |
-| `signal-yellow-soft` | `#FFF5D8` | фон warning/used badge                  |
-| `signal-green`       | `#1A9B5B` | success, доступно, источник завершён    |
-| `signal-green-soft`  | `#E9F8F0` | success surface                         |
-| `signal-orange`      | `#D97706` | предупреждение о совместимости          |
-| `signal-orange-soft` | `#FFF1E3` | warning surface                         |
-| `signal-red`         | `#D63C4A` | ошибка, destructive action              |
-| `signal-red-soft`    | `#FDECEE` | error surface                           |
-
-### 4.4. Типы предложений
-
-Цвет всегда сопровождается текстом и/или иконкой.
-
-| Тип            | Badge background     | Text/icon               |
-| -------------- | -------------------- | ----------------------- |
-| Новый оригинал | `radar-blue-soft`    | `radar-blue-foreground` |
-| Новый аналог   | `signal-violet-soft` | `#5949C7`               |
-| Б/у оригинал   | `signal-yellow-soft` | `#8A6100`               |
-| Не определено  | `surface-muted`      | `foreground-secondary`  |
-
-### 4.5. Семантические состояния
-
-| Состояние                         | Цвет         |
-| --------------------------------- | ------------ |
-| Success / найдено                 | green        |
-| Running / активный поиск          | blue         |
-| Waiting / queued                  | yellow       |
-| Warning / проверить совместимость | orange       |
-| Failed / ошибка                   | red          |
-| Disabled / источник выключен      | neutral gray |
-
-### 4.6. Правила цвета
-
-- основной текст никогда не синий;
-- цена обычно `foreground`, не green;
-- зелёный означает статус, а не «дешёвая цена»;
-- красный применяется только для ошибки/destructive;
-- акцентные цвета не используются в больших декоративных градиентах;
-- интерфейс не должен становиться разноцветным из-за большого числа badges;
-- не использовать opacity ниже уровня, при котором текст проходит WCAG AA.
-
----
-
-## 5. CSS theme tokens
-
-Полная готовая версия находится в `DESIGN_TOKENS.css`. Семантические shadcn tokens должны ссылаться на AutoRadar palette:
-
-```css
-:root {
-  --background: var(--ar-canvas);
-  --foreground: var(--ar-foreground);
-  --card: var(--ar-surface);
-  --card-foreground: var(--ar-foreground);
-  --popover: var(--ar-surface);
-  --popover-foreground: var(--ar-foreground);
-  --primary: var(--ar-brand);
-  --primary-foreground: #ffffff;
-  --secondary: var(--ar-surface-subtle);
-  --secondary-foreground: var(--ar-foreground);
-  --muted: var(--ar-surface-muted);
-  --muted-foreground: var(--ar-foreground-muted);
-  --accent: var(--ar-brand-soft);
-  --accent-foreground: var(--ar-brand-foreground);
-  --destructive: var(--ar-red);
-  --border: var(--ar-border);
-  --input: var(--ar-border-strong);
-  --ring: var(--ar-brand);
-}
-```
-
-MVP создаётся только в светлой теме. Не реализовывать dark mode, пока это не станет отдельной продуктовой задачей.
-
----
-
-## 6. Типографика
-
-### 6.1. Font family
+Font stack:
 
 ```text
-Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+"Segoe UI", sans-serif
 ```
 
-Использовать Inter через `next/font/google`, variable font:
+Источник: официальный `rsms/inter`, версия 4.1. Используются variable axes
+`wght` 100–900 и `opsz` 14–32. Включены kerning, standard ligatures и
+contextual alternates; `font-optical-sizing: auto`. Не имитировать
+отсутствующие начертания (`font-synthesis: none`).
 
-```tsx
-import { Inter } from "next/font/google";
+| Style   | Mobile / desktop | Weight | Line-height | Use              |
+| ------- | ---------------- | ------ | ----------- | ---------------- |
+| display | 36 / 48          | 600    | 1.04        | onboarding only  |
+| h1      | 28 / 32          | 600    | 1.15        | page title       |
+| h2      | 23 / 26          | 600    | 1.22        | section/dialog   |
+| h3      | 19 / 20          | 600    | 1.30        | card title       |
+| body-lg | 17 / 18          | 400    | 1.55        | chat emphasis    |
+| body    | 16               | 400    | 1.50        | default          |
+| body-sm | 14               | 400    | 1.45        | cards/metadata   |
+| label   | 13               | 500    | 1.35        | labels/badges    |
+| caption | 12               | 400    | 1.40        | helper/timestamp |
+| price   | 20 / 22          | 700    | 1.10        | BYN price        |
 
-export const inter = Inter({
-  subsets: ["latin", "cyrillic"],
-  display: "swap",
-  variable: "--font-inter",
-});
-```
+Rules:
 
-Поддерживаемые веса:
+- text below 12px is forbidden;
+- body 400, интерфейсные labels 500–550, headings 600–650, цены 700;
+- отрицательный tracking допустим только в крупных заголовках и wordmark;
+- headings use `text-wrap: balance`;
+- short paragraphs/descriptions use `text-wrap: pretty`;
+- prose/chat width is 720–760px;
+- price, timers, years, OEM and VIN fragments use tabular numerals;
+- do not turn OEM/VIN into a monospace visual theme;
+- uppercase is reserved for short technical identifiers.
 
-- 400 — основной текст;
-- 500 — labels, navigation, metadata emphasis;
-- 600 — headings, buttons, wordmark;
-- 700 — только цены и единичные сильные показатели.
+## 6. Spacing and layout
 
-### 6.2. Type scale
+Base unit: 4px. Preferred steps: `4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
+Avoid one-off spacing unless required by safe areas or optical alignment.
 
-| Token     | Mobile | Desktop | Line height | Weight | Tracking | Назначение                |
-| --------- | -----: | ------: | ----------: | -----: | -------: | ------------------------- |
-| `display` |   36px |    48px |        1.04 |    600 | -0.045em | marketing/onboarding only |
-| `h1`      |   28px |    32px |        1.15 |    600 | -0.035em | page title                |
-| `h2`      |   23px |    26px |        1.22 |    600 | -0.025em | section/modal title       |
-| `h3`      |   19px |    20px |         1.3 |    600 | -0.018em | card title                |
-| `body-lg` |   17px |    18px |        1.55 |    400 |  -0.01em | welcome/chat emphasis     |
-| `body`    |   16px |    16px |         1.5 |    400 | -0.008em | основной текст            |
-| `body-sm` |   14px |    14px |        1.45 |    400 |        0 | cards/metadata            |
-| `label`   |   13px |    13px |        1.35 |    500 |        0 | labels/badges             |
-| `caption` |   12px |    12px |         1.4 |    400 |   0.01em | timestamps/helper         |
-| `price`   |   20px |    22px |         1.1 |    700 | -0.025em | цена предложения          |
+| Constant           |  Value |
+| ------------------ | -----: |
+| desktop sidebar    |  256px |
+| collapsed sidebar  |   72px |
+| activity panel     |  376px |
+| chat/prose column  |  760px |
+| composer           |  840px |
+| structured results | 1040px |
+| quiet app header   |   56px |
 
-Правила:
+Desktop content starts 48–72px below the header. Mobile horizontal padding is
+20–24px; dense offer cards may use 16px. Composer must reserve bottom
+safe-area and must never cover the last message.
 
-- не использовать текст интерфейса меньше 12px;
-- основной чат — 16px;
-- длинные AI-ответы имеют максимальную ширину 720px;
-- не использовать uppercase для целых labels;
-- tabular numbers включать для цены, года, VIN-фрагментов и артикулов;
-- OEM/VIN показывать с `font-variant-numeric: tabular-nums`, но не переводить весь UI в monospace.
+Breakpoints:
 
----
+- `<768px`: mobile;
+- `768–1279px`: tablet/compact desktop;
+- `≥1280px`: wide desktop with optional side panels.
 
-## 7. Spacing system
+Validate at 360, 390, 430, 768, 1024, 1280 and 1440px.
 
-Базовая единица — 4px.
+## 7. Shape, depth and icons
 
-| Token      | Value |
-| ---------- | ----: |
-| `space-0`  |     0 |
-| `space-1`  |   4px |
-| `space-2`  |   8px |
-| `space-3`  |  12px |
-| `space-4`  |  16px |
-| `space-5`  |  20px |
-| `space-6`  |  24px |
-| `space-8`  |  32px |
-| `space-10` |  40px |
-| `space-12` |  48px |
-| `space-16` |  64px |
-| `space-20` |  80px |
+Radius scale: 6, 8, 12, 16, 20, 24, 30px and full pill.
 
-Применение:
+- controls: 12px;
+- cards: 16–20px;
+- user bubble/sheet: 24px;
+- floating composer/large mobile sheet: 24–30px.
 
-- icon + label: 8px;
-- элементы внутри компактной карточки: 8–12px;
-- card padding mobile: 16px;
-- card padding desktop: 20px;
-- chat message vertical gap: 20px;
-- section gap mobile: 24–32px;
-- section gap desktop: 40–48px;
-- page horizontal padding mobile: 16px;
-- mobile small screen ≤360px: 12px;
-- desktop main padding: 24–32px.
+Nested close surfaces use concentric geometry:
+`outer radius = inner radius + padding`. If padding exceeds 24px, treat the
+layers independently.
 
-Не использовать случайные значения `13px`, `18px`, `22px`, если это не типографика или расчёт безопасной зоны.
+Depth rules:
 
----
+- ordinary content blocks are flat;
+- dividers use hairline borders;
+- cards/buttons use a subtle layered shadow-ring when depth is needed;
+- floating composer, popover and modal are the only common elevated layers;
+- never add heavy shadow to every offer card.
 
-## 8. Shapes, borders and elevation
+Product images use a 1px inset outline of pure black at 10% opacity, not a
+tinted neutral. This keeps white product photos visible without dirty edges.
 
-### 8.1. Radius
+Icons:
 
-| Token         |  Value | Компоненты                         |
-| ------------- | -----: | ---------------------------------- |
-| `radius-xs`   |    6px | compact badge, code/OEM chip       |
-| `radius-sm`   |    8px | icon button, small input           |
-| `radius-md`   |   12px | buttons, fields, menu items        |
-| `radius-lg`   |   16px | cards, chat composer               |
-| `radius-xl`   |   20px | result summary, prominent panels   |
-| `radius-2xl`  |   24px | full result panel, onboarding card |
-| `radius-full` | 9999px | chips, avatar, status pill         |
+- Lucide, 1.75–2px stroke;
+- 16px inline, 18–20px navigation, 20–24px primary actions;
+- icon-only actions need `aria-label`;
+- visually asymmetric arrows/triangles are aligned optically;
+- visible icon may be small, but hit area is 44×44px on touch and 40×40px on
+  dense desktop.
 
-Главный рабочий радиус — 12px. Карточки — 16px. Не смешивать 8, 10, 12 и 14px в одной группе.
+## 8. Motion and interaction
 
-### 8.2. Borders
-
-- стандарт: `1px solid var(--ar-border)`;
-- strong/input: `1px solid var(--ar-border-strong)`;
-- selected: `1px solid var(--ar-brand-border)`;
-- focus: `0 0 0 3px rgba(10,132,255,.22)`;
-- inset hairline допустим для карточек, но не вместе с тяжёлой тенью.
-
-### 8.3. Shadows
-
-Система преимущественно плоская.
-
-| Token       | Value                            | Назначение             |
-| ----------- | -------------------------------- | ---------------------- |
-| `shadow-xs` | `0 1px 2px rgba(23,23,23,.04)`   | input/card subtle      |
-| `shadow-sm` | `0 4px 14px rgba(23,23,23,.06)`  | floating composer/menu |
-| `shadow-md` | `0 18px 48px rgba(23,23,23,.12)` | desktop results dialog |
-
-Не использовать heavy shadows на каждой карточке. Основной способ отделения поверхности — тон, border и spacing.
-
----
-
-## 9. Iconography
-
-- библиотека: Lucide;
-- stroke: 1.75px по умолчанию;
-- размеры: 16, 18, 20, 24px;
-- toolbar: 18px;
-- primary action: 18px;
-- empty state: максимум 32px;
-- иконка всегда сопровождается label или accessible name;
-- не использовать заполненные разноцветные иконки;
-- логотипы сайтов-продавцов показывать только при наличии разрешённого/корректного asset, иначе использовать текстовое имя источника.
-
----
-
-## 10. Motion
-
-| Token         |                      Value |
-| ------------- | -------------------------: |
-| `motion-fast` |                      120ms |
-| `motion-base` |                      180ms |
-| `motion-slow` |                      240ms |
-| easing        | `cubic-bezier(.2,.8,.2,1)` |
-
-Использование:
+Motion explains state; it does not decorate.
 
 - hover/focus: 120ms;
-- menu/popover: 180ms;
+- ordinary state change: 180ms;
 - drawer/dialog: 240ms;
-- появление частичного результата: opacity + translateY 4px, 180ms;
-- progress/shimmer допускается только во время реального ожидания.
+- interactive open/close uses interruptible CSS transitions;
+- exit is shorter and subtler than enter;
+- press feedback is `scale(0.96)`;
+- never use `transition: all`;
+- `will-change` only after observed stutter and only for transform/opacity/filter;
+- contextual icon swaps use opacity `0→1`, scale `.25→1`, blur `4px→0`;
+- dynamic content may enter in 2–3 semantic groups with about 90–100ms stagger;
+- no first-load animation for controls already in their default state;
+- fully support `prefers-reduced-motion`.
 
-Учитывать `prefers-reduced-motion`: отключать shimmer, transform и инерционные декоративные анимации.
+Loading:
 
----
-
-## 11. Responsive foundation
-
-### Breakpoints
-
-| Name    |        Width |
-| ------- | -----------: |
-| mobile  |    `< 768px` |
-| tablet  | `768–1023px` |
-| desktop |   `≥ 1024px` |
-| wide    |   `≥ 1280px` |
-
-Компоненты проектируются сначала для 360–430px. Desktop — расширение мобильной логики, а не отдельный продукт.
-
-### Safe areas
-
-На iOS учитывать:
-
-```css
-padding-bottom: max(12px, env(safe-area-inset-bottom));
-```
-
-Для Base UI Drawer добавить:
-
-```css
-body {
-  position: relative;
-}
-```
-
-Это требуется для корректного overlay на прокрученном iOS Safari.
-
----
-
-## 12. Application shell
-
-### 12.1. Desktop
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ Sidebar 272px │                Main                          │
-│               │                                              │
-│ AutoRadar     │     centered chat column 760–820px           │
-│ New search    │                                              │
-│ Conversations │     messages / structured blocks             │
-│ Garage        │                                              │
-│               │     sticky composer                          │
-│ Account       │                                              │
-└──────────────────────────────────────────────────────────────┘
-```
+- skeleton for unknown layout;
+- spinner for a short action;
+- source progress for federated search;
+- prefer stable dimensions over shifting placeholders.
 
-- sidebar background: `surface-subtle`;
-- sidebar border-right: `border`;
-- width: 272px, collapsible to 72px;
-- main background: `surface`;
-- chat column max-width: 820px;
-- structured results may expand to 1040px inside dialog;
-- main content never прижимается к краям viewport.
+## 9. Application shell
 
-### 12.2. Mobile
-
-```text
-┌────────────────────────────┐
-│ Menu  Active car     User  │ 56px
-├────────────────────────────┤
-│                            │
-│ Chat / cards               │
-│                            │
-│                            │
-├────────────────────────────┤
-│ sticky PromptInput         │
-└────────────────────────────┘
-```
-
-- app header: 56px;
-- active vehicle appears as compact chip or centered selector;
-- conversation fills available height;
-- composer sticky, not fixed over content without reserved space;
-- sidebar becomes Base UI `Drawer` from left;
-- detailed search results become full-screen `Drawer`/page layer;
-- mobile back gesture and visible close button must work;
-- no horizontal table scrolling in primary flow: use cards.
-
----
-
-## 13. Pages
-
-### 13.1. `/chat`
-
-Основной экран.
-
-#### Empty state
-
-- wordmark in header, not duplicated as giant logo;
-- heading: «Что нужно найти?»;
-- helper text: один короткий абзац;
-- 3–4 suggestion chips:
-  - «Найти по номеру детали»;
-  - «Подобрать для моей машины»;
-  - «Добавить автомобиль по VIN»;
-  - пример естественного запроса;
-- PromptInput находится в нижней части доступной зоны и затем становится sticky.
-
-#### Active conversation
-
-- assistant responses are mostly borderless text blocks;
-- user message uses warm neutral bubble;
-- structured data is shown in cards;
-- vehicle context always visible in top bar;
-- AI asks one high-value clarification at a time;
-- buttons/suggestions appear immediately beneath relevant assistant message.
-
-### 13.2. `/garage`
-
-- page title + primary button «Добавить автомобиль»;
-- cards vehicles in one column mobile, two columns desktop;
-- active vehicle visually indicated blue-soft background + check;
-- VIN masked in list: `VF3••••••••1234`;
-- actions через Dropdown Menu;
-- edit opens responsive Dialog/Drawer;
-- empty state offers VIN or manual form.
-
-### 13.3. `/search/[id]`
-
-- deep-linkable and restorable search result;
-- same content as results overlay;
-- progress remains visible while sources complete;
-- filters remain sticky under header;
-- mobile uses cards; desktop may use compact list/table hybrid;
-- external source opens in a new tab.
-
-### 13.4. Auth
-
-- минимальная centered card;
-- wordmark;
-- no marketing illustration;
-- social/email actions if implemented;
-- registration is not shown before the first search unless user wants garage/history.
-
----
-
-## 14. Chat UI specification
-
-### 14.1. Message layout
-
-#### Assistant
-
-- no colored avatar required;
-- no persistent bubble for ordinary prose;
-- max width 720px;
-- text `body`;
-- structured cards may span full chat column;
-- source/tool metadata visually secondary.
-
-#### User
-
-- background: `surface-muted`;
-- border: optional hairline;
-- radius: 16px 16px 4px 16px;
-- max width: 82% mobile, 72% desktop;
-- padding: 10px 14px;
-- aligned right.
-
-### 14.2. PromptInput
-
-- based on AI Elements `PromptInput`, restyled;
-- background: white;
-- border: `border-strong`;
-- radius: 18px;
-- shadow: `shadow-sm`;
-- min height: 52px collapsed;
-- textarea auto-grow: max 160px mobile / 220px desktop;
-- submit button: 36×36px blue circle/squircle;
-- microphone: secondary icon button;
-- attachment button is hidden until feature exists;
-- keyboard shortcut shown only desktop;
-- Enter sends, Shift+Enter newline;
-- while AI is responding, submit becomes stop action.
-
-### 14.3. Suggestions
-
-- use AI Elements `Suggestions` as horizontally wrapping chips;
-- radius full;
-- border hairline;
-- white or surface-subtle background;
-- selected uses blue-soft;
-- minimum height 36px;
-- never show more than four primary options at once;
-- always allow free text.
+### Desktop
 
-### 14.4. Vehicle context bar
+- sidebar uses `surface-subtle`, active row uses `surface-muted`;
+- sidebar is quiet: one primary «Новый поиск» action, garage/history below;
+- header is borderless until content scrolls under it;
+- conversation stays in the 760px column;
+- composer may be wider at 840px;
+- activity/sources may open in a 376px right panel;
+- structured comparison may expand to 1040px.
 
-Desktop:
+### Mobile
 
-```text
-[Peugeot icon] Peugeot 308 · 2008 · 1.6 · 3 двери    [Сменить]
-```
-
-Mobile:
-
-```text
-[Peugeot 308 · 2008 ▾]
-```
+- compact 56px header with menu, wordmark and active vehicle;
+- navigation is a drawer `min(88vw, 360px)` with scrim;
+- composer floats 16–20px from the sides;
+- activity, sources, auth and filters use bottom/full-height sheets;
+- sheets have a visible close action; grabber is supplementary, not the only
+  dismissal control;
+- primary content never relies on horizontal tables.
 
-Specs:
+Opening drawer, activity, results or auth preserves chat content, scroll,
+composer draft, active vehicle and focus return target.
 
-- height: 40px compact / 48px expanded;
-- neutral surface by default;
-- blue-soft when active in a search;
-- incomplete vehicle gets amber dot + «Нужно уточнить»;
-- full VIN never shown in bar.
-
-### 14.5. Extracted request card
+## 10. Core product compositions
 
-AI must show what it understood before expensive search when confidence is insufficient.
+### Chat
 
-Fields:
+Empty state:
 
-- автомобиль;
-- деталь;
-- положение;
-- сторона;
-- OEM/VIN if provided;
-- desired condition.
-
-Each field:
+- short title and one sentence;
+- composer is the visual anchor;
+- 3–4 example prompts maximum;
+- optional entry modes: description, OEM, VIN, vehicle;
+- no decorative dashboard cards.
 
-- label 12–13px muted;
-- value 14–16px medium;
-- edit icon button;
-- unknown field displays «Не указано», not invented value.
-
-Primary action: «Искать».  
-Secondary: «Изменить».
+Assistant message:
 
-### 14.6. Search progress card
+- ordinary prose has no avatar or persistent bubble;
+- tool/source metadata is muted and collapsible;
+- structured content may use cards across the chat column.
 
-- background white;
-- border hairline;
-- radius 16px;
-- progress bar blue;
-- list of sources collapsible on mobile;
-- each source row shows status icon, name and found count;
-- errors use human language;
-- no technical stack traces;
-- partial results button appears immediately after first offers.
+User message:
 
-Source statuses:
+- right aligned;
+- `surface-muted`;
+- radius `24px 24px 6px 24px`;
+- max width 82% mobile / 72% desktop.
 
-- queued — neutral dot;
-- searching — blue spinner/shimmer;
-- completed — green check;
-- empty — neutral minus;
-- timeout — amber clock;
-- failed — red warning;
-- disabled — muted.
+### Floating composer
 
-### 14.7. Result summary card
+- white surface, quiet shadow-ring, radius 26–30px;
+- collapsed height at least 64px;
+- textarea auto-grows to 160px mobile / 220px desktop;
+- secondary tools live in the lower toolbar row;
+- send is a 40×40px Radar Blue Strong circle; empty/disabled is neutral;
+- Enter sends, Shift+Enter adds newline;
+- while responding, send becomes stop;
+- attachment control is absent until the feature exists.
 
-Three compact sections:
+### Request confirmation
 
-- Новый оригинал;
-- Новый аналог;
-- Б/у оригинал.
+Show only extracted fields that affect search:
 
-Each section:
+- vehicle;
+- part and OEM;
+- side/position;
+- condition and other verified constraints.
 
-- semantic badge;
-- number of offers;
-- minimum price;
-- primary delivery/availability summary;
-- chevron/open action.
+Each field is editable. Unknown stays unknown. One button starts search.
+Clarifications use 2–5 large chips/buttons; never bury a critical choice in
+assistant prose.
 
-On mobile sections stack. On desktop they may form three equal columns.
+### Search activity and sources
 
----
+Activity is user-safe operational status, never private reasoning:
 
-## 15. Search results experience
+- normalized request;
+- source queued/running/completed/empty/timeout/failed;
+- result count and elapsed time;
+- final partial/completed state.
 
-### 15.1. Responsive container
+Desktop: closable 376px right panel.
 
-Use one responsive component:
+Tablet: large drawer/dialog.
 
-- `<768px`: Base UI Drawer, full-height, swipe direction down only for closing;
-- `≥768px`: Dialog, width `min(1120px, calc(100vw - 48px))`, height up to `calc(100vh - 48px)`;
-- preserve chat state and scroll;
-- URL may update to `/search/[id]` without full navigation;
-- closing returns focus to the button that opened results.
+Mobile: bottom sheet up to 88dvh with sticky title and 52px source rows.
 
-### 15.2. Header
+### Results
 
-- title: normalized part name;
-- vehicle subtitle;
-- result count and refreshed time;
-- close button always visible;
-- `Обновить` is secondary and rate-limited;
-- mobile header sticky.
+Chat first shows a compact summary: counts, price range, partial failures and
+one «Открыть результаты» action.
 
-### 15.3. Filters
+Full results:
 
-Initial filters:
+- mobile: full-screen layer/cards;
+- tablet: large drawer/dialog;
+- wide desktop: structured workspace up to 1040px;
+- preserves chat and returns to the same scroll position;
+- filters become wrapping chips + sheet, never a permanent mobile rail.
 
-- Все;
-- Новый оригинал;
-- Новый аналог;
-- Б/у;
-- В наличии;
-- Город;
-- цена.
+Offer card information order:
 
-Use Tabs for the main four categories and Popover/Drawer filters for secondary criteria. Do not render a desktop-style left filter rail on mobile.
+1. image and title;
+2. price in BYN;
+3. source/seller and availability;
+4. condition, original/analog and match confidence only when evidenced;
+5. OEM/article and delivery/location;
+6. compatibility warning;
+7. one external action naming the source.
 
-### 15.4. Offer card
+Mobile cards stack. Desktop uses 2–3 columns or a dense list; never shrink
+cards merely to imitate a four-column marketplace. A source failure does not
+hide other offers. Partial results are explicit.
 
-Order of information:
+### Garage and auth
 
-1. classification badge;
-2. brand and normalized title;
-3. price;
-4. part/OEM number;
-5. availability/delivery/location;
-6. seller/source;
-7. compatibility note;
-8. external CTA.
+Garage list shows vehicle name, make/model/year, masked VIN, active state and
+edit action. Full VIN is never a decorative identifier.
 
-#### Mobile
+Search starts without registration. Let a guest complete several real searches
+before showing quota pressure. Warn softly when two searches remain; at the
+limit keep history and results readable and ask for account only in the area
+where the next new search is blocked. Account is also offered for
+saving/syncing:
 
-- one-column card;
-- padding 16px;
-- price visible without scrolling;
-- CTA full-width or strongly visible;
-- card image optional and small; absence must not break layout.
+- desktop dialog 480–560px;
+- mobile bottom/full-height sheet;
+- filled neutral fields;
+- helper/legal copy stays near the submit action;
+- disabled action until valid;
+- visible close and «Продолжить без входа» when policy allows.
+- quota copy states exactly what remains available and never disguises the
+  limit as a technical error.
 
-#### Desktop
+## 11. Component rules
 
-- compact horizontal row/card;
-- left: title/number;
-- middle: availability/seller;
-- right: price + CTA;
-- no dense legacy HTML table by default.
+Buttons:
 
-External CTA:
+- primary: Radar Blue Strong fill, white text;
+- neutral strong: `surface-inverse`, only for shell/local navigation actions;
+- secondary: `surface-muted`;
+- outline: shadow-ring or quiet border;
+- ghost: no background until hover;
+- destructive: red only after destructive intent;
+- text labels use verbs; disabled state must not look active.
 
-- label: «На сайт продавца»;
-- external-link icon;
-- primary blue only for best/recommended exact match; others may use outline to avoid ten blue buttons on screen;
-- never hide actual source domain/name.
+Inputs:
 
-### 15.5. Compatibility warning
+- minimum 44px high;
+- neutral filled surface for low-risk forms;
+- explicit border/focus ring for editable search constraints;
+- errors use text + icon, not color alone;
+- labels remain visible when value is present.
 
-If compatibility is not verified:
+Cards:
 
-- orange-soft surface;
-- icon `TriangleAlert`;
-- text:
-
-> Совместимость не подтверждена каталогом. Перед покупкой проверьте деталь по VIN у продавца.
-
-Do not use a blocking modal.
-
----
-
-## 16. Components
-
-### 16.1. Button
-
-Base radius: 12px. Height includes touch target.
-
-| Size   |  Height | Padding |      Text |
-| ------ | ------: | ------: | --------: |
-| `sm`   |    36px |    12px |  13px/600 |
-| `md`   |    40px |    16px |  14px/600 |
-| `lg`   |    48px |    20px |  15px/600 |
-| `icon` | 40×40px |       — | 18px icon |
-
-Variants:
-
-#### Primary
-
-- blue background;
-- white text;
-- hover blue-hover;
-- active blue-active;
-- focus blue ring;
-- disabled 45% opacity, no pointer events.
-
-#### Secondary
-
-- surface-subtle;
-- foreground;
-- border transparent;
-- hover surface-muted.
-
-#### Outline
-
-- white background;
-- border;
-- hover surface-subtle;
-
-#### Ghost
-
-- transparent;
-- hover surface-muted;
-- used for toolbar/navigation only.
-
-#### Destructive
-
-- red background;
-- white text;
-- only destructive confirmation.
-
-#### Link
-
-- blue text;
-- no background;
-- underline on hover/focus.
-
-Loading state preserves width and uses Spinner. Do not replace label with three bouncing dots.
-
-### 16.2. Input / Textarea
-
-- height 44px;
-- radius 12px;
-- white background;
-- 1px border-strong;
-- placeholder muted;
-- focus blue ring;
-- error red border + visible error text;
-- disabled muted background;
-- labels use shadcn `Field` components;
-- no floating labels.
-
-VIN/OEM inputs:
-
-- uppercase transformation only visually or during normalization;
-- tabular numerals;
-- paste preserved;
-- clear button optional;
-- validation does not erase original input.
-
-### 16.3. Select / Combobox
-
-Use:
-
-- Native Select for short, stable mobile lists when appropriate;
-- Combobox for make/model/generation/engine;
-- Command for searchable large lists;
-- items minimum 44px high;
-- selected item includes check;
-- no nested modal inside Drawer unless focus behavior is tested.
-
-### 16.4. Badge
-
-- height 24–28px;
-- radius full;
-- 12–13px/500;
-- no all-caps;
-- semantic variants from color system;
-- outline badge for source names;
-- maximum two badges in offer-card title row; overflow moves to metadata.
-
-### 16.5. Card
-
-Base:
-
-- white;
-- 1px border;
-- 16px radius;
+- 16–20px radius;
+- 16px padding mobile, 20px desktop;
 - no shadow by default;
-- hover shadow only if card is clickable;
-- padding 16px mobile / 20px desktop.
+- hover elevation only when the whole card is clickable.
 
-Clickable card must also have keyboard focus and explicit accessible role/link.
+Badges:
 
-### 16.6. Tooltip
+- one line, 12–13px, semibold;
+- semantic soft fill;
+- no more than 2–3 prominent badges per card.
 
-- dark foreground background;
-- white text;
-- 12px;
-- radius 8px;
-- desktop pointer only;
-- never place critical information only in Tooltip.
+Dialogs/sheets:
 
-### 16.7. Toast
+- title, description, scrollable content, clear actions;
+- close is always visible;
+- destructive confirmation names the object and consequence.
 
-Use Sonner:
+Toasts:
 
-- success: saved garage vehicle;
-- error: action failed;
-- external transition not required;
-- search progress is never communicated only by toast;
-- maximum one visible routine toast stack.
+- for completed background actions, not validation;
+- concise and dismissible;
+- never the only place where an error is explained.
 
-### 16.8. Empty state
+## 12. Accessibility and content
 
-- simple monochrome icon;
-- heading 18–20px;
-- body 14–16px;
-- one primary and optional secondary action;
-- no stock illustration;
-- optional tiny blue accent line/dot, not a gradient hero.
+- WCAG AA contrast;
+- keyboard access and visible Radar Blue focus ring;
+- semantic buttons/links/labels before ARIA patches;
+- touch targets 44×44px;
+- focus trap and focus restoration for dialog/drawer/sheet;
+- Escape closes non-destructive overlays;
+- loading/status updates use appropriate live regions;
+- color is never the only status signal;
+- Russian UI is primary; allow long words/OEM to wrap or truncate with copy;
+- external action names the source: «Открыть на Motorland»;
+- compatibility copy is factual: «Совместимость не подтверждена источником»;
+- never say «точно подходит» without source evidence.
 
-### 16.9. Skeleton
+## 13. Rules for Codex
 
-Skeleton must mirror final component shape. Use neutral warm gray. Avoid full-page shimmer longer than necessary. Search progress should use real statuses as soon as available.
+Before UI work:
 
----
+1. read this file and `DESIGN_TOKENS.css`;
+2. reuse an existing component/composition;
+3. use semantic tokens, not raw palette values;
+4. implement loading, empty, error and partial states;
+5. verify mobile and desktop;
+6. preserve chat/search state across overlays;
+7. add or update at least one relevant test.
 
-## 17. Navigation
+Forbidden:
 
-### Desktop sidebar
+- unapproved gradients, glassmorphism, glow and heavy shadows;
+- blue fills on large content areas;
+- random radii/spacing/type sizes;
+- generic «Подробнее» when the destination can be named;
+- hover-only essential actions;
+- full VIN in logs or ordinary list UI;
+- animation that blocks input or ignores reduced motion;
+- `transition: all`;
+- fabricated compatibility, OEM, condition or original/analog status.
 
-- use shadcn Sidebar;
-- wordmark at top;
-- primary `Новый поиск` action;
-- groups: conversations, garage;
-- conversation rows have one-line title + optional muted preview;
-- active row uses surface-muted, not a strong blue block;
-- icons 18px;
-- account menu at bottom;
-- sidebar supports keyboard shortcut and collapse.
+## 14. Definition of Done
 
-### Mobile navigation
+- responsive at the required widths;
+- keyboard and touch flows work;
+- long Russian text and OEM do not overflow;
+- prices/timers do not shift;
+- composer does not cover content or keyboard;
+- overlays preserve chat, draft, scroll and focus;
+- same activity information exists in desktop panel and mobile sheet;
+- every offer shows source before external transition;
+- loading, empty, error and partial states are tested;
+- reduced motion works;
+- no secret or full VIN is exposed.
 
-- menu button opens Drawer;
-- recent conversations and garage inside same drawer;
-- wordmark in drawer header;
-- drawer width `min(88vw, 340px)`;
-- overlay required;
-- selected vehicle can be changed without opening full garage.
-
----
-
-## 18. Voice input
-
-MVP visual behavior:
-
-- microphone button in PromptInput;
-- idle: neutral icon;
-- listening: blue-soft surface + blue icon + timer/label;
-- processing: spinner and «Распознаю…»;
-- transcript is placed into editable textarea before send unless user enables auto-send later;
-- recording state must have an obvious stop button;
-- no cinematic waveform required for MVP;
-- never rely on color alone to indicate recording.
-
----
-
-## 19. Accessibility
-
-- WCAG 2.2 AA target;
-- touch targets at least 44×44px;
-- visible focus on every interactive element;
-- keyboard navigation in Dialog, Drawer, Menu, Combobox and Sidebar;
-- `aria-live="polite"` for search progress and new partial results;
-- loading indicators have text alternatives;
-- focus returns to trigger after overlays close;
-- no critical status represented only by color;
-- error copy is adjacent to field;
-- animated content respects reduced motion;
-- mobile zoom must not be disabled;
-- input font size minimum 16px on mobile to prevent iOS zoom.
-
-Base UI primitives already provide accessibility foundations, but Codex must test final composition, labels, portals and focus order.
-
----
-
-## 20. Content style
-
-Основной язык MVP — русский.
-
-Тон:
-
-- спокойный;
-- компетентный;
-- короткий;
-- без чрезмерной уверенности;
-- без канцелярита;
-- без автомобильного жаргона, если пользователь его не использует.
-
-Предпочтительно:
-
-- «Нашёл 18 предложений»;
-- «Уточните сторону»;
-- «Проверить совместимость у продавца»;
-- «Источник не ответил, остальные результаты доступны».
-
-Не использовать:
-
-- «Идеально подходит» без подтверждения;
-- «100% совместимо»;
-- «Мы нашли лучший товар» без прозрачных критериев;
-- технические слова `scraper`, `adapter timeout`, `job failed` в пользовательском UI.
-
----
-
-## 21. Design rules for Codex
-
-### Обязательно
-
-- использовать только semantic tokens;
-- не писать hex напрямую в компонентах;
-- использовать `cn()` и variants, а не копировать длинные className между файлами;
-- адаптировать shadcn code в `packages/ui`;
-- использовать Base UI versions;
-- использовать `render` composition;
-- применять `data-slot` и `data-*` states для styling;
-- mobile layout проверять при 360, 390 и 430px;
-- desktop проверять при 1024, 1280 и 1440px;
-- сохранять состояние чата при открытии results overlay;
-- все loading/empty/error/partial states реализовывать до отметки feature done.
-
-### Запрещено
-
-- создавать новый цвет без добавления token;
-- добавлять градиенты в основной продуктовый интерфейс;
-- использовать blur/glassmorphism как основной surface style;
-- использовать heavy shadow на каждой карточке;
-- делать все кнопки pill;
-- смешивать Radix и Base UI реализации одного компонента;
-- использовать `asChild` в новой Base UI реализации;
-- строить mobile results как широкую таблицу;
-- придумывать визуальный логотип или mascot;
-- добавлять dark mode в MVP;
-- копировать брендовый UI ChatGPT/xAI/Superwhisper один в один.
-
----
-
-## 22. Component ownership
-
-```text
-packages/ui/
-├── components/ui/            # shadcn/Base UI primitives, themed
-├── components/ai/            # adapted shadcn chat + AI Elements
-├── components/brand/         # AutoRadarWordmark only
-├── components/chat/          # product compositions
-├── components/garage/        # product compositions
-├── components/search/        # product compositions
-├── styles/design-tokens.css
-└── lib/variants.ts
-```
-
-Primitive components may be edited. Product-specific components must not be placed inside `components/ui`.
-
----
-
-## 23. Recommended product compositions
-
-| Product component      | Building blocks                          |
-| ---------------------- | ---------------------------------------- |
-| `AutoRadarWordmark`    | text + Inter                             |
-| `AppSidebar`           | Sidebar, ScrollArea, DropdownMenu        |
-| `MobileNavigation`     | Drawer, Button, Separator                |
-| `VehicleContextBar`    | Button, Badge, Popover/Drawer            |
-| `ChatThread`           | MessageScroller, Message, Bubble, Marker |
-| `ChatComposer`         | AI Elements PromptInput, Button, Tooltip |
-| `ClarificationCard`    | Card, Suggestions, ButtonGroup           |
-| `ExtractedRequestCard` | Card, Item, Badge, Button                |
-| `SearchProgressCard`   | Card, Progress, Collapsible, Spinner     |
-| `SearchResultSummary`  | Card, Tabs, Badge                        |
-| `SearchResultsOverlay` | responsive Dialog/Drawer                 |
-| `OfferCard`            | Card/Item, Badge, Button, Separator      |
-| `CompatibilityWarning` | Alert-style composition                  |
-| `VehicleEditor`        | Field, Combobox, Input, Select           |
-| `GarageCard`           | Card, Badge, DropdownMenu                |
-
----
-
-## 24. QA checklist
-
-Перед merge UI-задачи проверить:
-
-- [ ] используется Inter;
-- [ ] wordmark написан `AutoRadar`;
-- [ ] нет hardcoded non-token colors;
-- [ ] Base UI component selected;
-- [ ] mobile-first at 360px;
-- [ ] touch targets ≥44px;
-- [ ] keyboard focus visible;
-- [ ] loading state;
-- [ ] empty state;
-- [ ] error state;
-- [ ] partial search state;
-- [ ] long Russian text does not overflow;
-- [ ] long OEM/VIN wraps or truncates safely with copy action;
-- [ ] price aligns using tabular numbers;
-- [ ] results overlay preserves chat;
-- [ ] no horizontal page scroll;
-- [ ] full VIN absent from logs and ordinary list UI;
-- [ ] source is visible before external transition;
-- [ ] reduced motion supported.
-
----
-
-## 25. Reference synthesis
-
-Использованные референсы:
-
-- ChatGPT — compact chat shell, white conversation surface, restrained grayscale and hairline separation;
-- xAI — warm cream surfaces, confident near-black ink, generous but controlled hierarchy;
-- Family — warm paper background, inset borders, friendly accent semantics and Inter utility typography;
-- Superwhisper — Inter throughout, precise electric blue and restrained accent palette.
-
-AutoRadar intentionally не перенимает:
-
-- полностью ахроматический интерфейс ChatGPT;
-- крупную маркетинговую типографику xAI;
-- мультяшные иллюстрации Family;
-- тёмный cinematic/aurora интерфейс Superwhisper.
-
-### Official implementation references
-
-- shadcn/ui Base UI default and changelog: `https://ui.shadcn.com/docs/changelog/2026-07-base-ui-default`
-- shadcn chat components: `https://ui.shadcn.com/docs/changelog/2026-06-chat-components`
-- shadcn components: `https://ui.shadcn.com/docs/components`
-- shadcn CLI: `https://ui.shadcn.com/docs/cli`
-- Base UI quick start: `https://base-ui.com/react/overview/quick-start`
-- Base UI accessibility: `https://base-ui.com/react/overview/accessibility`
-- AI Elements: `https://elements.ai-sdk.dev/docs`
-- AI Elements setup: `https://elements.ai-sdk.dev/docs/setup`
+Reference rationale is kept in `docs/DESIGN_NOTES.md`; implementation values
+are kept in `DESIGN_TOKENS.css`.

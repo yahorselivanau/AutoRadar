@@ -5,13 +5,14 @@ import {
   Menu,
   MessageCirclePlus,
   PanelLeftClose,
+  PanelLeftOpen,
   UserRound,
   Warehouse,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useGarage } from "@/lib/garage-store";
 
@@ -22,12 +23,31 @@ export function AppShell({
 }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [recentConversations, setRecentConversations] = useState<
+    Array<{ id: string; title: string }>
+  >([]);
   const { garage, activeVehicle } = useGarage();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/conversations", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then(
+        (
+          payload: {
+            conversations?: Array<{ id: string; title: string }>;
+          } | null,
+        ) => setRecentConversations(payload?.conversations?.slice(0, 6) ?? []),
+      )
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [pathname]);
 
   const closeDrawer = () => setDrawerOpen(false);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className={`sidebar ${drawerOpen ? "sidebar-open" : ""}`}>
         <div className="sidebar-top">
           <Wordmark />
@@ -42,9 +62,19 @@ export function AppShell({
           <button
             className="icon-button pressable desktop-only"
             type="button"
-            aria-label="Свернуть боковую панель"
+            aria-label={
+              sidebarCollapsed
+                ? "Развернуть боковую панель"
+                : "Свернуть боковую панель"
+            }
+            aria-expanded={!sidebarCollapsed}
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
           >
-            <PanelLeftClose size={19} />
+            {sidebarCollapsed ? (
+              <PanelLeftOpen size={19} />
+            ) : (
+              <PanelLeftClose size={19} />
+            )}
           </button>
         </div>
 
@@ -54,7 +84,7 @@ export function AppShell({
           onClick={closeDrawer}
         >
           <MessageCirclePlus size={18} />
-          Новый поиск
+          <span>Новый поиск</span>
         </Link>
 
         <nav className="sidebar-nav" aria-label="Основная навигация">
@@ -65,20 +95,33 @@ export function AppShell({
             onClick={closeDrawer}
           >
             <Warehouse size={18} />
-            Мой гараж
+            <span>Мой гараж</span>
             <span className="nav-count">{garage.vehicles.length}</span>
           </Link>
 
           <p className="nav-label recent-label">Недавние запросы</p>
-          <p className="sidebar-empty">
-            Реальные запросы появятся здесь после подключения истории.
-          </p>
+          {recentConversations.length > 0 ? (
+            recentConversations.map((conversation) => (
+              <Link
+                className={`nav-item ${
+                  pathname === `/chat/${conversation.id}` ? "active" : ""
+                }`}
+                href={`/chat/${conversation.id}`}
+                key={conversation.id}
+                onClick={closeDrawer}
+              >
+                <span>{conversation.title}</span>
+              </Link>
+            ))
+          ) : (
+            <p className="sidebar-empty">История диалогов пока пуста.</p>
+          )}
         </nav>
 
         <div className="sidebar-footer">
           <button className="footer-link pressable" type="button">
             <CircleHelp size={18} />
-            Помощь
+            <span>Помощь</span>
           </button>
           <Link className="account-row pressable" href="/auth/sign-in">
             <span className="account-avatar">
@@ -111,11 +154,14 @@ export function AppShell({
           >
             <Menu size={21} />
           </button>
-          <Link className="vehicle-chip pressable" href="/garage">
-            {activeVehicle
-              ? `${activeVehicle.make} ${activeVehicle.model} · ${activeVehicle.year}`
-              : "Выбрать автомобиль"}
-          </Link>
+          <div className="mobile-header-center">
+            <Wordmark />
+            <Link className="mobile-vehicle-link" href="/garage">
+              {activeVehicle
+                ? `${activeVehicle.make} ${activeVehicle.model} · ${activeVehicle.year}`
+                : "Выбрать автомобиль"}
+            </Link>
+          </div>
           <Link
             className="icon-button pressable"
             href="/auth/sign-in"

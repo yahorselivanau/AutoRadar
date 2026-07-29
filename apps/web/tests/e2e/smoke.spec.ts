@@ -1,303 +1,242 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
-test("guest can search real sources from the AI confirmation card", async ({
-  page,
-}) => {
-  await page.route("**/api/ai/parse-part-request", async (route) => {
+const conversationId = "29c8c193-e65c-4a87-bbc3-69bff51cfe69";
+
+function sse(chunks: object[]): string {
+  return [
+    ...chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`),
+    "data: [DONE]\n\n",
+  ].join("");
+}
+
+async function mockConversation(page: Page, searchesUsed = 0) {
+  await page.route("**/api/conversations", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        contentType: "application/json",
+        status: 201,
+        body: JSON.stringify({
+          id: conversationId,
+          messages: [],
+          state: {},
+          guestUsage: {
+            conversationsUsed: 1,
+            conversationsLimit: 3,
+            searchesUsed,
+            searchesLimit: 5,
+            resetsAt: "2026-07-30T12:00:00.000Z",
+          },
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ conversations: [] }),
+    });
+  });
+  await page.route(`**/api/conversations/${conversationId}`, async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        extraction: {
-          summary: "Распознан артикул 7700274177.",
-          partName: "Масляный фильтр",
-          rawPartNumber: "7700274177",
-          normalizedPartNumber: "7700274177",
-          vehicle: {
-            make: null,
-            model: null,
-            year: null,
-            generation: null,
-            body: null,
-            engine: null,
-            transmission: null,
-            doors: null,
-          },
-          side: "unknown",
-          position: "unknown",
-          condition: "any",
-          constraints: [],
-          needsClarification: false,
-          clarificationQuestion: null,
+        id: conversationId,
+        title: "Новый поиск",
+        messages: [],
+        state: {},
+        guestUsage: {
+          conversationsUsed: 1,
+          conversationsLimit: 3,
+          searchesUsed,
+          searchesLimit: 5,
+          resetsAt: "2026-07-30T12:00:00.000Z",
         },
       }),
     });
   });
-  await page.route("**/api/search/zap", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        method: "html",
-        offers: [
+}
+
+test("agent keeps the draft, searches explicitly and answers a follow-up without another search", async ({
+  page,
+}) => {
+  await mockConversation(page);
+  let chatCalls = 0;
+  await page.route("**/api/chat", async (route) => {
+    chatCalls += 1;
+    if (chatCalls === 1) {
+      const request = {
+        query: "7700274177",
+        locale: "ru-BY",
+        currency: "BYN",
+        part: {
+          name: "Масляный фильтр",
+          side: "unknown",
+          position: "unknown",
+          condition: "any",
+          rawPartNumber: "7700274177",
+          normalizedPartNumber: "7700274177",
+          constraints: [],
+        },
+      };
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "x-vercel-ai-ui-message-stream": "v1",
+        },
+        body: sse([
+          { type: "start", messageId: "assistant-1" },
+          { type: "start-step" },
           {
-            sourceId: "zap",
-            externalId: "renault/7700274177",
-            externalUrl: "https://zap.by/oem/7700274177",
-            title: "7700274177 - Масляный фильтр",
-            brand: "RENAULT",
-            rawPartNumber: "7700274177",
-            normalizedPartNumber: "7700274177",
-            oemNumbers: [],
-            condition: "unknown",
-            partKind: "unknown",
-            currency: "BYN",
-            sellerName: "Zap.by",
-            fetchedAt: "2026-07-28T20:00:00.000Z",
-            rawPayloadHash: "0".repeat(64),
+            type: "tool-input-available",
+            toolCallId: "draft-1",
+            toolName: "update_search_draft",
+            input: request,
           },
-        ],
-      }),
-    });
-  });
-  await page.route("**/api/search/motorland", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        method: "html",
-        offers: [
           {
-            sourceId: "motorland",
-            externalId: "21361901",
-            externalUrl:
-              "https://motorland.by/auto-parts/bmw/3/f30/kapot/sku-21361901/",
-            title: "Капот BMW 3 F30",
-            brand: "BMW",
-            rawPartNumber: "21361901",
-            normalizedPartNumber: "21361901",
-            oemNumbers: [],
-            condition: "used",
-            partKind: "unknown",
-            priceAmount: "725",
-            priceSource: "data_attribute",
-            currency: "BYN",
-            sellerName: "Motorland.by",
-            matchStatus: "possible",
-            fetchedAt: "2026-07-29T20:00:00.000Z",
-            rawPayloadHash: "1".repeat(64),
+            type: "tool-output-available",
+            toolCallId: "draft-1",
+            output: { kind: "search_draft", request },
           },
-        ],
-      }),
-    });
-  });
-  await page.route("**/api/search/auto1", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        method: "html",
-        offers: [
+          { type: "finish-step" },
+          { type: "text-start", id: "text-1" },
+          {
+            type: "text-delta",
+            id: "text-1",
+            delta: "Артикул распознан. Можно запускать поиск.",
+          },
+          { type: "text-end", id: "text-1" },
+          { type: "finish" },
+        ]),
+      });
+      return;
+    }
+
+    if (chatCalls === 2) {
+      const offer = {
+        sourceId: "auto1",
+        externalId: "315677",
+        externalUrl: "https://auto1.by/avtozapchasti/dvigatel/315677",
+        title: "RENAULT 7700274177 Масляный фильтр",
+        brand: "RENAULT",
+        rawPartNumber: "7700274177",
+        normalizedPartNumber: "7700274177",
+        oemNumbers: [],
+        condition: "new",
+        partKind: "unknown",
+        priceAmount: "10.45",
+        currency: "BYN",
+        availability: "В наличии",
+        fetchedAt: "2026-07-29T20:00:00.000Z",
+        rawPayloadHash: "3".repeat(64),
+      };
+      const output = {
+        kind: "search_result",
+        jobId: "98b65b68-d59d-4ba0-b6b9-e3c064512a30",
+        status: "completed",
+        offers: [offer],
+        sources: [
           {
             sourceId: "auto1",
-            externalId: "315677",
-            externalUrl: "https://auto1.by/avtozapchasti/dvigatel/315677",
-            title: "RENAULT 7700274177 Масляный фильтр",
-            brand: "RENAULT",
-            rawPartNumber: "7700274177",
-            normalizedPartNumber: "7700274177",
-            oemNumbers: [],
-            condition: "new",
-            partKind: "unknown",
-            priceAmount: "10.45",
-            priceSource: "microdata",
-            currency: "BYN",
-            availability: "В наличии",
-            sellerName: "Auto1.by",
-            matchStatus: "possible",
-            fetchedAt: "2026-07-29T20:00:00.000Z",
-            rawPayloadHash: "3".repeat(64),
+            status: "completed",
+            offerCount: 1,
+            durationMs: 120,
+            errorMessage: null,
           },
         ],
-      }),
+        clarification: null,
+      };
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "x-vercel-ai-ui-message-stream": "v1",
+        },
+        body: sse([
+          { type: "start", messageId: "assistant-2" },
+          { type: "start-step" },
+          {
+            type: "tool-input-available",
+            toolCallId: "search-1",
+            toolName: "start_parts_search",
+            input: {},
+          },
+          {
+            type: "tool-output-available",
+            toolCallId: "search-1",
+            output,
+          },
+          { type: "finish-step" },
+          { type: "text-start", id: "text-2" },
+          {
+            type: "text-delta",
+            id: "text-2",
+            delta: "Нашёл одно предложение.",
+          },
+          { type: "text-end", id: "text-2" },
+          { type: "finish" },
+        ]),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "x-vercel-ai-ui-message-stream": "v1",
+      },
+      body: sse([
+        { type: "start", messageId: "assistant-3" },
+        { type: "text-start", id: "text-3" },
+        {
+          type: "text-delta",
+          id: "text-3",
+          delta: "Самое дешёвое предложение — 10.45 BYN на Auto1.by.",
+        },
+        { type: "text-end", id: "text-3" },
+        { type: "finish" },
+      ]),
     });
   });
 
   await page.goto("/chat");
+  await expect(page).toHaveURL(`/chat/${conversationId}`);
   await expect(
-    page.getByRole("heading", { name: "Что нужно найти?" }),
+    page.getByRole("heading", { name: "Какую запчасть ищем?" }),
   ).toBeVisible();
 
-  const queryInput = page.getByRole("textbox", { name: "Что нужно найти?" });
-  await page.getByRole("button", { name: "Найти по артикулу" }).click();
-  await expect(queryInput).toHaveValue("Артикул: ");
-  await queryInput.fill("7700274177");
-  await page.getByRole("button", { name: "Отправить запрос" }).click();
+  const input = page.getByRole("textbox", {
+    name: "Сообщение AutoRadar",
+  });
+  await input.fill("Найди по артикулу 7700274177");
+  await page.getByRole("button", { name: "Отправить" }).click();
   await expect(
     page.getByRole("heading", { name: "Масляный фильтр" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Искать", exact: true }).click();
-  await expect(page.getByText("Нашёл 3 реальных предложения.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "На Zap.by" })).toHaveAttribute(
-    "href",
-    "https://zap.by/oem/7700274177",
-  );
   await expect(
-    page.getByRole("link", { name: "На Motorland.by" }),
-  ).toHaveAttribute(
-    "href",
-    "https://motorland.by/auto-parts/bmw/3/f30/kapot/sku-21361901/",
-  );
-  await expect(page.getByRole("link", { name: "На Auto1.by" })).toHaveAttribute(
-    "href",
-    "https://auto1.by/avtozapchasti/dvigatel/315677",
-  );
+    page.getByRole("link", { name: "Открыть на Auto1.by" }),
+  ).toHaveAttribute("href", "https://auto1.by/avtozapchasti/dvigatel/315677");
+
+  await input.fill("Какой вариант самый дешёвый?");
+  await page.getByRole("button", { name: "Отправить" }).click();
+  await expect(
+    page.getByText("Самое дешёвое предложение — 10.45 BYN на Auto1.by."),
+  ).toBeVisible();
+  expect(chatCalls).toBe(3);
 });
 
-test("ambiguous BMW 3 search asks for generation and excludes unrelated cars", async ({
+test("guest sees a soft warning before the real-search limit", async ({
   page,
 }) => {
-  let selectedGeneration: string | null = null;
+  await mockConversation(page, 4);
+  await page.goto(`/chat/${conversationId}`);
 
-  await page.route("**/api/ai/parse-part-request", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        extraction: {
-          summary: "Капот для BMW 3 2016 года.",
-          partName: "Капот",
-          rawPartNumber: null,
-          normalizedPartNumber: null,
-          vehicle: {
-            make: "BMW",
-            model: "3",
-            year: 2016,
-            generation: null,
-            body: null,
-            engine: null,
-            transmission: null,
-            doors: null,
-          },
-          side: "unknown",
-          position: "unknown",
-          condition: "any",
-          constraints: [],
-          needsClarification: false,
-          clarificationQuestion: null,
-        },
-      }),
-    });
-  });
-  await page.route("**/api/search/zap", async (route) => {
-    const request = route.request().postDataJSON() as {
-      vehicle?: { generation?: string | null };
-    };
-    selectedGeneration = request.vehicle?.generation ?? null;
-
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify(
-        selectedGeneration
-          ? { method: "html", offers: [] }
-          : {
-              method: "html",
-              offers: [],
-              clarification: {
-                id: "zap-generation",
-                field: "generation",
-                question: "Уточните поколение или кузов автомобиля.",
-                options: [
-                  {
-                    id: "9831",
-                    label: "3 (F30, F80) · 2011–2018",
-                    value: "3 (F30, F80)",
-                  },
-                  {
-                    id: "9832",
-                    label: "3 Touring (F31) · 2012–2019",
-                    value: "3 Touring (F31)",
-                  },
-                ],
-              },
-            },
-      ),
-    });
-  });
-  await page.route("**/api/search/motorland", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        method: "html",
-        offers: [
-          {
-            sourceId: "motorland",
-            externalId: "21361901",
-            externalUrl:
-              "https://motorland.by/auto-parts/bmw/3/f30-2012-2019/kapot/sku-21361901/",
-            title: "Капот BMW 3 F30",
-            brand: "BMW",
-            rawPartNumber: "21361901",
-            normalizedPartNumber: "21361901",
-            oemNumbers: [],
-            condition: "used",
-            partKind: "unknown",
-            priceAmount: "725",
-            priceSource: "data_attribute",
-            currency: "BYN",
-            sellerName: "Motorland.by",
-            matchStatus: "possible",
-            matchReasons: [
-              "точная категория Капот",
-              "год 2016 входит в 2012–2019",
-            ],
-            fetchedAt: "2026-07-29T20:00:00.000Z",
-            rawPayloadHash: "1".repeat(64),
-          },
-          {
-            sourceId: "motorland",
-            externalId: "21361742",
-            externalUrl:
-              "https://motorland.by/auto-parts/bmw/3/f30-2012-2019/kapot/sku-21361742/",
-            title: "Капот BMW 3 F30",
-            brand: "BMW",
-            rawPartNumber: "21361742",
-            normalizedPartNumber: "21361742",
-            oemNumbers: [],
-            condition: "used",
-            partKind: "unknown",
-            priceAmount: "700",
-            priceSource: "data_attribute",
-            currency: "BYN",
-            sellerName: "Motorland.by",
-            matchStatus: "possible",
-            fetchedAt: "2026-07-29T20:00:00.000Z",
-            rawPayloadHash: "2".repeat(64),
-          },
-        ],
-      }),
-    });
-  });
-  await page.route("**/api/search/auto1", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({ method: "html", offers: [] }),
-    });
-  });
-
-  await page.goto("/chat");
-  const queryInput = page.getByRole("textbox", { name: "Что нужно найти?" });
-  await queryInput.fill("нужен капот на BMW 3 2016 года");
-  await page.getByRole("button", { name: "Отправить запрос" }).click();
-  await page.getByRole("button", { name: "Искать", exact: true }).click();
-
+  await expect(page.getByText("Осталось бесплатных поисков: 1")).toBeVisible();
   await expect(
-    page.getByText("Уточните поколение или кузов автомобиля."),
+    page.getByRole("link", { name: "Войти", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "3 (F30, F80) · 2011–2018" }).click();
-
-  await expect(page.getByText("Нашёл 2 реальных предложения.")).toBeVisible();
-  expect(selectedGeneration).toBe("3 (F30, F80)");
-  await expect(page.getByText(/BMW X3|BMW X5/)).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "На Motorland.by" })).toHaveCount(
-    2,
-  );
 });
 
 test("garage starts empty and persists a manually added vehicle", async ({
@@ -330,20 +269,44 @@ test("garage starts empty and persists a manually added vehicle", async ({
   await expect(page.getByText("VF3LBBHZHES123456")).toHaveCount(0);
 });
 
-test("VIN entered in chat is prepared for a confirmed garage save", async ({
+test("VIN entered in chat stays out of the model-visible message", async ({
   page,
 }) => {
-  await page.goto("/chat");
-  const queryInput = page.getByRole("textbox", { name: "Что нужно найти?" });
+  await mockConversation(page);
+  let modelVisibleMessage = "";
+  await page.route("**/api/chat", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      message: { parts: Array<{ type: string; text?: string }> };
+    };
+    modelVisibleMessage =
+      payload.message.parts.find((part) => part.type === "text")?.text ?? "";
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "x-vercel-ai-ui-message-stream": "v1",
+      },
+      body: sse([
+        { type: "start", messageId: "assistant-vin" },
+        { type: "text-start", id: "text-vin" },
+        {
+          type: "text-delta",
+          id: "text-vin",
+          delta: "VIN сохранён приложением и не передан модели.",
+        },
+        { type: "text-end", id: "text-vin" },
+        { type: "finish" },
+      ]),
+    });
+  });
 
-  await queryInput.fill("Сохрани VIN VF3LBBHZHES123456");
-  await page.getByRole("button", { name: "Отправить запрос" }).click();
+  await page.goto(`/chat/${conversationId}`);
+  const input = page.getByRole("textbox", { name: "Сообщение AutoRadar" });
+  await input.fill("Сохрани VIN VF3LBBHZHES123456");
+  await page.getByRole("button", { name: "Отправить" }).click();
 
   await expect(
-    page.getByText(
-      "VIN распознан и подготовлен к сохранению. Укажите марку, модель и год в гараже, чтобы подтвердить автомобиль.",
-    ),
+    page.getByText("VIN сохранён приложением и не передан модели."),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Открыть гараж" }).click();
-  await expect(page.getByLabel("VIN")).toHaveValue("VF3LBBHZHES123456");
+  expect(modelVisibleMessage).not.toContain("VF3LBBHZHES123456");
 });

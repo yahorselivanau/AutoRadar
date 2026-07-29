@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ConversationStateSchema,
   GarageStateSchema,
+  GuestUsageSchema,
   maskVin,
   NormalizedOfferSchema,
+  SearchJobResultSchema,
   SearchRequestSchema,
   VinSchema,
   normalizePartNumber,
@@ -60,5 +63,44 @@ describe("domain schemas", () => {
       vehicles: [],
       activeVehicleId: null,
     });
+  });
+
+  it("keeps conversation memory and persisted search results structured", () => {
+    const request = SearchRequestSchema.parse({
+      query: "Капот BMW 3 F30",
+      vehicle: { make: "BMW", model: "3", year: 2016, generation: "F30" },
+      part: { name: "Капот", condition: "used" },
+    });
+    const state = ConversationStateSchema.parse({ searchDraft: request });
+    const job = SearchJobResultSchema.parse({
+      jobId: "29c8c193-e65c-4a87-bbc3-69bff51cfe69",
+      status: "completed",
+      offers: [],
+      sources: [
+        {
+          sourceId: "motorland",
+          status: "empty",
+          offerCount: 0,
+          durationMs: 120,
+          errorMessage: null,
+        },
+      ],
+      clarification: null,
+    });
+
+    expect(state.searchDraft?.vehicle?.generation).toBe("F30");
+    expect(job.sources[0]?.status).toBe("empty");
+  });
+
+  it("validates guest quota counters without treating messages as searches", () => {
+    const usage = GuestUsageSchema.parse({
+      conversationsUsed: 2,
+      conversationsLimit: 3,
+      searchesUsed: 4,
+      searchesLimit: 5,
+      resetsAt: "2026-07-30T12:00:00.000Z",
+    });
+
+    expect(usage.searchesLimit - usage.searchesUsed).toBe(1);
   });
 });

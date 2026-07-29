@@ -1,18 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin", "cyrillic"],
+const inter = localFont({
+  src: [
+    {
+      path: "./fonts/InterVariable.woff2",
+      style: "normal",
+      weight: "100 900",
+    },
+    {
+      path: "./fonts/InterVariable-Italic.woff2",
+      style: "italic",
+      weight: "100 900",
+    },
+  ],
   display: "swap",
   variable: "--font-inter",
+  fallback: ["Arial", "sans-serif"],
+  preload: true,
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "AutoRadar",
-    template: "%s · AutoRadar",
+    default: "Авто Радар",
+    template: "%s · Авто Радар",
   },
   description: "Умный поиск и сравнение цен на автозапчасти в Беларуси.",
 };
@@ -21,7 +34,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#fbfaf8",
+  themeColor: "#f8f8f6",
 };
 
 export default function RootLayout({
