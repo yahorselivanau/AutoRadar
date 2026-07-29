@@ -57,7 +57,7 @@ export function matchesZapPartIdentity(
 
 function valuesFor(
   offer: NormalizedOffer,
-  key: PartConstraintKey | "applicabilityModelId",
+  key: string,
 ): string[] {
   return offer.sourceAttributes?.[key] ?? [];
 }
@@ -97,6 +97,7 @@ export function evaluateZapOffers(
   offers: NormalizedOffer[],
   input: SearchRequest,
   vehicleModelId?: string,
+  vehicleTypeId?: string,
 ): NormalizedOffer[] {
   return offers
     .map((offer): EvaluatedOffer => {
@@ -142,6 +143,20 @@ export function evaluateZapOffers(
           rejected = true;
         } else {
           appendReason(reasons, "Поколение автомобиля есть в применимости");
+        }
+      }
+
+      if (input.vehicle?.engine && vehicleTypeId) {
+        const catalogVehicleTypes = valuesFor(
+          offer,
+          "catalogVehicleTypeId",
+        );
+        if (catalogVehicleTypes.length === 0) {
+          missingEvidence = true;
+        } else if (!catalogVehicleTypes.includes(vehicleTypeId)) {
+          rejected = true;
+        } else {
+          appendReason(reasons, "Модификация двигателя выбрана в каталоге");
         }
       }
 

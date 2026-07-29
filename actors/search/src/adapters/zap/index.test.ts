@@ -16,6 +16,7 @@ import {
   findZapMakePath,
   findZapModelPath,
   parseZapCatalogHtml,
+  parseZapCatalogMetadata,
   parseZapProductHtml,
   parseZapVehicleVariants,
   resolveZapVehicleVariants,
@@ -126,6 +127,27 @@ describe("Zap.by SSR parser", () => {
         doorCount: ["5"],
         applicabilityModelId: ["6432"],
       },
+    });
+  });
+
+  it("reads the verified category and vehicle IDs from the supplied catalog page", async () => {
+    const html = await fixture("catalog-mislabeled-oil-pump.html");
+
+    expect(parseZapCatalogMetadata(html)).toEqual({
+      categoryId: "525",
+      vehicleTypeId: "59409",
+      canonicalPath:
+        "/carparts/bmw/3-f30-f80/320-i-59409/maslyanyi-nasos",
+    });
+    expect(parseZapCatalogHtml(html)[0]).toMatchObject({
+      title: "Масляный насос STELLOX 20-51145-SX",
+      description: "фильтр АКПП! BMW F20/F21/F30/F31/F10/F11",
+      sourceAttributes: {
+        catalogCategoryId: ["525"],
+        catalogVehicleTypeId: ["59409"],
+      },
+      compatibilityText:
+        "Каталог Zap.by: BMW · 3 Series · 320 i · Детали двигателя",
     });
   });
 
@@ -334,6 +356,60 @@ describe("Zap.by adapter", () => {
       "NTYEPSPE014",
     ]);
     expect(result.offers[0]?.matchStatus).toBe("confirmed");
+  });
+
+  it("keeps the generic category as a fallback when an exact engine page is mislabeled", async () => {
+    const genericHtml = `${await fixture("catalog-success.html")}
+      <script>let section_id = 777;</script>`;
+    const exactHtml = await fixture("catalog-mislabeled-oil-pump.html");
+    const pages = new Map([
+      [
+        "/carparts",
+        '<div class="dropdown mrgb10"><a class="btn btn-lg" href="/carparts/audi">AUDI</a></div>',
+      ],
+      ["/carparts/audi", '<a class="ajax" href="/carparts/audi/a4">A4</a>'],
+      [
+        "/carparts/audi/a4",
+        `<a data-item="model" data-value="800">
+          <span class="font-14">A4 (B8)</span>
+          <span class="small">2007 - 2015</span>
+        </a>
+        <a class="carparts-category-cards__item"
+           href="/carparts/audi/a4/maslyanyi-filtr">Масляный фильтр</a>`,
+      ],
+      ["/carparts/audi/a4/maslyanyi-filtr", genericHtml],
+      [
+        "/carparts/audi/a4-b8/2-7-tdi-900/maslyanyi-filtr",
+        exactHtml,
+      ],
+    ]);
+    const loader = vi.fn(async (path: string) => ({
+      html: pages.get(path) ?? "",
+      path,
+      status: 200,
+    }));
+    const jsonLoader = vi
+      .fn()
+      .mockResolvedValueOnce({
+        html: `<a data-item="type" data-value="900">
+          <span class="font-14">2.7 TDI</span>
+          <span class="text-muted">2007 - 2015</span>
+        </a>`,
+      })
+      .mockResolvedValueOnce({
+        uri: "audi/a4-b8/2-7-tdi-900/maslyanyi-filtr",
+      });
+    const adapter = new ZapPartsAdapter(loader, 50, true, jsonLoader, 12);
+
+    const result = await adapter.search(request);
+
+    expect(result.offers.map((offer) => offer.externalId)).toEqual([
+      "NAKAYAMAFO169NY",
+    ]);
+    expect(result.offers[0]?.matchStatus).toBe("possible");
+    expect(loader).toHaveBeenCalledWith(
+      "/carparts/audi/a4-b8/2-7-tdi-900/maslyanyi-filtr",
+    );
   });
 
   it("uses a descriptive user agent over ordinary HTTP", async () => {

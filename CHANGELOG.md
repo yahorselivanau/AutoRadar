@@ -2,6 +2,29 @@
 
 ## 2026-07-29
 
+- Added the Auto1.by HTTP/Cheerio adapter from owner-supplied offline HTML,
+  JavaScript and robots captures without contacting the source during
+  discovery.
+- Added the observed `GET /Search?pattern=...` transport, strict Auto1 URL
+  boundaries, request pacing, timeout, first-page result limit and typed
+  blocked/rate-limit failures.
+- Added Auto1 schema.org card parsing for BYN price, explicit new condition,
+  availability, seller and location, plus conservative article/part relevance;
+  original/analog and compatibility remain unknown.
+- Connected Auto1 to the server route, federated Actor, AI chat fan-out,
+  feature flag and opt-in live smoke command.
+- Added evidence-preserving Auto1 success, empty/error contract and robots
+  fixtures with offline discovery limitations documented explicitly.
+- Re-verified Zap.by from the owner-supplied BMW category HTML and JavaScript:
+  browser rendering expanded four SSR cards to six, but all were transmission
+  filters/pans mislabeled as oil pumps by the category.
+- Added Zap.by category/modification metadata, exact-engine plus model-family
+  fallback, evidence-preserving enrichment and authoritative product-title
+  checks so category-injected false positives are not returned.
+- Added the verified mislabeled-category fixture and regression coverage, and
+  upgraded AI extraction to versioned `part-request.v4` canonical part names.
+- Recorded the conflict between the supplied robots capture and the live
+  official `robots.txt`; prohibited query XHR/pagination remain disabled.
 - Fixed the BMW 3 / 2016 hood relevance incident: Motorland now matches exact
   make, model, generation, category and generation year range from structured
   product URL segments instead of loose title substrings.

@@ -126,6 +126,7 @@ export const SavedSearchContextSchema = z.object({
 export const SourceIdSchema = z.enum([
   "mock",
   "armtek",
+  "auto1",
   "av-parts",
   "motorland",
   "remzona",

@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./auto1": "./src/adapters/auto1/index.ts",
     "./motorland": "./src/adapters/motorland/index.ts",
     "./remzona": "./src/adapters/remzona/index.ts",
     "./zap": "./src/adapters/zap/index.ts",
     "./types": "./src/adapters/types.ts"
   },
   "scripts": {
+    "auto1:smoke": "tsx src/adapters/auto1/live-smoke.ts",
     "motorland:smoke": "tsx src/adapters/motorland/live-smoke.ts",
     "remzona:discover": "tsx src/discovery/remzona.ts",
     "remzona:smoke": "tsx src/adapters/remzona/live-smoke.ts",

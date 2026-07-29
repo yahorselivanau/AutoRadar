@@ -9,7 +9,7 @@ import { z } from "zod";
 import {
   PART_REQUEST_PROMPT_VERSION,
   PART_REQUEST_SYSTEM_PROMPT,
-} from "@/lib/ai/prompts/part-request.v3";
+} from "@/lib/ai/prompts/part-request.v4";
 
 export const maxDuration = 30;
 

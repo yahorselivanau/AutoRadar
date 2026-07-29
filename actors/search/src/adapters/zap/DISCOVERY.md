@@ -20,6 +20,11 @@ Researcher: Codex
     `/carparts/search/{query}` for a closed, non-public MVP. This temporary
     behavior is isolated behind `ZAP_EXPERIMENTAL_SEARCH_ENABLED` and must be
     disabled before public production.
+  - The owner-supplied `robots.txt` capture contains `Allow` for these paths,
+    but a direct request to the official URL at 2026-07-29 15:50
+    (Europe/Minsk) returned `Disallow`. The live official response remains the
+    access-control source of truth; the adapter does not enable the newly
+    observed query endpoints.
 - Terms checked: `https://zap.by/publichnaja-oferta`. This is a retail public
   offer rather than an API/scraping licence. It does not grant a bulk catalogue
   feed. AutoRadar only performs a live user-requested lookup and links back to
@@ -65,8 +70,15 @@ Researcher: Codex
      `manufacturer`, `manufacturer_name`, `model`, `type`, `category` and
      `category_id`.
    - It is called only behind the private-MVP experimental flag.
+   - The supplied category page exposes
+     `/info/search?car_type_id={typeId}&text={text}` and infinite-scroll /
+     web-service requests. They use query parameters disallowed by the live
+     `robots.txt`, so the adapter records but does not call them.
 4. **Playwright**
-   - Not required. SSR HTML is complete for the chosen mode.
+   - Not required for production. A headed verification of the supplied BMW
+     page showed that JavaScript expanded four SSR cards to six DOM cards.
+     All six were transmission filters/pans mislabeled by the category as oil
+     pumps, so browser rendering did not produce a valid oil-pump offer.
 
 ## Network
 
@@ -95,6 +107,12 @@ Researcher: Codex
   product HTML already contains model buttons with `data-mod-id`. The
   `/info/apps` route was also observed during discovery, but is not required by
   the chosen parser.
+- Captured category metadata:
+  - `section_id=525` identifies the BMW oil-pump category;
+  - `type_id="59409"` identifies the selected `BMW 3 (F30, F80) 320 i`
+    modification;
+  - the canonical path and those IDs are retained on parsed offers as source
+    evidence.
 - Required headers: descriptive `User-Agent` and
   `Accept: text/html,application/xhtml+xml`.
 - Cookies: `language`, `currency` and `PHPSESSID` are retained in one adapter
@@ -116,6 +134,10 @@ Researcher: Codex
 - Result limit: first 50 SSR cards, configurable from 1 to 100.
 - Product enrichment limit: first 12 viable candidates by default, configurable
   with `ZAP_ENRICH_LIMIT`.
+- Exact engine pages are searched first, while the broader model-family
+  category remains a fallback. This prevents a sparse or wrongly classified
+  exact page from hiding otherwise viable candidates. Duplicates keep the
+  exact-page evidence.
 - Empty result: a page with no `.product-block` produces typed
   `EMPTY_RESPONSE`; a known card container with missing required data produces
   `DOM_CHANGED`.
@@ -141,12 +163,16 @@ Researcher: Codex
 - image: first non-placeholder Zap.by HTTPS image;
 - URL: `a.td-info-name[href]`, normalized to absolute HTTPS on `zap.by`;
 - compatibility: breadcrumb context is retained as informational text, never as
-  a compatibility guarantee.
+  a compatibility guarantee; the current category heading is removed
+  generically rather than with a part-specific hard-coded rule.
 - product characteristics:
   `.td-feature-item-name` + `.td-feature-item-value`; known labels are mapped
   to reproducible canonical constraints while original values are retained.
 - applicability: product model buttons (`data-mod-id`) and labels are retained
   as source attributes.
+- category evidence: `catalogCategoryId`, `catalogVehicleTypeId` and
+  `catalogPath` are retained from the SSR category page and merged with product
+  details instead of being overwritten during enrichment.
 - matching: explicit conflicts are rejected. Full evidence produces
   `confirmed`; missing evidence produces `possible`. Supported placement
   examples include `левый`/`правый`, `front`/`rear`, `LEWY`/`PRAWY`,
@@ -157,6 +183,9 @@ Researcher: Codex
 - part identity: non-OEM catalogue results must start with the requested part
   words after reproducibly removing a leading brand/article. Related
   sub-parts such as `Тросик замка капота` are rejected for a `Капот` request.
+  The enriched product-card `h1` is authoritative over the category-injected
+  `.altname`, preventing transmission filters from being returned as oil
+  pumps.
 - clarification: if viable offers differ by a missing critical value such as
   `generation`, `body` or `doorCount`, the adapter returns options instead of
   silently choosing a base model or mixing variants.
@@ -191,6 +220,10 @@ Direct live HTTP on 2026-07-29 returned:
 - six cards for Peugeot 308 / `Стеклоподъемник`; explicit front-left filtering
   retained `NTYEPSPE014` and `NTYEPSPE018`, while rear, right and unknown
   placement cards were excluded.
+- the owner-supplied BMW 3 F30 / 320 i / `Масляный насос` SSR page contained
+  four cards; headed JavaScript rendering contained six. Product-card checks
+  identified all of them as transmission filters/pans, so the correct
+  normalized result for that captured modification is empty.
 
 ## Known limitations
 
@@ -198,6 +231,9 @@ Direct live HTTP on 2026-07-29 returned:
   disabled before public production; VIN remains unsupported.
 - Applicability evidence is limited to what Zap.by exposes; an offer is never
   promoted from `possible` to `confirmed` by AI inference.
+- A model-family fallback can recover candidates omitted from an exact engine
+  page, but it remains `possible` when the exact modification is not present in
+  the retained category evidence.
 - Only the first SSR page is read; query-string pagination is not used.
 - Category matching first uses an exact normalized label, then a conservative
   token similarity threshold.
@@ -221,6 +257,10 @@ Direct live HTTP on 2026-07-29 returned:
   `actors/search/src/adapters/zap/fixtures/catalog-placement.html`
   (six verified Peugeot 308 window-regulator cards covering front/rear,
   left/right and unknown placement);
+- mislabeled category:
+  `catalog-mislabeled-oil-pump.html` (curated from the owner-supplied BMW page;
+  includes canonical path, category/modification IDs and a transmission-filter
+  false positive);
 - product details:
   `product-front-left-5d.html` and `product-front-left-3d.html` (curated
   structured characteristics, applicability and OEM fields);

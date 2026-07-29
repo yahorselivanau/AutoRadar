@@ -159,7 +159,9 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
       );
     }
 
-    let catalogPage = await this.loadPageHtml(categoryPath);
+    const genericCatalogPage = await this.loadPageHtml(categoryPath);
+    const catalogPages = [genericCatalogPage];
+    let selectedEngineId: string | undefined;
 
     if (selectedVehicle && input.vehicle.engine) {
       const choice = await this.loadJson("/index.php", {
@@ -189,7 +191,7 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
           ),
         };
       }
-      const categoryId = parseZapCategoryId(catalogPage.html);
+      const categoryId = parseZapCategoryId(genericCatalogPage.html);
       const engine = engines[0];
       if (engine && categoryId) {
         const exactChoice = await this.loadJson("/index.php", {
@@ -199,18 +201,35 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
           category_id: categoryId,
         });
         const uri = parseZapChoiceUri(exactChoice);
-        if (uri) catalogPage = await this.loadPageHtml(`/carparts/${uri}`);
+        if (uri) {
+          const exactCatalogPage = await this.loadPageHtml(`/carparts/${uri}`);
+          catalogPages.unshift(exactCatalogPage);
+          selectedEngineId = engine.id;
+        }
       }
     }
 
-    const catalogOffers = parseZapCatalogHtml(
-      catalogPage.html,
-      new Date().toISOString(),
-      this.resultLimit,
+    const fetchedAt = new Date().toISOString();
+    const offersByPage = catalogPages.map((page) =>
+      parseZapCatalogHtml(page.html, fetchedAt, this.resultLimit),
     );
+    const interleavedOffers = Array.from(
+      { length: Math.max(0, ...offersByPage.map((offers) => offers.length)) },
+      (_, index) => offersByPage.map((offers) => offers[index]),
+    ).flatMap((offers) =>
+      offers.filter((offer): offer is NormalizedOffer => Boolean(offer)),
+    );
+    const seenOfferIds = new Set<string>();
+    const catalogOffers = interleavedOffers
+      .filter((offer) => {
+        if (seenOfferIds.has(offer.externalId)) return false;
+        seenOfferIds.add(offer.externalId);
+        return true;
+      })
+      .slice(0, this.resultLimit);
     if (catalogOffers.length === 0) {
       throw diagnostic(
-        catalogPage.html.includes("product-block")
+        catalogPages.some((page) => page.html.includes("product-block"))
           ? "DOM_CHANGED"
           : "EMPTY_RESPONSE",
         "публичная SSR-страница Zap.by не содержит предложений",
@@ -220,6 +239,7 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
       catalogOffers,
       input,
       selectedVehicle?.id,
+      selectedEngineId,
     );
     if (offers.length === 0) {
       return { method: "html", offers: [] };
@@ -279,11 +299,14 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
     offers: NormalizedOffer[],
     input: SearchRequest,
     vehicleModelId?: string,
+    vehicleTypeId?: string,
   ): Promise<NormalizedOffer[]> {
-    const candidates = evaluateZapOffers(offers, input, vehicleModelId).slice(
-      0,
-      this.enrichLimit,
-    );
+    const candidates = evaluateZapOffers(
+      offers,
+      input,
+      vehicleModelId,
+      vehicleTypeId,
+    ).slice(0, this.enrichLimit);
     const enriched = await Promise.all(
       candidates.map(async (offer) => {
         try {
@@ -298,6 +321,10 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
           return NormalizedOfferSchema.parse({
             ...offer,
             ...details,
+            sourceAttributes: this.mergeSourceAttributes(
+              offer.sourceAttributes,
+              details.sourceAttributes,
+            ),
             priceAmount: offer.priceAmount ?? details.priceAmount,
             priceSource: offer.priceSource ?? details.priceSource,
             availability: offer.availability ?? details.availability,
@@ -308,7 +335,28 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
         }
       }),
     );
-    return evaluateZapOffers(enriched, input, vehicleModelId);
+    return evaluateZapOffers(
+      enriched,
+      input,
+      vehicleModelId,
+      vehicleTypeId,
+    );
+  }
+
+  private mergeSourceAttributes(
+    catalog: NormalizedOffer["sourceAttributes"],
+    product: NormalizedOffer["sourceAttributes"],
+  ): NormalizedOffer["sourceAttributes"] {
+    const keys = new Set([
+      ...Object.keys(catalog ?? {}),
+      ...Object.keys(product ?? {}),
+    ]);
+    return Object.fromEntries(
+      [...keys].map((key) => [
+        key,
+        [...new Set([...(catalog?.[key] ?? []), ...(product?.[key] ?? [])])],
+      ]),
+    );
   }
 
   private preferConfirmed(
@@ -354,6 +402,7 @@ export {
   findZapModelPath,
   findZapSearchCandidatePaths,
   parseZapCatalogHtml,
+  parseZapCatalogMetadata,
   parseZapProductHtml,
   parseZapVehicleVariants,
   resolveZapVehicleVariants,

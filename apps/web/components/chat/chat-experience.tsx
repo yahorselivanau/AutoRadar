@@ -81,6 +81,7 @@ const conditionLabels = {
 const sourceLabels: Record<NormalizedOffer["sourceId"], string> = {
   mock: "Mock",
   armtek: "ARMTEK",
+  auto1: "Auto1.by",
   "av-parts": "AV-parts",
   motorland: "Motorland.by",
   remzona: "Remzona",
@@ -292,26 +293,28 @@ export function ChatExperience() {
 
     try {
       const responses = await Promise.all(
-        ["/api/search/zap", "/api/search/motorland"].map(async (endpoint) => {
-          try {
-            const response = await fetch(endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(searchRequest),
-            });
-            const payload = (await response.json()) as {
-              offers?: NormalizedOffer[];
-              clarification?: SearchClarification;
-              error?: string;
-            };
-            return { ok: response.ok, payload };
-          } catch {
-            return {
-              ok: false,
-              payload: { error: "Один из источников не ответил." },
-            };
-          }
-        }),
+        ["/api/search/zap", "/api/search/motorland", "/api/search/auto1"].map(
+          async (endpoint) => {
+            try {
+              const response = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(searchRequest),
+              });
+              const payload = (await response.json()) as {
+                offers?: NormalizedOffer[];
+                clarification?: SearchClarification;
+                error?: string;
+              };
+              return { ok: response.ok, payload };
+            } catch {
+              return {
+                ok: false,
+                payload: { error: "Один из источников не ответил." },
+              };
+            }
+          },
+        ),
       );
       const successful = responses.filter(
         (result) => result.ok && result.payload.offers,

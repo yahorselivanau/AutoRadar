@@ -10,6 +10,7 @@
 | `remzona.by`                  | новые детали              | публичный XHR разрешает категорию; SSR-каталог возвращает карточки, цены и наличие       |            P0 | HTTP + Cheerio основной режим; Playwright только opt-in fallback/discovery, без proxy.                    |
 | `zap.by`                      | новые детали              | SSR-каталог по марке/модели; цены, наличие и сроки без логина                            |            P0 | HTTP + Cheerio; `/search` временно включён только для закрытого MVP, VIN и query/XHR picker отключены.    |
 | `motorland.by`                | б/у детали                | robots-разрешённый SSR-текстовый поиск; цены, фото и характеристики без логина           |            P0 | HTTP + Cheerio; первый источник б/у, без cookies/Playwright/proxy, совместимость только `possible`.       |
+| `auto1.by`                    | новые детали              | robots-разрешённая GET-форма `/Search`; SSR-карточки и BYN schema.org microdata           |            P0 | HTTP + Cheerio; подключён офлайн по файлам владельца, fixture-tested до opt-in live smoke.                |
 | `av-parts.by`                 | агрегатор новых деталей   | поиск по артикулу/названию, каталог и предложения зарегистрированных магазинов           |         P0/P1 | Возможны дубли поставщиков и конкуренция с самим продуктом. Не терять исходного продавца, если он указан. |
 | `uparts.by`                   | новые детали              | публично заявлены поиск по артикулу, OEM, названию, автомобилю и VIN; есть гараж         |            P1 | Сильный кандидат вместо технически недоступного P0-источника.                                             |
 | `1000km.by`                   | новые детали              | строка поиска по артикулу, детали или VIN; выбор автомобиля                              |            P1 | Проверить качество выдачи и доступность цены без регистрации.                                             |
@@ -94,6 +95,12 @@ Path-based страницы `/carparts/...` возвращают SSR-карто�
 Полное доказательство и ограничения:
 `actors/search/src/adapters/zap/DISCOVERY.md`.
 
+Проверка сохранённой страницы BMW 3 F30 показала, что Zap.by может навязать
+карточкам название текущей категории: фильтры/поддоны АКПП были подписаны как
+«Масляный насос». Адаптер поэтому сверяет product `h1`, сохраняет ID категории
+и модификации и использует общую категорию как fallback к точной
+engine-странице. Запрещённые live-robots query XHR не вызываются.
+
 ### Motorland.by
 
 `GET /auto-parts/?Filter.TextSearch=...` возвращает SSR-карточки с внутренним
@@ -102,6 +109,17 @@ Path-based страницы `/carparts/...` возвращают SSR-карто�
 Каталог и публичная оферта прямо описывают автозапчасти как б/у. OEM и VIN не
 подтверждены. Полное доказательство и ограничения:
 `actors/search/src/adapters/motorland/DISCOVERY.md`.
+
+### Auto1.by
+
+Предоставленные владельцем HTML, JavaScript и свежий `robots.txt` подтверждают
+публичную GET-форму `/Search?pattern=...`, SSR-шаблон `.catalog-list-card`,
+BYN-цену, `NewCondition`, наличие, продавца и исходную ссылку в schema.org
+microdata. Адаптер использует только HTTP + Cheerio, первую страницу и не
+вызывает найденные autocomplete/AJAX endpoints. VIN, применяемость и
+original/analog не заявляются. Поскольку по прямой инструкции сайт не
+запрашивался, live search и реальный empty state ещё не проверены. Полный
+отчёт: `actors/search/src/adapters/auto1/DISCOVERY.md`.
 
 ## 4. Обязательный отчёт по каждому источнику
 
@@ -184,6 +202,8 @@ Researcher:
 - https://motorland.by/
 - https://motorland.by/robots.txt
 - https://motorland.by/pokupatelyam/publichnaya-oferta/
+- https://auto1.by/
+- https://auto1.by/robots.txt
 - https://armtek.by/
 - https://armtek.by/catalog/identification-auto
 - https://armtek.by/wholesale

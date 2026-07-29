@@ -88,6 +88,36 @@ test("guest can search real sources from the AI confirmation card", async ({
       }),
     });
   });
+  await page.route("**/api/search/auto1", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        method: "html",
+        offers: [
+          {
+            sourceId: "auto1",
+            externalId: "315677",
+            externalUrl: "https://auto1.by/avtozapchasti/dvigatel/315677",
+            title: "RENAULT 7700274177 Масляный фильтр",
+            brand: "RENAULT",
+            rawPartNumber: "7700274177",
+            normalizedPartNumber: "7700274177",
+            oemNumbers: [],
+            condition: "new",
+            partKind: "unknown",
+            priceAmount: "10.45",
+            priceSource: "microdata",
+            currency: "BYN",
+            availability: "В наличии",
+            sellerName: "Auto1.by",
+            matchStatus: "possible",
+            fetchedAt: "2026-07-29T20:00:00.000Z",
+            rawPayloadHash: "3".repeat(64),
+          },
+        ],
+      }),
+    });
+  });
 
   await page.goto("/chat");
   await expect(
@@ -104,7 +134,7 @@ test("guest can search real sources from the AI confirmation card", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Искать", exact: true }).click();
-  await expect(page.getByText("Нашёл 2 реальных предложения.")).toBeVisible();
+  await expect(page.getByText("Нашёл 3 реальных предложения.")).toBeVisible();
   await expect(page.getByRole("link", { name: "На Zap.by" })).toHaveAttribute(
     "href",
     "https://zap.by/oem/7700274177",
@@ -114,6 +144,10 @@ test("guest can search real sources from the AI confirmation card", async ({
   ).toHaveAttribute(
     "href",
     "https://motorland.by/auto-parts/bmw/3/f30/kapot/sku-21361901/",
+  );
+  await expect(page.getByRole("link", { name: "На Auto1.by" })).toHaveAttribute(
+    "href",
+    "https://auto1.by/avtozapchasti/dvigatel/315677",
   );
 });
 
@@ -238,6 +272,12 @@ test("ambiguous BMW 3 search asks for generation and excludes unrelated cars", a
           },
         ],
       }),
+    });
+  });
+  await page.route("**/api/search/auto1", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ method: "html", offers: [] }),
     });
   });
 

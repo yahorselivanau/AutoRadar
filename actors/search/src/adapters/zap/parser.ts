@@ -405,6 +405,9 @@ function removeLabel(value: string, label: string): string | undefined {
 }
 
 function catalogContext($: CheerioAPI): string | undefined {
+  const headingNode = $("h1").first().clone();
+  headingNode.find("sup").remove();
+  const heading = comparable(cleanText(headingNode.text()));
   const crumbs = $(".breadcrumb li")
     .toArray()
     .map((node) => cleanText($(node).text()))
@@ -412,11 +415,28 @@ function catalogContext($: CheerioAPI): string | undefined {
       (value) =>
         value &&
         !["Главная", "Каталог", "Фильтры"].includes(value) &&
-        !value.startsWith("Масляный фильтр"),
+        comparable(value) !== heading,
     );
   return crumbs.length > 0
     ? `Каталог Zap.by: ${crumbs.join(" · ")}`
     : undefined;
+}
+
+export interface ZapCatalogMetadata {
+  categoryId?: string;
+  vehicleTypeId?: string;
+  canonicalPath?: string;
+}
+
+export function parseZapCatalogMetadata(html: string): ZapCatalogMetadata {
+  const $ = load(html);
+  return {
+    categoryId: parseZapCategoryId(html),
+    vehicleTypeId: html.match(
+      /\b(?:let|var|const)?\s*type_id\s*=\s*["']?(\d+)/,
+    )?.[1],
+    canonicalPath: safeZapPath($('link[rel="canonical"]').attr("href")),
+  };
 }
 
 export function parseZapCatalogHtml(
@@ -427,6 +447,7 @@ export function parseZapCatalogHtml(
   const $ = load(html);
   const rawPayloadHash = hashZapPayload(html);
   const compatibilityText = catalogContext($);
+  const metadata = parseZapCatalogMetadata(html);
   const offers: NormalizedOffer[] = [];
 
   $(".product-block")
@@ -483,7 +504,18 @@ export function parseZapCatalogHtml(
           ),
           sellerName: "Zap.by",
           compatibilityText,
-          sourceAttributes: descriptionSourceAttributes(description),
+          sourceAttributes: {
+            ...descriptionSourceAttributes(description),
+            ...(metadata.categoryId
+              ? { catalogCategoryId: [metadata.categoryId] }
+              : {}),
+            ...(metadata.vehicleTypeId
+              ? { catalogVehicleTypeId: [metadata.vehicleTypeId] }
+              : {}),
+            ...(metadata.canonicalPath
+              ? { catalogPath: [metadata.canonicalPath] }
+              : {}),
+          },
           fetchedAt,
           rawPayloadHash,
         }),
