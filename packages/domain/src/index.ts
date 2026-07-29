@@ -65,7 +65,11 @@ export const NormalizedOfferSchema = z.object({
     .string()
     .regex(/^\d+(\.\d{1,2})?$/)
     .optional(),
+  priceSource: z
+    .enum(["api", "json_ld", "microdata", "data_attribute", "dom"])
+    .optional(),
   currency: z.literal("BYN"),
+  imageUrl: z.url().optional(),
   availability: z.string().optional(),
   deliveryText: z.string().optional(),
   location: z.string().optional(),

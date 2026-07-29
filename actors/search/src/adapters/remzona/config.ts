@@ -19,6 +19,10 @@ const RemzonaTransportConfigSchema = z.object({
     .min(1_000)
     .max(60_000)
     .default(5_000),
+  REMZONA_PLAYWRIGHT_FALLBACK_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export type RemzonaTransportConfig = z.infer<

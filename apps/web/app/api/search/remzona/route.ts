@@ -1,5 +1,8 @@
 import { SearchRequestSchema } from "@autoradar/domain";
-import { RemzonaPartsAdapter } from "@autoradar/search-actor/remzona";
+import {
+  getRemzonaDiagnosticReason,
+  RemzonaPartsAdapter,
+} from "@autoradar/search-actor/remzona";
 import { AdapterError } from "@autoradar/search-actor/types";
 import { NextResponse } from "next/server";
 
@@ -37,7 +40,13 @@ export async function POST(request: Request) {
             : error.code === "timeout"
               ? 504
               : 502;
-      return NextResponse.json({ error: error.message }, { status });
+      return NextResponse.json(
+        {
+          error: error.message,
+          diagnosticReason: getRemzonaDiagnosticReason(error),
+        },
+        { status },
+      );
     }
     return NextResponse.json(
       { error: "Не удалось выполнить поиск Remzona." },

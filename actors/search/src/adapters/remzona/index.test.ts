@@ -3,11 +3,10 @@ import { readFile } from "node:fs/promises";
 import { SearchRequestSchema } from "@autoradar/domain";
 import { describe, expect, it, vi } from "vitest";
 
-import { AdapterError } from "../types";
 import { RemzonaPartsAdapter } from ".";
 import type { RemzonaTransportConfig } from "./config";
 import { createRemzonaHtmlLoader } from "./loader";
-import { parseRemzonaSearchHtml } from "./parser";
+import { normalizeRemzonaPrice, parseRemzonaCatalogHtml } from "./parser";
 
 const fixture = (name: string) =>
   readFile(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
@@ -17,94 +16,119 @@ const config: RemzonaTransportConfig = {
   REMZONA_USER_AGENT: "AutoRadar test",
   REMZONA_HTTP_TIMEOUT_MS: 3_000,
   REMZONA_REQUEST_INTERVAL_MS: 1_000,
+  REMZONA_PLAYWRIGHT_FALLBACK_ENABLED: false,
 };
 
-describe("Remzona HTML parser", () => {
-  it("normalizes verified public search cards without inferring price or OEM", async () => {
-    const html = await fixture("search-success.html");
-    const offers = parseRemzonaSearchHtml(html, "2026-07-28T19:52:34.000Z");
+const request = SearchRequestSchema.parse({
+  query: "стеклоподъемник",
+  part: { name: "Стеклоподъемник" },
+});
 
-    expect(offers).toHaveLength(2);
+describe("Remzona price parser", () => {
+  it("normalizes the verified catalog card and BYN price", async () => {
+    const offers = parseRemzonaCatalogHtml(
+      await fixture("catalog-success.html"),
+      "2026-07-29T00:00:00.000Z",
+    );
+
+    expect(normalizeRemzonaPrice("1 234,56 руб.")).toBe("1234.56");
+    expect(offers).toHaveLength(1);
     expect(offers[0]).toMatchObject({
-      sourceId: "remzona",
-      externalId: "renault/7700274177",
-      externalUrl: "https://remzona.by/renault/7700274177",
-      title: "7700274177 - Масляный фильтр",
-      brand: "RENAULT",
-      rawPartNumber: "7700274177",
-      normalizedPartNumber: "7700274177",
-      oemNumbers: [],
-      condition: "unknown",
-      partKind: "unknown",
+      externalId: "4584933",
+      externalUrl: "https://remzona.by/stellox/8731719sx",
+      priceAmount: "2.00",
+      priceSource: "dom",
       currency: "BYN",
-      sellerName: "Remzona.by",
+      availability: "7 шт.",
+      deliveryText: "на четверг",
     });
-    expect(offers[0]?.priceAmount).toBeUndefined();
   });
 
-  it("handles an empty public search response", async () => {
-    expect(parseRemzonaSearchHtml(await fixture("search-empty.html"))).toEqual(
-      [],
-    );
+  it("handles the verified empty catalog", async () => {
+    expect(
+      parseRemzonaCatalogHtml(await fixture("catalog-empty.html")),
+    ).toEqual([]);
   });
 });
 
-describe("Remzona adapter", () => {
-  it("searches by the original part number", async () => {
-    const html = await fixture("search-success.html");
-    const loader = vi.fn(async () => ({ html, status: 200 }));
-    const adapter = new RemzonaPartsAdapter(loader);
-
-    const result = await adapter.search(
-      SearchRequestSchema.parse({
-        query: "7700-274-177",
-        part: {
-          name: "Масляный фильтр",
-          rawPartNumber: "7700-274-177",
-          normalizedPartNumber: "7700274177",
-        },
-      }),
+describe("Remzona adapter modes", () => {
+  it("returns priced offers in HTTP mode without Playwright", async () => {
+    const searchHtml = await fixture("search-category.html");
+    const catalogHtml = await fixture("catalog-success.html");
+    const searchLoader = vi.fn(async () => ({
+      html: searchHtml,
+      status: 200,
+    }));
+    const fallback = vi.fn();
+    const adapter = new RemzonaPartsAdapter(
+      searchLoader,
+      async () => ({ html: catalogHtml, status: 200 }),
+      fallback,
+      false,
     );
 
-    expect(loader).toHaveBeenCalledWith("7700-274-177");
+    const result = await adapter.search(request);
+
     expect(result.method).toBe("html");
-    expect(result.offers).toHaveLength(2);
+    expect(result.offers[0]?.priceAmount).toBe("2.00");
+    expect(searchLoader).not.toHaveBeenCalled();
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it("uses Playwright fallback when HTTP contains no price", async () => {
+    const searchHtml = await fixture("search-category.html");
+    const catalogHtml = await fixture("catalog-success.html");
+    const withoutPrice = catalogHtml
+      .replaceAll('data-cur="BYN"', 'data-cur="USD"')
+      .replaceAll(">byn<", ">usd<");
+    const fallback = vi.fn(async () => ({ html: catalogHtml, status: 200 }));
+    const adapter = new RemzonaPartsAdapter(
+      async () => ({ html: searchHtml, status: 200 }),
+      async () => ({ html: withoutPrice, status: 200 }),
+      fallback,
+      true,
+    );
+
+    const result = await adapter.search(request);
+
+    expect(result.method).toBe("playwright");
+    expect(result.offers[0]?.priceAmount).toBe("2.00");
+    expect(fallback).toHaveBeenCalledWith(
+      "/steklopodiemnik",
+      ".box-articleitems .item-list",
+    );
+  });
+
+  it("returns DOM_CHANGED instead of an empty success", async () => {
+    const searchHtml = await fixture("search-category.html");
+    const adapter = new RemzonaPartsAdapter(
+      async () => ({ html: searchHtml, status: 200 }),
+      async () => ({
+        html: '<div class="box-articleitems"><div class="item-list"></div></div>',
+        status: 200,
+      }),
+      vi.fn(),
+      false,
+    );
+
+    await expect(adapter.search(request)).rejects.toThrow("DOM_CHANGED");
   });
 });
 
-describe("Remzona HTTP loader", () => {
-  it("reproduces the verified public XHR contract", async () => {
-    let capturedUrl: URL | RequestInfo | undefined;
-    let capturedInit: RequestInit | undefined;
-    const fetchImpl: typeof globalThis.fetch = vi.fn(
-      async (url: URL | RequestInfo, init?: RequestInit) => {
-        capturedUrl = url;
-        capturedInit = init;
-        return new Response("", { status: 200 });
-      },
-    );
-    const loader = createRemzonaHtmlLoader({ config, fetchImpl });
-
-    await loader("7700274177");
-
-    expect(fetchImpl).toHaveBeenCalledOnce();
-    expect(capturedUrl).toBe("https://remzona.by/");
-    expect(capturedInit?.method).toBe("POST");
-    expect(capturedInit?.body?.toString()).toBe(
-      "typerequest=search&q=7700274177",
-    );
-  });
-
-  it("returns a typed rate-limit error for the observed 429 page", async () => {
-    const html = await fixture("search-error.html");
+describe("Remzona public search XHR", () => {
+  it("sends the observed form fields over HTTP", async () => {
+    let body = "";
     const loader = createRemzonaHtmlLoader({
       config,
-      fetchImpl: async () => new Response(html, { status: 429 }),
+      fetchImpl: async (_url, init) => {
+        body = init?.body?.toString() ?? "";
+        return new Response("", { status: 200 });
+      },
     });
 
-    await expect(loader("7700274177")).rejects.toMatchObject({
-      sourceId: "remzona",
-      code: "rate-limited",
-    } satisfies Partial<AdapterError>);
+    await loader("стеклоподъемник");
+    expect(body).toBe(
+      "typerequest=search&q=%D1%81%D1%82%D0%B5%D0%BA%D0%BB%D0%BE%D0%BF%D0%BE%D0%B4%D1%8A%D0%B5%D0%BC%D0%BD%D0%B8%D0%BA",
+    );
   });
 });

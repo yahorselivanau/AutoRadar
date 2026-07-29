@@ -2,13 +2,25 @@ import { SearchRequestSchema } from "@autoradar/domain";
 
 import { RemzonaPartsAdapter } from ".";
 
-const query = process.argv.slice(2).join(" ").trim() || "7700274177";
+if (process.env.REMZONA_LIVE_SMOKE !== "true") {
+  process.stdout.write(
+    "Remzona live smoke выключен. Запуск: REMZONA_LIVE_SMOKE=true pnpm remzona:smoke -- стеклоподъемник\n",
+  );
+  process.exit(0);
+}
+
+const query =
+  process.argv
+    .slice(2)
+    .filter((value) => value !== "--")
+    .join(" ")
+    .trim() || "стеклоподъемник";
 const result = await new RemzonaPartsAdapter().search(
   SearchRequestSchema.parse({
     query,
     part: {
       name: query,
-      rawPartNumber: query,
+      rawPartNumber: /\d/.test(query) ? query : undefined,
     },
   }),
 );
@@ -21,6 +33,8 @@ process.stdout.write(
         title: offer.title,
         brand: offer.brand,
         partNumber: offer.rawPartNumber,
+        price: offer.priceAmount,
+        priceSource: offer.priceSource,
         url: offer.externalUrl,
       })),
     },

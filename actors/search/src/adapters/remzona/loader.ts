@@ -14,6 +14,8 @@ interface RemzonaLoaderOptions {
   fetchImpl?: typeof globalThis.fetch;
 }
 
+export type RemzonaPageLoader = (path: string) => Promise<LoadedRemzonaHtml>;
+
 let requestQueue = Promise.resolve();
 let nextRequestAt = 0;
 
@@ -91,8 +93,8 @@ export function createRemzonaHtmlLoader(
           "remzona",
           timedOut ? "timeout" : "network",
           timedOut
-            ? "Таймаут запроса к Remzona"
-            : "Ошибка сети при запросе к Remzona",
+            ? "TIMEOUT: публичный поиск Remzona не ответил вовремя"
+            : "HTTP_BLOCKED: ошибка сети при запросе к Remzona",
           { cause: error },
         );
       } finally {
@@ -107,21 +109,21 @@ export function createRemzonaHtmlLoader(
         throw new AdapterError(
           "remzona",
           "rate-limited",
-          "Remzona временно ограничила частоту запросов",
+          "HTTP_BLOCKED: Remzona временно ограничила частоту запросов",
         );
       }
       if (response.status === 401 || response.status === 403) {
         throw new AdapterError(
           "remzona",
           "blocked",
-          `Remzona ограничила публичный запрос (HTTP ${response.status})`,
+          `HTTP_BLOCKED: Remzona ограничила публичный запрос (HTTP ${response.status})`,
         );
       }
       if (!response.ok) {
         throw new AdapterError(
           "remzona",
           "network",
-          `Remzona вернула HTTP ${response.status}`,
+          `HTTP_BLOCKED: Remzona вернула HTTP ${response.status}`,
         );
       }
 
@@ -129,11 +131,132 @@ export function createRemzonaHtmlLoader(
     });
 }
 
+function resolveRemzonaUrl(baseUrl: string, path: string): string {
+  const url = new URL(path, baseUrl);
+  const base = new URL(baseUrl);
+  if (url.protocol !== "https:" || url.hostname !== base.hostname) {
+    throw new AdapterError(
+      "remzona",
+      "unsupported-query",
+      "DOM_CHANGED: Remzona вернула ссылку вне разрешённого источника",
+    );
+  }
+  return url.toString();
+}
+
+export function createRemzonaPageLoader(
+  options: RemzonaLoaderOptions = {},
+): RemzonaPageLoader {
+  const config = options.config ?? readRemzonaTransportConfig();
+  const fetchImpl =
+    options.fetchImpl ?? ((request, init) => globalThis.fetch(request, init));
+
+  return (path) =>
+    schedule(config.REMZONA_REQUEST_INTERVAL_MS, async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        config.REMZONA_HTTP_TIMEOUT_MS,
+      );
+      try {
+        const response = await fetchImpl(
+          resolveRemzonaUrl(config.REMZONA_BASE_URL, path),
+          {
+            headers: {
+              accept: "text/html,application/xhtml+xml",
+              "user-agent": config.REMZONA_USER_AGENT,
+            },
+            redirect: "error",
+            signal: controller.signal,
+          },
+        );
+        const html = await response.text();
+        if (response.status === 429 || isRateLimitPage(html)) {
+          throw new AdapterError(
+            "remzona",
+            "rate-limited",
+            "HTTP_BLOCKED: Remzona ограничила частоту запросов",
+          );
+        }
+        if (response.status === 401 || response.status === 403) {
+          throw new AdapterError(
+            "remzona",
+            "blocked",
+            `HTTP_BLOCKED: Remzona вернула HTTP ${response.status}`,
+          );
+        }
+        if (!response.ok) {
+          throw new AdapterError(
+            "remzona",
+            "network",
+            `HTTP_BLOCKED: Remzona вернула HTTP ${response.status}`,
+          );
+        }
+        return { html, status: response.status };
+      } catch (error) {
+        if (error instanceof AdapterError) throw error;
+        const timedOut = error instanceof Error && error.name === "AbortError";
+        throw new AdapterError(
+          "remzona",
+          timedOut ? "timeout" : "network",
+          timedOut
+            ? "TIMEOUT: страница Remzona не ответила вовремя"
+            : "HTTP_BLOCKED: не удалось загрузить страницу Remzona",
+          { cause: error },
+        );
+      } finally {
+        clearTimeout(timeout);
+      }
+    });
+}
+
+export async function loadRemzonaPlaywrightHtml(
+  path: string,
+  selector: string,
+): Promise<LoadedRemzonaHtml> {
+  const config = readRemzonaTransportConfig();
+  const url = resolveRemzonaUrl(config.REMZONA_BASE_URL, path);
+  const { chromium } = await import("playwright");
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({
+      userAgent: config.REMZONA_USER_AGENT,
+    });
+    const response = await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: config.REMZONA_HTTP_TIMEOUT_MS,
+    });
+    await page.locator(selector).first().waitFor({
+      state: "attached",
+      timeout: config.REMZONA_HTTP_TIMEOUT_MS,
+    });
+    return {
+      html: await page.content(),
+      status: response?.status() ?? 200,
+    };
+  } catch (error) {
+    throw new AdapterError(
+      "remzona",
+      "timeout",
+      "TIMEOUT: Playwright fallback не дождался карточек Remzona",
+      { cause: error },
+    );
+  } finally {
+    await browser.close();
+  }
+}
+
 let defaultLoader: ((query: string) => Promise<LoadedRemzonaHtml>) | undefined;
+let defaultPageLoader: RemzonaPageLoader | undefined;
 
 export function loadRemzonaSearchHtml(
   query: string,
 ): Promise<LoadedRemzonaHtml> {
   defaultLoader ??= createRemzonaHtmlLoader();
   return defaultLoader(query);
+}
+
+export function loadRemzonaPageHtml(path: string): Promise<LoadedRemzonaHtml> {
+  defaultPageLoader ??= createRemzonaPageLoader();
+  return defaultPageLoader(path);
 }

@@ -1,135 +1,199 @@
 # Remzona discovery
 
-Checked at: 2026-07-28 (Europe/Minsk)  
+Checked at: 2026-07-29 (Europe/Minsk)
 Researcher: Codex for AutoRadar
 
-## Access
+## Access and policy
 
 - Public URL: `https://remzona.by/`.
-- Public without login: yes; search suggestions and product links are returned
-  to a guest.
-- `robots.txt`: `User-agent: *` disallows `/search` and generic query-string
-  URLs. The selected implementation does not request `/search`; it reproduces
-  the site's public same-origin XHR as `POST /`.
-- Terms: public offer at `https://remzona.by/info/rules`. No separate public
-  API or automated-access agreement was found. The adapter remains a narrow
-  live-search integration and does not crawl the catalog.
-- CAPTCHA: absent on the successful search XHR. A Cloudflare Turnstile page was
-  observed only together with HTTP 429 after several rapid discovery requests.
+- Public category example: `https://remzona.by/steklopodiemnik`.
+- Public vehicle category example:
+  `https://remzona.by/catalog/peugeot/308/steklopodiemnik`.
 - Login: not required.
-- Rate-limit observation: a product-page request made after several discovery
-  requests returned HTTP 429 without `Retry-After`.
-- Proxy required: no.
-- Proxy region: none.
-- TLS/CA requirements: ordinary verified HTTPS; no custom CA and no TLS bypass.
+- Terms checked: `https://remzona.by/info/rules`.
+- `robots.txt` disallows `/search` and generic `*?` URLs. The adapter does not
+  request `/search` or query-string filter pages. It uses clean catalog paths
+  and the same-origin public search XHR.
+- CAPTCHA was observed only with HTTP 429 after rapid discovery traffic.
+- Source-specific proxy: not required.
+- TLS: ordinary verified HTTPS; no custom CA or TLS bypass.
+- Cookies: not required for the verified HTTP search and catalog pages.
 
-## Search modes
+## Supported search modes
 
-- OEM/article: supported as a literal query; the adapter preserves the user's
-  original value.
-- Text: supported for strings of at least three characters.
+- Text/category: supported.
+- OEM/article: product suggestions are supported; the linked product page is
+  then loaded to look for a price.
+- Vehicle make/model: supported when Remzona exposes exact clean catalog links.
+- Year: accepted by AutoRadar but not claimed as a Remzona filter. Remzona
+  requires a further body, engine and exact modification selection before it
+  applies a year-specific vehicle.
 - VIN: not verified and not supported.
-- Vehicle: not verified and not supported.
 
-## Mandatory ladder evidence
+## Mandatory ladder
 
-1. HTTP + URL parameters: the homepage is server-rendered, but the search input
-   does not submit a conventional form.
-2. HTML + Cheerio: the homepage contains the search trigger, not results.
-3. Public XHR: selected. The public JavaScript calls `POST /` with
-   `typerequest=search` and `q=<query>` and receives an HTML fragment.
-4. Playwright: unnecessary; the XHR is reproducible with ordinary HTTP.
+1. HTTP + URL parameters: clean category and make/model catalog paths return
+   server-rendered products.
+2. Server-rendered HTML + Cheerio: selected as the primary offer and price
+   source.
+3. Public XHR: `POST /` is used only to resolve the user text to a verified
+   category or product path.
+4. Playwright: implemented as an opt-in fallback and manual discovery tool.
+   It is not used when HTTP HTML contains priced offers.
 
-## Network
-
-- Endpoint: `POST https://remzona.by/`.
-- Content type:
-  `application/x-www-form-urlencoded; charset=UTF-8`.
-- Fields:
-  - `typerequest=search`
-  - `q=<article or text>`
-- Header used by the site: `X-Requested-With: XMLHttpRequest`.
-- Response: server-rendered HTML fragment.
-- Cookies: not required by successful and empty live smokes; the adapter
-  neither stores nor replays browser cookies.
-- Redirects: rejected by the adapter.
-
-Example:
+## Verified HTTP/XHR contract
 
 ```http
 POST / HTTP/2
 Host: remzona.by
 Content-Type: application/x-www-form-urlencoded; charset=UTF-8
 X-Requested-With: XMLHttpRequest
-User-Agent: AutoRadar/0.1 (+https://autoradar.vercel.app; parts search)
 
-typerequest=search&q=7700274177
+typerequest=search&q=стеклоподъемник
 ```
 
-Verified successful response:
+The response contains:
 
-- query: `7700274177`;
-- HTTP 200;
-- the production adapter smoke returned 8 product cards without a browser
-  session;
-- category: `Масляный фильтр`;
-- links included:
-  - `/renault/7700274177`;
-  - `/avtodetal/7700274177`;
-  - `/amd/7700274177`;
-  - `/lada/7700274177`.
+```html
+<div class="part-result" data-part="group">
+  <a
+    class="part-content"
+    href="/steklopodiemnik"
+    data-search-enter="Стеклоподъемник"
+  ></a>
+</div>
+```
 
-Verified empty response:
+Verified clean catalog paths:
 
-- query: `ZZZNORESULTAUTORADAR20260728`;
-- HTTP 200;
-- explicit text: no results found.
+- `/steklopodiemnik`;
+- `/catalog/peugeot/steklopodiemnik`;
+- `/catalog/peugeot/308/steklopodiemnik`.
 
-## Chosen implementation
+Required request headers:
 
-- Mode: one public HTTP XHR returning HTML, parsed with Cheerio.
-- Reason: it is the first reproducible method that returns product records and
-  requires neither browser execution nor a third-party scraping service.
-- Timeout: 10 seconds by default.
-- Retry: none. A 429 produces a typed `rate-limited` error.
-- Pacing: requests are serialized per process with a five-second minimum
-  interval; a 429 creates a minimum 60-second local cooldown when the server
-  omits `Retry-After`.
-- Pagination: not present in this suggestion response.
-- Result limit: the source controls the number of returned cards.
+- a descriptive `User-Agent`;
+- `Accept: text/html,application/xhtml+xml` for catalog GET;
+- `X-Requested-With: XMLHttpRequest` and form content type for search POST.
 
-## Selectors and mapping
+Timeout is configurable and defaults to 10 seconds. Requests are serialized
+with a five-second default interval. Redirects are rejected.
 
-- card: `.part-item a.part-content[href]`;
-- article: first descendant `[data-searchname]`;
-- display line: second descendant `[data-searchname]`;
-- brand: text before the first `/` in the display line;
-- title: text after `/`;
-- external id: normalized product path, for example
-  `renault/7700274177`;
-- URL: card `href`, restricted to verified HTTPS on `remzona.by`;
-- condition: `unknown` because the XHR fragment does not state it;
-- original/analog: `unknown` because the XHR fragment does not state it;
-- OEM: not populated; the shown value is treated as the source article, not
-  assumed to be an OEM number;
-- price: absent from this response and therefore omitted;
-- availability/delivery/location: absent and therefore omitted;
-- seller: `Remzona.by`.
+## Verified selectors
 
-## Fixtures
+- search candidate:
+  `.part-result[data-part] a.part-content[href]`;
+- candidate type: parent `data-part="group"` or `data-part="article"`;
+- catalog card: `.box-articleitems > .item-list`;
+- product link/title: `a.name-art[href]`;
+- price: `.value_price [data-cur="BYN"]`;
+- availability/delivery: `.part-available .part-param`, matched by the visible
+  labels `Доступно` and `Доставка`;
+- image: `img[data-src]`, then `img[src]`;
+- internal product id: first `[data-art_id]`;
+- make/model: exact visible anchor text and verified `/catalog/...` path.
 
-- success: `fixtures/search-success.html`, trimmed from the verified live
-  `7700274177` response while preserving real markup and values;
-- empty: `fixtures/search-empty.html`, the verified empty fragment;
-- error: `fixtures/search-error.html`, the observed HTTP 429 markers.
+Price extraction order:
+
+1. JSON-LD `Product`/`Offer`;
+2. `[itemprop="price"][content]`;
+3. `meta[property="product:price:amount"]`;
+4. `data-price` or `data-cost`;
+5. verified DOM price text.
+
+Prices are normalized as decimal strings, for example
+`1 234,56 руб.` → `1234.56`. The source is recorded as `json_ld`,
+`microdata`, `data_attribute` or `dom`. No public JSON price API was found, so
+`api` is reserved but not emitted by the current live path.
+
+The supplied full page `steklopodiemnik.html` produced 24 normalized cards;
+all 24 contained prices. The first verified values were `2.00`, `2.70` and
+`2.80` BYN.
+
+## Playwright discovery and fallback
+
+Manual discovery:
+
+```bash
+pnpm remzona:discover
+```
+
+Automated diagnostic pass:
+
+```bash
+REMZONA_DISCOVERY_HEADLESS=true \
+REMZONA_DISCOVERY_AUTO_QUERY=стеклоподъемник \
+REMZONA_DISCOVERY_AUTO_EXIT=true \
+pnpm remzona:discover
+```
+
+`src/discovery/remzona.ts` launches headed Chromium, records a trace with DOM
+snapshots/screenshots/network, captures XHR/fetch metadata and the first 100 KB
+of JSON response bodies, and waits for Enter. It then writes:
+
+- `network.json`;
+- `storage-state.json` including IndexedDB;
+- `final.html`;
+- `final.png`;
+- `trace.zip`.
+
+Artifacts are written under gitignored
+`output/playwright/remzona/<timestamp>/`.
+
+The pass at `2026-07-29T09-11-01-604Z` produced `trace.zip`,
+`network.json`, `storage-state.json` and `final.png`. Chromium timed out before
+the initial document response, so no XHR/fetch was emitted and the screenshot
+is blank. Independent IPv4 and IPv6 connection checks also timed out. This is
+classified as `TIMEOUT`, not a DOM/parser failure.
+
+A read-only request through the existing Vercel production route at
+`2026-07-29T09:13Z` reached the same public Remzona XHR and returned HTTP 200
+in about two seconds. Therefore the observed timeout is specific to the local
+network/IP; the production Vercel egress currently reaches Remzona without a
+proxy. That deployed route still contains the previous suggestion-only adapter
+until these local changes are deployed.
+
+Production Playwright fallback is opt-in:
+
+```bash
+REMZONA_PLAYWRIGHT_FALLBACK_ENABLED=true
+```
+
+It waits for a concrete product-card selector (or `h1` for a product page),
+never for `networkidle`.
+
+## Fixtures and diagnostics
+
+- `search-category.html`: verified public category suggestion.
+- `search-success.html`: verified product suggestions.
+- `search-empty.html`: verified empty search response.
+- `catalog-success.html`: trimmed from the supplied real category HTML,
+  preserving title, URL, image, availability, delivery and BYN price markup.
+- `catalog-empty.html`: explicit empty catalog.
+- `search-error.html`: observed HTTP 429 markers.
+
+Typed failures include the diagnostic reason in the message:
+
+- `HTTP_BLOCKED`;
+- `EMPTY_RESPONSE`;
+- `PRICE_NOT_FOUND`;
+- `DOM_CHANGED`;
+- `TIMEOUT`.
+
+If product containers exist but required card fields no longer parse, the
+adapter returns `DOM_CHANGED`, never a successful empty result.
 
 ## Known limitations
 
-- Search results are product entries, not stock-level offers: price and
-  availability remain available only on the linked Remzona card.
-- Fetching every product card would multiply traffic and triggered rate
-  limiting during discovery, so the MVP intentionally performs one request per
-  source search.
-- The adapter must be disabled immediately with
-  `SOURCE_REMZONA_ENABLED=false` if access rules change or repeated 429 errors
-  appear.
+- Compatibility, original/analog and new/used are not inferred.
+- Exact year filtering is not claimed without completing Remzona's
+  source-specific body/engine/modification selector.
+- Playwright requires a Chromium-capable Actor/runtime and remains disabled in
+  the default Next.js HTTP path.
+- The source currently timed out during the 2026-07-29 live smoke. The parser
+  and HTTP/fallback modes passed fixture tests, and the full supplied HTML
+  passed a local real-page parse, but this timeout is not reported as a
+  successful live verification.
+- The verified `Стеклоподъемник` category bypasses the suggestion XHR and opens
+  `/steklopodiemnik` directly. Other text/OEM queries still use the discovered
+  XHR contract.

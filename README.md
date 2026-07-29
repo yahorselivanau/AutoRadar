@@ -53,9 +53,10 @@ pnpm test:e2e
 
 ## Remzona adapter
 
-Первый рабочий источник новых запчастей — Remzona. Адаптер воспроизводит один
-публичный XHR-запрос обычным HTTP, парсит server-rendered HTML через Cheerio и
-не использует Playwright, Firecrawl или proxy. Точный отчёт и fixtures:
+Первый рабочий источник новых запчастей — Remzona. Адаптер разрешает категорию
+через публичный XHR, загружает server-rendered каталог обычным HTTP и парсит
+цены через Cheerio. Playwright доступен только как opt-in fallback и ручной
+discovery-инструмент. Точный отчёт и fixtures:
 `actors/search/src/adapters/remzona/DISCOVERY.md`.
 
 Локальная проверка:
@@ -63,12 +64,13 @@ pnpm test:e2e
 ```bash
 pnpm actor:test
 SOURCE_REMZONA_ENABLED=true pnpm actor:dev
-pnpm remzona:smoke -- 7700274177
+pnpm remzona:discover
+REMZONA_LIVE_SMOKE=true pnpm remzona:smoke -- стеклоподъемник
 ```
 
 Web-приложение вызывает `POST /api/search/remzona`. Источник можно мгновенно
-отключить через `SOURCE_REMZONA_ENABLED=false`. Адаптер выполняет один запрос,
-сериализует вызовы, выдерживает паузу между ними и не повторяет 429.
+отключить через `SOURCE_REMZONA_ENABLED=false`. Браузерный fallback отдельно
+включается через `REMZONA_PLAYWRIGHT_FALLBACK_ENABLED=true`.
 
 Для Git deployment проект Vercel должен быть подключён к GitHub-репозиторию
 через Vercel Git Integration. После подключения push в `main` создаёт

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-07-29
+
+- Added headed Remzona Playwright discovery with trace, network capture,
+  storage state (including IndexedDB), final HTML and screenshot artifacts.
+- Remzona now resolves a public category/product path, loads SSR catalog HTML,
+  parses BYN prices, availability, delivery and absolute product/image URLs.
+- Added deterministic price-source reporting and typed diagnostics:
+  `HTTP_BLOCKED`, `EMPTY_RESPONSE`, `PRICE_NOT_FOUND`, `DOM_CHANGED`,
+  `TIMEOUT`.
+- Added an opt-in Playwright fallback and a live smoke disabled by default.
+- Added an automated discovery mode and direct verified
+  `/steklopodiemnik` lookup that avoids one network request.
+- Discovery now preserves trace/network/storage/screenshot artifacts even when
+  initial navigation times out.
+- Added verified Remzona catalog/search fixtures and minimal HTTP/fallback
+  tests.
+
 ## 2026-07-28
 
 ### Added
