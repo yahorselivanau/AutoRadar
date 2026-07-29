@@ -1,19 +1,22 @@
 import {
   normalizePartNumber,
   PartRequestExtractionSchema,
+  VehicleContextSchema,
 } from "@autoradar/domain";
-import { APICallError, generateObject } from "ai";
+import { APICallError, generateText, Output } from "ai";
 import { z } from "zod";
 
 import {
   PART_REQUEST_PROMPT_VERSION,
   PART_REQUEST_SYSTEM_PROMPT,
-} from "@/lib/ai/prompts/part-request.v2";
+} from "@/lib/ai/prompts/part-request.v3";
 
 export const maxDuration = 30;
 
 const InputSchema = z.object({
   query: z.string().trim().min(2).max(1200),
+  currentExtraction: PartRequestExtractionSchema.optional(),
+  activeVehicle: VehicleContextSchema.optional(),
 });
 
 const vinPattern = /\b[A-HJ-NPR-Z0-9]{17}\b/gi;
@@ -36,11 +39,15 @@ export async function POST(request: Request) {
   const model = process.env.AI_MODEL ?? "openai/gpt-5.4-nano";
 
   try {
-    const { object } = await generateObject({
+    const { output } = await generateText({
       model,
-      schema: PartRequestExtractionSchema,
+      output: Output.object({ schema: PartRequestExtractionSchema }),
       system: PART_REQUEST_SYSTEM_PROMPT,
-      prompt: redactVin(parsedInput.data.query),
+      prompt: JSON.stringify({
+        message: redactVin(parsedInput.data.query),
+        currentRequest: parsedInput.data.currentExtraction ?? null,
+        activeVehicle: parsedInput.data.activeVehicle ?? null,
+      }),
       maxOutputTokens: 900,
       providerOptions: {
         gateway: {
@@ -56,9 +63,9 @@ export async function POST(request: Request) {
 
     return Response.json({
       extraction: {
-        ...object,
-        normalizedPartNumber: object.rawPartNumber
-          ? normalizePartNumber(object.rawPartNumber)
+        ...output,
+        normalizedPartNumber: output.rawPartNumber
+          ? normalizePartNumber(output.rawPartNumber)
           : null,
       },
       model,

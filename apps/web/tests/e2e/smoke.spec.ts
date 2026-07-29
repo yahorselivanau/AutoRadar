@@ -65,15 +65,15 @@ test("guest can search real sources from the AI confirmation card", async ({
   ).toBeVisible();
 
   const queryInput = page.getByRole("textbox", { name: "Что нужно найти?" });
-  await page.getByRole("button", { name: "Найти по номеру детали" }).click();
-  await expect(queryInput).toHaveValue("Найти по номеру детали");
+  await page.getByRole("button", { name: "Найти по артикулу" }).click();
+  await expect(queryInput).toHaveValue("Артикул: ");
   await queryInput.fill("7700274177");
   await page.getByRole("button", { name: "Отправить запрос" }).click();
   await expect(
     page.getByRole("heading", { name: "Масляный фильтр" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Искать на Zap.by" }).click();
+  await page.getByRole("button", { name: "Искать", exact: true }).click();
   await expect(page.getByText("Нашёл 1 реальное предложение.")).toBeVisible();
   await expect(page.getByRole("link", { name: "На Zap.by" })).toHaveAttribute(
     "href",
@@ -81,8 +81,50 @@ test("guest can search real sources from the AI confirmation card", async ({
   );
 });
 
-test("garage masks saved VIN values", async ({ page }) => {
+test("garage starts empty and persists a manually added vehicle", async ({
+  page,
+}) => {
   await page.goto("/garage");
   await expect(page.getByRole("heading", { name: "Мой гараж" })).toBeVisible();
-  await expect(page.getByText("VF3••••••••4821")).toBeVisible();
+  await expect(page.getByText("Гараж пока пуст")).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Добавить первый автомобиль" })
+    .click();
+  await page.getByLabel("Название в гараже").fill("Мой Peugeot");
+  await page.getByLabel("VIN").fill("VF3LBBHZHES123456");
+  await page.getByLabel("Марка *").fill("Peugeot");
+  await page.getByLabel("Модель *").fill("308");
+  await page.getByLabel("Год *").fill("2008");
+  await page.getByLabel("Поколение / версия").fill("T7");
+  await page.getByRole("button", { name: "Сохранить автомобиль" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Мой Peugeot" }),
+  ).toBeVisible();
+  await expect(page.getByText("VF3••••••••••3456")).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Мой Peugeot" }),
+  ).toBeVisible();
+  await expect(page.getByText("VF3LBBHZHES123456")).toHaveCount(0);
+});
+
+test("VIN entered in chat is prepared for a confirmed garage save", async ({
+  page,
+}) => {
+  await page.goto("/chat");
+  const queryInput = page.getByRole("textbox", { name: "Что нужно найти?" });
+
+  await queryInput.fill("Сохрани VIN VF3LBBHZHES123456");
+  await page.getByRole("button", { name: "Отправить запрос" }).click();
+
+  await expect(
+    page.getByText(
+      "VIN распознан и подготовлен к сохранению. Укажите марку, модель и год в гараже, чтобы подтвердить автомобиль.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Открыть гараж" }).click();
+  await expect(page.getByLabel("VIN")).toHaveValue("VF3LBBHZHES123456");
 });

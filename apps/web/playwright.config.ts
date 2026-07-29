@@ -12,7 +12,7 @@ export default defineConfig({
     reuseExistingServer: true,
   },
   projects: [
-    { name: "mobile", use: { ...devices["iPhone 13"] } },
+    { name: "mobile", use: { ...devices["Pixel 7"] } },
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
   ],
 });

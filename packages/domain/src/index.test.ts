@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  GarageStateSchema,
+  maskVin,
   NormalizedOfferSchema,
   SearchRequestSchema,
+  VinSchema,
   normalizePartNumber,
 } from "./index";
 
@@ -42,5 +45,20 @@ describe("domain schemas", () => {
     });
 
     expect(offer.priceAmount).toBe("125.50");
+  });
+
+  it("normalizes, validates and masks a VIN", () => {
+    const vin = VinSchema.parse("vf3lbbhzhes123456");
+
+    expect(vin).toBe("VF3LBBHZHES123456");
+    expect(maskVin(vin)).toBe("VF3••••••••••3456");
+    expect(VinSchema.safeParse("VF3I123").success).toBe(false);
+  });
+
+  it("accepts an empty persistent garage without mock vehicles", () => {
+    expect(GarageStateSchema.parse({})).toEqual({
+      vehicles: [],
+      activeVehicleId: null,
+    });
   });
 });

@@ -1,33 +1,45 @@
 "use client";
 
+import { maskVin, type SavedVehicle } from "@autoradar/domain";
 import {
   Check,
-  ChevronRight,
-  MoreHorizontal,
+  Pencil,
   Plus,
   ShieldCheck,
+  Trash2,
+  Warehouse,
 } from "lucide-react";
 import { useState } from "react";
 
-const vehicles = [
-  {
-    name: "Peugeot 308",
-    details: "2008 · 1.6 VTi · хэтчбек · 3 двери",
-    vin: "VF3••••••••4821",
-    active: true,
-    letter: "P",
-  },
-  {
-    name: "Volkswagen Golf VII",
-    details: "2015 · 1.4 TSI · хэтчбек",
-    vin: "WVW••••••••9174",
-    active: false,
-    letter: "V",
-  },
-];
+import { useGarage } from "@/lib/garage-store";
+
+import { VehicleEditor } from "./vehicle-editor";
 
 export function GarageView() {
-  const [showForm, setShowForm] = useState(false);
+  const {
+    garage,
+    activeVehicle,
+    saveVehicle,
+    removeVehicle,
+    setActiveVehicle,
+    clearPendingVin,
+  } = useGarage();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<SavedVehicle | null>(
+    null,
+  );
+  const pendingVin = garage.pendingVin;
+
+  const openNew = () => {
+    setEditingVehicle(null);
+    setEditorOpen(true);
+  };
+
+  const closeEditor = () => {
+    setEditorOpen(false);
+    setEditingVehicle(null);
+    if (pendingVin) clearPendingVin();
+  };
 
   return (
     <section className="content-page">
@@ -36,89 +48,134 @@ export function GarageView() {
           <span className="eyebrow">Контекст для точного поиска</span>
           <h1>Мой гараж</h1>
           <p>
-            Сохранённый автомобиль автоматически подставляется в новые запросы.
+            Сохранённый автомобиль доступен в чате и автоматически дополняет
+            новые запросы.
           </p>
         </div>
         <button
           className="button primary pressable"
           type="button"
-          onClick={() => setShowForm((value) => !value)}
+          onClick={openNew}
         >
           <Plus size={18} />
           Добавить автомобиль
         </button>
       </header>
 
-      {showForm ? (
-        <form
-          className="add-vehicle-card"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <div>
-            <span>Новый автомобиль</span>
-            <h2>Добавить по VIN</h2>
-            <p>
-              Мы попробуем определить базовые параметры. Перед сохранением вы
-              сможете всё проверить.
-            </p>
-          </div>
-          <label>
-            VIN
-            <input placeholder="Введите 17 символов" maxLength={17} />
-          </label>
-          <div className="request-actions">
-            <button
-              className="button secondary pressable"
-              type="button"
-              onClick={() => setShowForm(false)}
-            >
-              Отмена
-            </button>
-            <button className="button primary pressable" type="submit">
-              Продолжить
-              <ChevronRight size={17} />
-            </button>
-          </div>
-        </form>
+      {editorOpen || pendingVin ? (
+        <VehicleEditor
+          key={editingVehicle?.id ?? pendingVin ?? "new"}
+          initialVehicle={editingVehicle}
+          initialVin={editingVehicle ? undefined : pendingVin}
+          onCancel={closeEditor}
+          onSave={(vehicle) => {
+            saveVehicle(vehicle);
+            closeEditor();
+          }}
+        />
       ) : null}
 
-      <div className="vehicle-list">
-        {vehicles.map((vehicle) => (
-          <article
-            className={`vehicle-card ${vehicle.active ? "vehicle-active" : ""}`}
-            key={vehicle.name}
+      {garage.vehicles.length === 0 ? (
+        <div className="garage-empty">
+          <Warehouse size={28} />
+          <h2>Гараж пока пуст</h2>
+          <p>
+            Добавьте автомобиль вручную или отправьте VIN в чате. Фиктивные
+            машины больше не подставляются.
+          </p>
+          <button
+            className="button primary pressable"
+            type="button"
+            onClick={openNew}
           >
-            <div className="vehicle-letter">{vehicle.letter}</div>
-            <div className="vehicle-copy">
-              <div className="vehicle-title-row">
-                <h2>{vehicle.name}</h2>
-                {vehicle.active ? (
-                  <span className="active-badge">
-                    <Check size={14} /> Активный
-                  </span>
-                ) : null}
-              </div>
-              <p>{vehicle.details}</p>
-              <span className="vin font-tabular">{vehicle.vin}</span>
-            </div>
-            <button
-              className="icon-button pressable"
-              type="button"
-              aria-label={`Действия с ${vehicle.name}`}
-            >
-              <MoreHorizontal size={20} />
-            </button>
-          </article>
-        ))}
-      </div>
+            <Plus size={17} />
+            Добавить первый автомобиль
+          </button>
+        </div>
+      ) : (
+        <div className="vehicle-list">
+          {garage.vehicles.map((vehicle) => {
+            const isActive = vehicle.id === activeVehicle?.id;
+            return (
+              <article
+                className={`vehicle-card ${isActive ? "vehicle-active" : ""}`}
+                key={vehicle.id}
+              >
+                <div className="vehicle-letter">
+                  {vehicle.make.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="vehicle-copy">
+                  <div className="vehicle-title-row">
+                    <h2>{vehicle.displayName}</h2>
+                    {isActive ? (
+                      <span className="active-badge">
+                        <Check size={14} /> Активный
+                      </span>
+                    ) : null}
+                  </div>
+                  <p>
+                    {[
+                      `${vehicle.make} ${vehicle.model}`,
+                      vehicle.year,
+                      vehicle.generation,
+                      vehicle.engine,
+                      vehicle.body,
+                      vehicle.doors ? `${vehicle.doors} дверей` : undefined,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {vehicle.vin ? (
+                    <span className="vin font-tabular">
+                      {maskVin(vehicle.vin)}
+                    </span>
+                  ) : (
+                    <span className="vin">VIN не указан</span>
+                  )}
+                </div>
+                <div className="vehicle-card-actions">
+                  {!isActive ? (
+                    <button
+                      className="button secondary pressable"
+                      type="button"
+                      onClick={() => setActiveVehicle(vehicle.id)}
+                    >
+                      Сделать активным
+                    </button>
+                  ) : null}
+                  <button
+                    className="icon-button pressable"
+                    type="button"
+                    aria-label={`Редактировать ${vehicle.displayName}`}
+                    onClick={() => {
+                      setEditingVehicle(vehicle);
+                      setEditorOpen(true);
+                    }}
+                  >
+                    <Pencil size={18} />
+                  </button>
+                  <button
+                    className="icon-button destructive-icon pressable"
+                    type="button"
+                    aria-label={`Удалить ${vehicle.displayName}`}
+                    onClick={() => removeVehicle(vehicle.id)}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
       <aside className="garage-note">
         <ShieldCheck size={21} />
         <div>
-          <strong>VIN хранится как чувствительная информация</strong>
+          <strong>VIN хранится только на этом устройстве</strong>
           <p>
-            Полный номер не показывается в списках и не попадает в клиентские
-            логи.
+            В гостевом режиме данные сохраняются в браузере. Полный VIN не
+            показывается в списке и не отправляется AI-модели.
           </p>
         </div>
       </aside>

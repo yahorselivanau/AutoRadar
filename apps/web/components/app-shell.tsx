@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  ChevronDown,
   CircleHelp,
-  History,
   Menu,
   MessageCirclePlus,
   PanelLeftClose,
@@ -15,19 +13,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { Wordmark } from "./wordmark";
+import { useGarage } from "@/lib/garage-store";
 
-const conversations = [
-  "Стеклоподъёмник Peugeot 308",
-  "Колодки для Golf VII",
-  "Фара Volvo XC60",
-];
+import { Wordmark } from "./wordmark";
 
 export function AppShell({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { garage, activeVehicle } = useGarage();
 
   const closeDrawer = () => setDrawerOpen(false);
 
@@ -71,21 +66,13 @@ export function AppShell({
           >
             <Warehouse size={18} />
             Мой гараж
-            <span className="nav-count">2</span>
+            <span className="nav-count">{garage.vehicles.length}</span>
           </Link>
 
           <p className="nav-label recent-label">Недавние запросы</p>
-          {conversations.map((conversation, index) => (
-            <Link
-              className="conversation-item"
-              href={index === 0 ? "/search/demo" : "/chat"}
-              key={conversation}
-              onClick={closeDrawer}
-            >
-              <History size={16} />
-              <span>{conversation}</span>
-            </Link>
-          ))}
+          <p className="sidebar-empty">
+            Реальные запросы появятся здесь после подключения истории.
+          </p>
         </nav>
 
         <div className="sidebar-footer">
@@ -124,10 +111,11 @@ export function AppShell({
           >
             <Menu size={21} />
           </button>
-          <button className="vehicle-chip pressable" type="button">
-            Peugeot 308 · 2008
-            <ChevronDown size={15} />
-          </button>
+          <Link className="vehicle-chip pressable" href="/garage">
+            {activeVehicle
+              ? `${activeVehicle.make} ${activeVehicle.model} · ${activeVehicle.year}`
+              : "Выбрать автомобиль"}
+          </Link>
           <Link
             className="icon-button pressable"
             href="/auth/sign-in"

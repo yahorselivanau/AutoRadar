@@ -1,8 +1,17 @@
 "use client";
 
+import type {
+  NormalizedOffer,
+  PartConstraint,
+  PartRequestExtraction,
+  SearchClarification,
+  VehicleContext,
+} from "@autoradar/domain";
+import { normalizeVin, VinSchema } from "@autoradar/domain";
 import {
   ArrowUp,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDot,
   ExternalLink,
@@ -11,137 +20,45 @@ import {
   Pencil,
   Search,
   Sparkles,
+  X,
 } from "lucide-react";
-import type {
-  NormalizedOffer,
-  PartConstraint,
-  PartRequestExtraction,
-  SavedSearchContext,
-  SearchClarification,
-  VehicleContext,
-} from "@autoradar/domain";
-import { SavedSearchContextSchema } from "@autoradar/domain";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
+import { useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
+import { useGarage } from "@/lib/garage-store";
+
 const suggestions = [
-  "Передний левый стеклоподъёмник на Peugeot 308 2008",
-  "Найти по номеру детали",
-  "Подобрать для моей машины",
-  "Добавить автомобиль по VIN",
+  {
+    label: "Найти по артикулу",
+    value: "Артикул: ",
+  },
+  {
+    label: "Подобрать для машины",
+    value: "Нужна запчасть для ",
+  },
+  {
+    label: "Сохранить VIN",
+    value: "Сохрани VIN ",
+  },
+  {
+    label: "Описать деталь",
+    value: "",
+  },
 ];
 
 type Extraction = PartRequestExtraction & {
   normalizedPartNumber: string | null;
 };
 
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+};
+
 type Stage = "empty" | "loading" | "review" | "error";
 type SearchStage = "idle" | "searching" | "clarification" | "results" | "error";
-
-const savedContextKey = "autoradar.search-context.v1";
-const savedContextEvent = "autoradar:saved-context";
-const emptySavedContext: SavedSearchContext = { partPreferences: {} };
-
-function subscribeSavedContext(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-  window.addEventListener(savedContextEvent, onStoreChange);
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener(savedContextEvent, onStoreChange);
-  };
-}
-
-function readSavedContext(): string | null {
-  try {
-    return window.localStorage.getItem(savedContextKey);
-  } catch {
-    return null;
-  }
-}
-
-function parseSavedContext(value: string | null): SavedSearchContext {
-  if (!value) return emptySavedContext;
-  try {
-    const parsed = SavedSearchContextSchema.safeParse(JSON.parse(value));
-    return parsed.success ? parsed.data : emptySavedContext;
-  } catch {
-    return emptySavedContext;
-  }
-}
-
-function vehicleKey(vehicle: VehicleContext): string {
-  return `${vehicle.make}:${vehicle.model}:${vehicle.year}`.toLocaleLowerCase(
-    "ru",
-  );
-}
-
-function preferenceKey(vehicle: VehicleContext, partName: string): string {
-  return `${vehicleKey(vehicle)}:${partName
-    .toLocaleLowerCase("ru")
-    .replaceAll("ё", "е")
-    .replace(/[^a-zа-я0-9]+/gi, "")}`;
-}
-
-function asSavedVehicle(extraction: Extraction): VehicleContext | undefined {
-  const { vehicle } = extraction;
-  if (!vehicle.make || !vehicle.model || !vehicle.year) return undefined;
-  return {
-    make: vehicle.make,
-    model: vehicle.model,
-    year: vehicle.year,
-    generation: vehicle.generation ?? undefined,
-    body: vehicle.body ?? undefined,
-    engine: vehicle.engine ?? undefined,
-    transmission: vehicle.transmission ?? undefined,
-    doors: vehicle.doors ?? undefined,
-  };
-}
-
-function mergeSavedContext(
-  extraction: Extraction,
-  saved: SavedSearchContext,
-): Extraction {
-  const extractedVehicle = asSavedVehicle(extraction);
-  const active = saved.activeVehicle;
-  const canUseActive =
-    active &&
-    (!extraction.vehicle.make ||
-      (extractedVehicle &&
-        vehicleKey(extractedVehicle) === vehicleKey(active)));
-  const vehicle = canUseActive
-    ? {
-        make: extraction.vehicle.make ?? active.make,
-        model: extraction.vehicle.model ?? active.model,
-        year: extraction.vehicle.year ?? active.year,
-        generation: extraction.vehicle.generation ?? active.generation ?? null,
-        body: extraction.vehicle.body ?? active.body ?? null,
-        engine: extraction.vehicle.engine ?? active.engine ?? null,
-        transmission:
-          extraction.vehicle.transmission ?? active.transmission ?? null,
-        doors: extraction.vehicle.doors ?? active.doors ?? null,
-      }
-    : extraction.vehicle;
-  const merged = { ...extraction, vehicle };
-  const resolvedVehicle = asSavedVehicle(merged);
-  const preferences =
-    resolvedVehicle && merged.partName
-      ? (saved.partPreferences[
-          preferenceKey(resolvedVehicle, merged.partName)
-        ] ?? [])
-      : [];
-  return {
-    ...merged,
-    constraints: [
-      ...merged.constraints,
-      ...preferences.filter(
-        (savedValue) =>
-          !merged.constraints.some(
-            (constraint) => constraint.key === savedValue.key,
-          ),
-      ),
-    ],
-  };
-}
 
 const sideLabels = {
   left: "Левая",
@@ -169,6 +86,42 @@ const sourceLabels: Record<NormalizedOffer["sourceId"], string> = {
   zap: "Zap.by",
 };
 
+function toVehicleContext(
+  vehicle: ReturnType<typeof useGarage>["activeVehicle"],
+): VehicleContext | undefined {
+  if (!vehicle) return undefined;
+  return {
+    make: vehicle.make,
+    model: vehicle.model,
+    year: vehicle.year,
+    generation: vehicle.generation,
+    body: vehicle.body,
+    engine: vehicle.engine,
+    transmission: vehicle.transmission,
+    doors: vehicle.doors,
+  };
+}
+
+function asVehicleContext(extraction: Extraction): VehicleContext | undefined {
+  if (
+    !extraction.vehicle.make ||
+    !extraction.vehicle.model ||
+    !extraction.vehicle.year
+  ) {
+    return undefined;
+  }
+  return {
+    make: extraction.vehicle.make,
+    model: extraction.vehicle.model,
+    year: extraction.vehicle.year,
+    generation: extraction.vehicle.generation ?? undefined,
+    body: extraction.vehicle.body ?? undefined,
+    engine: extraction.vehicle.engine ?? undefined,
+    transmission: extraction.vehicle.transmission ?? undefined,
+    doors: extraction.vehicle.doors ?? undefined,
+  };
+}
+
 function formatOffersCount(count: number): string {
   const mod100 = count % 100;
   const mod10 = count % 10;
@@ -182,53 +135,104 @@ function formatOffersCount(count: number): string {
   return `Нашёл ${count} реальных предложений.`;
 }
 
+function extractVin(value: string): string | null {
+  const compact = normalizeVin(value);
+  const direct = VinSchema.safeParse(compact);
+  if (direct.success) return direct.data;
+  const match = value.toUpperCase().match(/\b[A-HJ-NPR-Z0-9]{17}\b/);
+  if (!match) return null;
+  const parsed = VinSchema.safeParse(match[0]);
+  return parsed.success ? parsed.data : null;
+}
+
+function messageId() {
+  return crypto.randomUUID();
+}
+
 export function ChatExperience() {
+  const {
+    garage,
+    activeVehicle,
+    setActiveVehicle,
+    updateActiveVehicle,
+    setPendingVin,
+  } = useGarage();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [lastSearchQuery, setLastSearchQuery] = useState("");
   const [stage, setStage] = useState<Stage>("empty");
   const [extraction, setExtraction] = useState<Extraction | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [vehicleMenuOpen, setVehicleMenuOpen] = useState(false);
   const [searchStage, setSearchStage] = useState<SearchStage>("idle");
   const [searchError, setSearchError] = useState("");
   const [offers, setOffers] = useState<NormalizedOffer[]>([]);
   const [clarification, setClarification] =
     useState<SearchClarification | null>(null);
-  const savedContextValue = useSyncExternalStore(
-    subscribeSavedContext,
-    readSavedContext,
-    () => null,
-  );
-  const savedContext = useMemo(
-    () => parseSavedContext(savedContextValue),
-    [savedContextValue],
-  );
 
-  const persistContext = (next: SavedSearchContext) => {
-    try {
-      window.localStorage.setItem(savedContextKey, JSON.stringify(next));
-      window.dispatchEvent(new Event(savedContextEvent));
-    } catch {
-      // Private browsing/storage limits must not block search.
-    }
+  const vehicleLabel = useMemo(() => {
+    if (!extraction) return "Не указан";
+    return (
+      [
+        extraction.vehicle.make,
+        extraction.vehicle.model,
+        extraction.vehicle.year,
+        extraction.vehicle.generation,
+        extraction.vehicle.body,
+        extraction.vehicle.engine,
+        extraction.vehicle.doors ? `${extraction.vehicle.doors} дверей` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "Не указан"
+    );
+  }, [extraction]);
+
+  const addMessage = (role: Message["role"], text: string) => {
+    setMessages((current) => [...current, { id: messageId(), role, text }]);
   };
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
     const normalized = query.trim();
-    if (!normalized) return;
+    if (!normalized || stage === "loading") return;
 
-    setSubmittedQuery(normalized);
+    setQuery("");
+    addMessage("user", normalized);
+    setLastSearchQuery(normalized);
     setStage("loading");
-    setErrorMessage("");
     setSearchStage("idle");
     setClarification(null);
     setOffers([]);
+
+    const vin = extractVin(normalized);
+    if (vin) {
+      if (activeVehicle) {
+        updateActiveVehicle({ vin });
+        addMessage(
+          "assistant",
+          `VIN сохранён для ${activeVehicle.displayName}. Полный номер в интерфейсе скрыт.`,
+        );
+      } else {
+        setPendingVin(vin);
+        addMessage(
+          "assistant",
+          "VIN распознан и подготовлен к сохранению. Укажите марку, модель и год в гараже, чтобы подтвердить автомобиль.",
+        );
+      }
+      setStage(extraction ? "review" : "empty");
+      return;
+    }
 
     try {
       const response = await fetch("/api/ai/parse-part-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: normalized }),
+        body: JSON.stringify({
+          query: normalized,
+          currentExtraction: extraction ?? undefined,
+          activeVehicle: toVehicleContext(activeVehicle),
+        }),
       });
       const payload = (await response.json()) as {
         extraction?: Extraction;
@@ -239,54 +243,42 @@ export function ChatExperience() {
         throw new Error(payload.error ?? "Не удалось разобрать запрос.");
       }
 
-      const merged = mergeSavedContext(payload.extraction, savedContext);
-      setExtraction(merged);
-      const vehicle = asSavedVehicle(merged);
-      if (vehicle) {
-        persistContext({ ...savedContext, activeVehicle: vehicle });
-      }
+      setExtraction(payload.extraction);
+      addMessage("assistant", payload.extraction.summary);
       setStage("review");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Не удалось разобрать запрос.",
-      );
+      const message =
+        error instanceof Error ? error.message : "Не удалось разобрать запрос.";
+      addMessage("assistant", message);
       setStage("error");
     }
   };
 
-  const applySuggestion = (suggestion: string) => {
-    setQuery(suggestion);
+  const applySuggestion = (value: string) => {
+    setQuery(value);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const searchParts = async (currentExtraction = extraction) => {
-    if (!currentExtraction) return;
+    if (!currentExtraction?.partName) {
+      setSearchError("Сначала укажите, какую деталь нужно найти.");
+      setSearchStage("error");
+      return;
+    }
 
     setSearchStage("searching");
     setSearchError("");
     setOffers([]);
     setClarification(null);
 
-    const hasVehicle =
-      currentExtraction.vehicle.make &&
-      currentExtraction.vehicle.model &&
-      currentExtraction.vehicle.year;
-
     const searchRequest = {
-      query: submittedQuery,
-      vehicle: hasVehicle
-        ? {
-            make: currentExtraction.vehicle.make,
-            model: currentExtraction.vehicle.model,
-            year: currentExtraction.vehicle.year,
-            generation: currentExtraction.vehicle.generation ?? undefined,
-            body: currentExtraction.vehicle.body ?? undefined,
-            engine: currentExtraction.vehicle.engine ?? undefined,
-            transmission: currentExtraction.vehicle.transmission ?? undefined,
-            doors: currentExtraction.vehicle.doors ?? undefined,
-          }
-        : undefined,
+      query:
+        currentExtraction.rawPartNumber ??
+        lastSearchQuery ??
+        currentExtraction.partName,
+      vehicle: asVehicleContext(currentExtraction),
       part: {
-        name: currentExtraction.partName ?? "Неизвестная деталь",
+        name: currentExtraction.partName,
         side: currentExtraction.side,
         position: currentExtraction.position,
         condition: currentExtraction.condition,
@@ -296,65 +288,31 @@ export function ChatExperience() {
         constraints: currentExtraction.constraints,
       },
     };
-    const sources = [{ name: "Zap.by", endpoint: "/api/search/zap" }];
 
     try {
-      const results = await Promise.all(
-        sources.map(async (source) => {
-          try {
-            const response = await fetch(source.endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(searchRequest),
-            });
-            const payload = (await response.json()) as {
-              offers?: NormalizedOffer[];
-              clarification?: SearchClarification;
-              error?: string;
-            };
-            return response.ok && payload.offers
-              ? {
-                  offers: payload.offers,
-                  clarification: payload.clarification,
-                }
-              : {
-                  error: `${source.name}: ${payload.error ?? "источник не ответил"}`,
-                };
-          } catch {
-            return { error: `${source.name}: источник не ответил` };
-          }
-        }),
-      );
-      const successfulResults = results.filter(
-        (
-          result,
-        ): result is {
-          offers: NormalizedOffer[];
-          clarification?: SearchClarification;
-        } => "offers" in result,
-      );
-      if (successfulResults.length === 0) {
-        throw new Error(
-          results
-            .map((result) => ("error" in result ? result.error : undefined))
-            .filter(Boolean)
-            .join(" · ") || "Источники не ответили.",
-        );
+      const response = await fetch("/api/search/zap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(searchRequest),
+      });
+      const payload = (await response.json()) as {
+        offers?: NormalizedOffer[];
+        clarification?: SearchClarification;
+        error?: string;
+      };
+      if (!response.ok || !payload.offers) {
+        throw new Error(payload.error ?? "Zap.by не ответил.");
       }
-
-      const nextClarification = successfulResults.find(
-        (result) => result.clarification,
-      )?.clarification;
-      if (nextClarification) {
-        setClarification(nextClarification);
+      if (payload.clarification) {
+        setClarification(payload.clarification);
         setSearchStage("clarification");
         return;
       }
-      setOffers(successfulResults.flatMap((result) => result.offers));
+      setOffers(payload.offers);
       setSearchStage("results");
     } catch (error) {
       setSearchError(
-        error instanceof Error ? error.message : "Источники не ответили.",
+        error instanceof Error ? error.message : "Источник не ответил.",
       );
       setSearchStage("error");
     }
@@ -383,10 +341,7 @@ export function ChatExperience() {
     } else if (clarification.field === "doors") {
       nextExtraction = {
         ...extraction,
-        vehicle: {
-          ...extraction.vehicle,
-          doors: Number(selected.value),
-        },
+        vehicle: { ...extraction.vehicle, doors: Number(selected.value) },
       };
     } else {
       nextExtraction = {
@@ -397,71 +352,106 @@ export function ChatExperience() {
         },
       };
     }
-
     setExtraction(nextExtraction);
-    const vehicle = asSavedVehicle(nextExtraction);
-    if (vehicle) {
-      const nextSaved: SavedSearchContext = {
-        ...savedContext,
-        activeVehicle: vehicle,
-        partPreferences: { ...savedContext.partPreferences },
-      };
-      if (clarification.field === "part_attribute" && nextExtraction.partName) {
-        nextSaved.partPreferences[
-          preferenceKey(vehicle, nextExtraction.partName)
-        ] = nextExtraction.constraints;
-      }
-      persistContext(nextSaved);
-    }
+    addMessage("assistant", `Изменено: ${selected.label}. Повторяю поиск.`);
     void searchParts(nextExtraction);
   };
 
-  const vehicleLabel = extraction
-    ? [
-        extraction.vehicle.make,
-        extraction.vehicle.model,
-        extraction.vehicle.year,
-        extraction.vehicle.generation,
-        extraction.vehicle.body,
-        extraction.vehicle.engine,
-        extraction.vehicle.doors ? `${extraction.vehicle.doors} дверей` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ") || "Не указан"
-    : "Не указан";
-  const activeVehicle = savedContext.activeVehicle;
+  const updateExtractionField = (
+    field: keyof Extraction["vehicle"] | "partName" | "rawPartNumber",
+    value: string,
+  ) => {
+    if (!extraction) return;
+    if (field === "partName" || field === "rawPartNumber") {
+      setExtraction({
+        ...extraction,
+        [field]: value.trim() ? value : null,
+        normalizedPartNumber:
+          field === "rawPartNumber" && value.trim()
+            ? value.toUpperCase().replace(/[\s./-]+/g, "")
+            : extraction.normalizedPartNumber,
+      });
+      return;
+    }
+    setExtraction({
+      ...extraction,
+      vehicle: {
+        ...extraction.vehicle,
+        [field]:
+          field === "year" || field === "doors"
+            ? value
+              ? Number(value)
+              : null
+            : value || null,
+      },
+    });
+  };
+
+  const saveManualChanges = () => {
+    setEditing(false);
+    addMessage("assistant", "Изменения применены к текущему запросу.");
+    setSearchStage("idle");
+  };
 
   return (
     <section className="chat-page">
       <div className="desktop-context">
-        <button className="vehicle-context pressable" type="button">
-          <span className="vehicle-mark">{activeVehicle ? "✓" : "+"}</span>
-          <span>
-            <strong>
-              {activeVehicle
-                ? `${activeVehicle.make} ${activeVehicle.model} ${activeVehicle.year}`
-                : "Автомобиль не выбран"}
-            </strong>
-            <small>
-              {activeVehicle
-                ? [
-                    activeVehicle.generation,
-                    activeVehicle.engine,
-                    activeVehicle.doors
-                      ? `${activeVehicle.doors} дверей`
-                      : undefined,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "Используется для следующих запросов"
-                : "Добавить для точного поиска"}
-            </small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
+        <div className="vehicle-switcher">
+          <button
+            className="vehicle-context pressable"
+            type="button"
+            aria-expanded={vehicleMenuOpen}
+            onClick={() => setVehicleMenuOpen((open) => !open)}
+          >
+            <span className="vehicle-mark">{activeVehicle ? "✓" : "+"}</span>
+            <span>
+              <strong>
+                {activeVehicle
+                  ? `${activeVehicle.make} ${activeVehicle.model} ${activeVehicle.year}`
+                  : "Автомобиль не выбран"}
+              </strong>
+              <small>
+                {activeVehicle
+                  ? "Используется в новых запросах"
+                  : "Поиск работает и без гаража"}
+              </small>
+            </span>
+            <ChevronDown size={17} />
+          </button>
+          {vehicleMenuOpen ? (
+            <div className="vehicle-menu">
+              {garage.vehicles.length === 0 ? (
+                <p>В гараже пока нет автомобилей.</p>
+              ) : (
+                garage.vehicles.map((vehicle) => (
+                  <button
+                    key={vehicle.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveVehicle(vehicle.id);
+                      setVehicleMenuOpen(false);
+                    }}
+                  >
+                    <span>
+                      <strong>{vehicle.displayName}</strong>
+                      <small>
+                        {vehicle.make} {vehicle.model} · {vehicle.year}
+                      </small>
+                    </span>
+                    {vehicle.id === activeVehicle?.id ? (
+                      <Check size={17} />
+                    ) : null}
+                  </button>
+                ))
+              )}
+              <Link href="/garage">Открыть и настроить гараж</Link>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="chat-scroll">
-        {stage === "empty" ? (
+        {messages.length === 0 && stage === "empty" ? (
           <div className="empty-chat">
             <div className="empty-copy enter-item">
               <span className="eyebrow">
@@ -470,121 +460,268 @@ export function ChatExperience() {
               </span>
               <h1>Что нужно найти?</h1>
               <p>
-                Опишите деталь своими словами. AI выделит параметры запроса, не
-                придумывая OEM и совместимость.
+                Напишите запрос своими словами. Можно указать автомобиль,
+                артикул, сторону, положение или попросить сохранить VIN.
               </p>
             </div>
 
             <div className="suggestion-grid enter-item">
-              {suggestions.map((suggestion, index) => (
+              {suggestions.map((suggestion) => (
                 <button
-                  className={`suggestion pressable ${index === 0 ? "wide" : ""}`}
-                  key={suggestion}
+                  className="suggestion pressable"
+                  key={suggestion.label}
                   type="button"
-                  onClick={() => applySuggestion(suggestion)}
+                  onClick={() => applySuggestion(suggestion.value)}
                 >
-                  {index === 0 ? <Search size={17} /> : <CircleDot size={16} />}
-                  <span>{suggestion}</span>
+                  <CircleDot size={16} />
+                  <span>{suggestion.label}</span>
                   <ChevronRight size={16} />
                 </button>
               ))}
             </div>
 
             <div className="privacy-note enter-item">
-              Поиск доступен без регистрации. Совместимость всегда нужно
-              подтвердить у продавца.
+              Никаких предзаполненных машин или деталей. Поиск доступен без
+              регистрации.
             </div>
           </div>
         ) : (
           <div className="conversation">
-            <div className="user-message">{submittedQuery}</div>
-            <div className="assistant-block">
-              <span className="assistant-kicker">
-                <Sparkles size={15} /> AutoRadar
-              </span>
-              {stage === "loading" ? (
-                <p aria-live="polite">AI разбирает параметры запроса…</p>
-              ) : stage === "error" ? (
-                <p aria-live="polite">{errorMessage}</p>
+            {messages.map((message) =>
+              message.role === "user" ? (
+                <div className="user-message" key={message.id}>
+                  {message.text}
+                </div>
               ) : (
-                <p>
-                  {extraction?.summary}{" "}
-                  {extraction?.clarificationQuestion ?? ""}
-                </p>
-              )}
-            </div>
+                <div className="assistant-block" key={message.id}>
+                  <span className="assistant-kicker">
+                    <Sparkles size={15} /> AutoRadar
+                  </span>
+                  <p>{message.text}</p>
+                  {message.text.includes("подготовлен к сохранению") ? (
+                    <Link className="inline-link" href="/garage">
+                      Открыть гараж <ChevronRight size={15} />
+                    </Link>
+                  ) : null}
+                </div>
+              ),
+            )}
+
+            {stage === "loading" ? (
+              <div className="assistant-block" aria-live="polite">
+                <span className="assistant-kicker">
+                  <Sparkles size={15} /> AutoRadar
+                </span>
+                <p>Понимаю запрос и обновляю параметры…</p>
+              </div>
+            ) : null}
 
             {stage === "review" && extraction ? (
               <article className="request-card">
                 <div className="card-heading">
                   <div>
-                    <span>Распознано через Vercel AI Gateway</span>
+                    <span>Текущий запрос</span>
                     <h2>{extraction.partName ?? "Деталь нужно уточнить"}</h2>
                   </div>
                   <span className="confidence-badge">
-                    <Check size={14} /> Структурировано
+                    <Check size={14} /> Можно изменить
                   </span>
                 </div>
-                <dl className="request-grid">
-                  <div>
-                    <dt>Автомобиль</dt>
-                    <dd>{vehicleLabel}</dd>
+
+                {editing ? (
+                  <div className="request-edit-grid">
+                    <label>
+                      <span>Деталь</span>
+                      <input
+                        value={extraction.partName ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField("partName", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Артикул / OEM</span>
+                      <input
+                        value={extraction.rawPartNumber ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField(
+                            "rawPartNumber",
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Марка</span>
+                      <input
+                        value={extraction.vehicle.make ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField("make", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Модель</span>
+                      <input
+                        value={extraction.vehicle.model ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField("model", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Год</span>
+                      <input
+                        inputMode="numeric"
+                        value={extraction.vehicle.year ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField("year", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Версия / поколение</span>
+                      <input
+                        value={extraction.vehicle.generation ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField(
+                            "generation",
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Кузов</span>
+                      <input
+                        value={extraction.vehicle.body ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField("body", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Двигатель</span>
+                      <input
+                        value={extraction.vehicle.engine ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField("engine", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Дверей</span>
+                      <input
+                        inputMode="numeric"
+                        value={extraction.vehicle.doors ?? ""}
+                        onChange={(event) =>
+                          updateExtractionField("doors", event.target.value)
+                        }
+                      />
+                    </label>
                   </div>
-                  <div>
-                    <dt>Артикул / OEM</dt>
-                    <dd>{extraction.rawPartNumber ?? "Не указан"}</dd>
-                  </div>
-                  <div>
-                    <dt>Положение и сторона</dt>
-                    <dd>
-                      {positionLabels[extraction.position]} ·{" "}
-                      {sideLabels[extraction.side]}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Состояние</dt>
-                    <dd>{conditionLabels[extraction.condition]}</dd>
-                  </div>
-                  <div>
-                    <dt>Дополнительные параметры</dt>
-                    <dd>
-                      {extraction.constraints.length > 0
-                        ? extraction.constraints
-                            .map(
-                              (constraint) =>
-                                `${constraint.key}: ${constraint.value}`,
-                            )
-                            .join(" · ")
-                        : "Не указаны"}
-                    </dd>
-                  </div>
-                </dl>
+                ) : (
+                  <dl className="request-grid">
+                    <div>
+                      <dt>Автомобиль</dt>
+                      <dd>{vehicleLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>Артикул / OEM</dt>
+                      <dd>{extraction.rawPartNumber ?? "Не указан"}</dd>
+                    </div>
+                    <div>
+                      <dt>Положение и сторона</dt>
+                      <dd>
+                        {positionLabels[extraction.position]} ·{" "}
+                        {sideLabels[extraction.side]}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Состояние</dt>
+                      <dd>{conditionLabels[extraction.condition]}</dd>
+                    </div>
+                    <div>
+                      <dt>Дополнительные параметры</dt>
+                      <dd>
+                        {extraction.constraints.length > 0
+                          ? extraction.constraints
+                              .map(
+                                (constraint) =>
+                                  `${constraint.key}: ${constraint.value}`,
+                              )
+                              .join(" · ")
+                          : "Не указаны"}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+
                 <p className="request-note">
-                  Zap.by проверяет поколение автомобиля, характеристики и
-                  применимость карточек. Если данных недостаточно, AutoRadar
-                  задаст один уточняющий вопрос и запомнит ответ.
+                  Напишите следующее изменение прямо в чат — например, «поставь
+                  2010 год и 5 дверей» — или исправьте поля вручную.
                 </p>
                 <div className="request-actions">
-                  <button
-                    className="button secondary pressable"
-                    type="button"
-                    onClick={() => setStage("empty")}
-                  >
-                    <Pencil size={17} />
-                    Изменить
-                  </button>
-                  <button
-                    className="button primary pressable"
-                    type="button"
-                    disabled={searchStage === "searching"}
-                    onClick={() => void searchParts()}
-                  >
-                    <Search size={17} />
-                    {searchStage === "searching"
-                      ? "Ищу на Zap.by…"
-                      : "Искать на Zap.by"}
-                  </button>
+                  {editing ? (
+                    <>
+                      <button
+                        className="button secondary pressable"
+                        type="button"
+                        onClick={() => setEditing(false)}
+                      >
+                        <X size={17} />
+                        Закрыть
+                      </button>
+                      <button
+                        className="button primary pressable"
+                        type="button"
+                        onClick={saveManualChanges}
+                      >
+                        <Check size={17} />
+                        Применить
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        className="button secondary pressable"
+                        type="button"
+                        onClick={() => setEditing(true)}
+                      >
+                        <Pencil size={17} />
+                        Изменить
+                      </button>
+                      <button
+                        className="button primary pressable"
+                        type="button"
+                        disabled={searchStage === "searching"}
+                        onClick={() => void searchParts()}
+                      >
+                        <Search size={17} />
+                        {searchStage === "searching" ? "Ищу…" : "Искать"}
+                      </button>
+                    </>
+                  )}
                 </div>
+              </article>
+            ) : null}
+
+            {searchStage === "searching" ? (
+              <article className="progress-card" aria-live="polite">
+                <div className="progress-heading">
+                  <div>
+                    <span>Реальный поиск</span>
+                    <strong>Запрашиваю предложения Zap.by</strong>
+                  </div>
+                  <CircleDot className="searching-icon" size={22} />
+                </div>
+                <div className="progress-track">
+                  <span />
+                </div>
+                <p className="request-note">
+                  Проверяю карточки, характеристики и применимость. Это может
+                  занять несколько секунд.
+                </p>
               </article>
             ) : null}
 
@@ -594,10 +731,7 @@ export function ChatExperience() {
                   <Sparkles size={15} /> Нужно уточнить
                 </span>
                 <h2>{clarification.question}</h2>
-                <p>
-                  Zap.by нашёл несколько совместимых вариантов. Ответ нужен,
-                  чтобы не смешивать разные исполнения детали.
-                </p>
+                <p>Ответ нужен, чтобы не смешивать разные исполнения детали.</p>
                 <div className="clarification-options">
                   {clarification.options.map((option) => (
                     <button
@@ -681,22 +815,14 @@ export function ChatExperience() {
                           {offer.matchReasons?.map((reason) => (
                             <small key={reason}>✓ {reason}</small>
                           ))}
-                          {offer.matchStatus !== "confirmed" ? (
-                            <small>
-                              В карточке Zap.by не хватает данных для полного
-                              подтверждения.
-                            </small>
-                          ) : null}
                         </div>
                         <div className="offer-action">
-                          <span className="price">
+                          <span className="price font-tabular">
                             {offer.priceAmount
                               ? `${offer.priceAmount} BYN`
                               : "Цена на сайте"}
                           </span>
-                          <small>
-                            Цена и наличие доступны на карточке товара.
-                          </small>
+                          <small>Проверьте цену и наличие у продавца.</small>
                           <a
                             className="button secondary pressable"
                             href={offer.externalUrl}
@@ -717,20 +843,11 @@ export function ChatExperience() {
             {stage === "error" ? (
               <div className="request-actions">
                 <button
-                  className="button secondary pressable"
-                  type="button"
-                  onClick={() => setStage("empty")}
-                >
-                  <Pencil size={17} />
-                  Изменить запрос
-                </button>
-                <button
                   className="button primary pressable"
                   type="button"
-                  onClick={() => void submit()}
+                  onClick={() => inputRef.current?.focus()}
                 >
-                  <Sparkles size={17} />
-                  Повторить
+                  Изменить текст запроса
                 </button>
               </div>
             ) : null}
@@ -744,10 +861,15 @@ export function ChatExperience() {
             Что нужно найти?
           </label>
           <textarea
+            ref={inputRef}
             id="parts-query"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Например, передний левый стеклоподъёмник…"
+            placeholder={
+              extraction
+                ? "Уточните или измените текущий запрос…"
+                : "Опишите деталь, автомобиль или введите VIN…"
+            }
             rows={1}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {

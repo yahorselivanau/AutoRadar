@@ -2,6 +2,24 @@
 
 ## 2026-07-29
 
+- Removed all prefilled UI data: the hard-coded Peugeot/Golf garage, mobile
+  vehicle label, sample conversations and default window-regulator scenario.
+- Added a free-form contextual chat flow. Follow-up messages now update the
+  current Zod-validated request, and every extracted vehicle/part field can
+  also be corrected manually before launching Zap.by.
+- Added real search loading, empty, clarification, error and offer states with
+  one direct `Искать` action.
+- Added a persistent guest garage with create, edit, activate and delete
+  actions for vehicle name, VIN, make, model, year, generation/version, body,
+  engine, transmission, doors and notes.
+- Added deterministic VIN extraction in chat. Full VIN values are validated
+  and kept out of the AI prompt; lists display only a masked value.
+- Added shared garage state for the desktop vehicle switcher, mobile header
+  and chat request context.
+- Upgraded structured extraction to the AI SDK 6 `generateText` +
+  `Output.object` API and added the versioned `part-request.v3` prompt.
+- Added mobile/desktop E2E coverage for real-search rendering, empty garage,
+  persistent vehicle creation, masked VIN and VIN handoff from chat.
 - Rebuilt Zap.by search around structured vehicle and part constraints,
   generation/engine picker resolution, product-page characteristics and
   applicability.

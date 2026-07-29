@@ -11,6 +11,34 @@ export const VehicleContextSchema = z.object({
   doors: z.number().int().min(2).max(6).optional(),
 });
 
+export const VinSchema = z
+  .string()
+  .transform((value) => value.toUpperCase().replace(/\s+/g, ""))
+  .pipe(
+    z
+      .string()
+      .length(17, "VIN должен содержать 17 символов.")
+      .regex(
+        /^[A-HJ-NPR-Z0-9]{17}$/,
+        "VIN может содержать латинские буквы и цифры, кроме I, O и Q.",
+      ),
+  );
+
+export const SavedVehicleSchema = VehicleContextSchema.extend({
+  id: z.string().min(1),
+  displayName: z.string().trim().min(1),
+  vin: VinSchema.optional(),
+  notes: z.string().trim().max(1000).optional(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const GarageStateSchema = z.object({
+  vehicles: z.array(SavedVehicleSchema).max(20).default([]),
+  activeVehicleId: z.string().nullable().default(null),
+  pendingVin: VinSchema.optional(),
+});
+
 export const PartConstraintKeySchema = z.enum([
   "mounting",
   "axle",
@@ -148,6 +176,8 @@ export const SearchJobStatusSchema = z.enum([
 ]);
 
 export type VehicleContext = z.infer<typeof VehicleContextSchema>;
+export type SavedVehicle = z.infer<typeof SavedVehicleSchema>;
+export type GarageState = z.infer<typeof GarageStateSchema>;
 export type PartConstraintKey = z.infer<typeof PartConstraintKeySchema>;
 export type PartConstraint = z.infer<typeof PartConstraintSchema>;
 export type PartRequest = z.infer<typeof PartRequestSchema>;
@@ -160,4 +190,14 @@ export type SearchJobStatus = z.infer<typeof SearchJobStatusSchema>;
 
 export function normalizePartNumber(value: string): string {
   return value.toUpperCase().replace(/[\s./-]+/g, "");
+}
+
+export function normalizeVin(value: string): string {
+  return value.toUpperCase().replace(/\s+/g, "");
+}
+
+export function maskVin(value: string): string {
+  const normalized = normalizeVin(value);
+  if (normalized.length < 7) return "VIN скрыт";
+  return `${normalized.slice(0, 3)}••••••••••${normalized.slice(-4)}`;
 }
