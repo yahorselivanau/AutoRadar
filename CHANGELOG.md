@@ -2,6 +2,9 @@
 
 ## 2026-07-29
 
+- Added a Supabase session-refresh proxy and made the Server Component cookie
+  adapter read-only-safe, preventing expired auth sessions from attempting to
+  write cookies during SSR.
 - Reworked the responsive chat around shadcn-style primitives and Base UI
   popovers: a calmer message stream, compact user bubbles, typed status
   markers, reliable scroll anchoring and a jump-to-latest control.
