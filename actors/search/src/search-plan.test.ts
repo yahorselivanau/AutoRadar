@@ -43,7 +43,7 @@ describe("planSourceSearch", () => {
     conditions: ["new"],
   });
 
-  it("keeps an article unchanged and skips an incompatible used-only source", () => {
+  it("keeps an article unchanged and falls back to the source's supported mode", () => {
     const input = SearchRequestSchema.parse({
       query: "Найди OX 339/2D",
       part: {
@@ -65,7 +65,26 @@ describe("planSourceSearch", () => {
       query: "OX 339/2D",
     });
     expect(plan.entries[1]?.strategy).toBe("skip");
-    expect(plan.entries[2]?.skipReason).toContain("OEM/артикулу");
+    expect(plan.entries[2]?.skipReason).toContain("подходящий режим");
+  });
+
+  it("uses a vehicle catalogue when an article-only mode is unavailable", () => {
+    const input = SearchRequestSchema.parse({
+      query: "Капот BMW 3 41617037432",
+      vehicle: { make: "BMW", model: "3" },
+      part: {
+        name: "Капот",
+        rawPartNumber: "41617037432",
+        normalizedPartNumber: "41617037432",
+        condition: "used",
+      },
+    });
+
+    expect(planSourceSearch(input, [usedVehicle]).entries[0]).toMatchObject({
+      strategy: "vehicle_catalog",
+      query: "Капот BMW 3",
+      skipReason: null,
+    });
   });
 
   it("uses a vehicle catalogue only when make and model are known", () => {

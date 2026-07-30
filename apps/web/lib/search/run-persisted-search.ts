@@ -101,9 +101,9 @@ function enabledAdapters(): Array<{
             adapter: new MotorlandPartsAdapter(),
           },
         ]),
-    ...(process.env.SOURCE_AUTO1_ENABLED === "true"
-      ? [{ sourceId: "auto1" as const, adapter: new Auto1PartsAdapter() }]
-      : []),
+    ...(process.env.SOURCE_AUTO1_ENABLED === "false"
+      ? []
+      : [{ sourceId: "auto1" as const, adapter: new Auto1PartsAdapter() }]),
     ...(process.env.SOURCE_REMZONA_ENABLED === "false"
       ? []
       : [
@@ -137,6 +137,57 @@ function deduplicateOffers(offers: NormalizedOffer[]): NormalizedOffer[] {
   });
 }
 
+function boundedInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum
+    ? parsed
+    : fallback;
+}
+
+export function readSearchRuntimeConfig(
+  environment: Record<string, string | undefined> = process.env,
+) {
+  return {
+    maxSources: boundedInteger(environment.SEARCH_MAX_SOURCES, 10, 1, 10),
+    adapterConcurrency: boundedInteger(
+      environment.SEARCH_ADAPTER_CONCURRENCY,
+      4,
+      1,
+      10,
+    ),
+    adapterTimeoutMs: boundedInteger(
+      environment.SEARCH_ADAPTER_TIMEOUT_MS,
+      10_000,
+      3_000,
+      30_000,
+    ),
+  } as const;
+}
+
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  operation: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < values.length) {
+      const index = nextIndex++;
+      results[index] = await operation(values[index]!);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, values.length) }, worker),
+  );
+  return results;
+}
+
 async function runAdapter(
   sourceId: SourceId,
   adapter: PartsSourceAdapter,
@@ -162,7 +213,7 @@ async function runAdapter(
     const status: SearchJobSourceStatus =
       code === "timeout"
         ? "timeout"
-        : code === "blocked"
+        : code === "blocked" || code === "rate-limited"
           ? "blocked"
           : "failed";
     return {
@@ -182,7 +233,7 @@ async function runAdapterWithDeadline(
   sourceId: SourceId,
   adapter: PartsSourceAdapter,
   input: SearchRequest,
-  timeoutMs = 25_000,
+  timeoutMs: number,
 ): Promise<AdapterRun> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -199,7 +250,7 @@ async function runAdapterWithDeadline(
               clarification: null,
               errorCode: "timeout",
               errorMessage:
-                "Источник не завершил поиск в общем лимите 25 секунд.",
+                `Источник не завершил поиск за ${Math.ceil(timeoutMs / 1_000)} секунд.`,
             }),
           timeoutMs,
         );
@@ -207,6 +258,57 @@ async function runAdapterWithDeadline(
     ]);
   } finally {
     if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function persistSourceRun({
+  admin,
+  jobId,
+  run,
+}: {
+  admin: NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
+  jobId: string;
+  run: AdapterRun;
+}): Promise<void> {
+  try {
+    if (run.offers.length > 0) {
+      const { error } = await admin.from("offers").upsert(
+        run.offers.map((offer) => ({
+          search_job_id: jobId,
+          source_id: offer.sourceId,
+          external_id: offer.externalId,
+          external_url: offer.externalUrl,
+          normalized_part_number: offer.normalizedPartNumber ?? null,
+          seller_name: offer.sellerName ?? null,
+          price_amount: offer.priceAmount ?? null,
+          currency: offer.currency,
+          payload: offer,
+          fetched_at: offer.fetchedAt,
+        })),
+        { onConflict: "search_job_id,source_id,external_id" },
+      );
+      if (error) throw error;
+    }
+    const { error } = await admin
+      .from("search_job_sources")
+      .update({
+        status: run.status,
+        offer_count: run.offers.length,
+        duration_ms: run.durationMs,
+        error_code: run.errorCode,
+        error_message: run.errorMessage,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("search_job_id", jobId)
+      .eq("source_id", run.sourceId);
+    if (error) throw error;
+  } catch (error) {
+    console.error("[search] failed to persist source result", {
+      jobId,
+      sourceId: run.sourceId,
+      error: error instanceof Error ? error.message : "unknown",
+    });
   }
 }
 
@@ -241,6 +343,7 @@ export async function runPersistedSearch({
   sourceIds?: readonly SourceId[];
 }): Promise<SearchJobResult> {
   const request = normalizeSearchRequest(SearchRequestSchema.parse(input));
+  const runtimeConfig = readSearchRuntimeConfig();
   const conversation = await loadConversation(conversationId, identity);
   if (!conversation) throw new Error("conversation_not_found");
 
@@ -279,9 +382,9 @@ export async function runPersistedSearch({
   await assertGuestQuota(identity, "search_started");
   const jobId = crypto.randomUUID();
   const searchRequestId = crypto.randomUUID();
-  const adapters = enabledAdapters().filter(
-    ({ sourceId }) => !sourceIds || sourceIds.includes(sourceId),
-  );
+  const adapters = enabledAdapters()
+    .filter(({ sourceId }) => !sourceIds || sourceIds.includes(sourceId))
+    .slice(0, runtimeConfig.maxSources);
   const searchPlan = readMvpFeatureFlags().sourceSearchPlanner
     ? planSourceSearch(
         request,
@@ -344,8 +447,10 @@ export async function runPersistedSearch({
     sourceIds: adapters.map(({ sourceId }) => sourceId),
   });
 
-  const runs = await Promise.all(
-    adapters.map(async ({ sourceId, adapter }) => {
+  const runs = await mapWithConcurrency(
+    adapters,
+    runtimeConfig.adapterConcurrency,
+    async ({ sourceId, adapter }) => {
       const entry = searchPlan.entries.find(
         (planned) => planned.sourceId === sourceId,
       );
@@ -367,43 +472,14 @@ export async function runPersistedSearch({
                   ? "ARMTEK выключен: гостевой токен не настроен."
                   : (entry?.skipReason ?? "Нет подходящей стратегии поиска."),
             }
-          : await runAdapterWithDeadline(sourceId, adapter, {
-              ...request,
-              query: entry.query ?? request.query,
-            });
+          : await runAdapterWithDeadline(
+              sourceId,
+              adapter,
+              request,
+              runtimeConfig.adapterTimeoutMs,
+            );
       if (admin) {
-        if (run.offers.length > 0) {
-          const { error: offerError } = await admin.from("offers").upsert(
-            run.offers.map((offer) => ({
-              search_job_id: jobId,
-              source_id: offer.sourceId,
-              external_id: offer.externalId,
-              external_url: offer.externalUrl,
-              normalized_part_number: offer.normalizedPartNumber ?? null,
-              seller_name: offer.sellerName ?? null,
-              price_amount: offer.priceAmount ?? null,
-              currency: offer.currency,
-              payload: offer,
-              fetched_at: offer.fetchedAt,
-            })),
-            { onConflict: "search_job_id,source_id,external_id" },
-          );
-          if (offerError) throw offerError;
-        }
-        const { error: sourceError } = await admin
-          .from("search_job_sources")
-          .update({
-            status: run.status,
-            offer_count: run.offers.length,
-            duration_ms: run.durationMs,
-            error_code: run.errorCode,
-            error_message: run.errorMessage,
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("search_job_id", jobId)
-          .eq("source_id", run.sourceId);
-        if (sourceError) throw sourceError;
+        await persistSourceRun({ admin, jobId, run });
       }
       await onProgress?.({
         kind: "source_completed",
@@ -418,7 +494,7 @@ export async function runPersistedSearch({
         offers: run.offers,
       });
       return run;
-    }),
+    },
   );
   const clarification =
     runs.find((run) => run.clarification)?.clarification ?? null;

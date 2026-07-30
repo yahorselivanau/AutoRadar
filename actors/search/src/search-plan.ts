@@ -59,14 +59,6 @@ export function planSourceSearch(
         skipReason: null,
       };
     }
-    if (rawArticle) {
-      return {
-        sourceId,
-        strategy: "skip",
-        query: null,
-        skipReason: "Источник не имеет доказанного поиска по OEM/артикулу.",
-      };
-    }
 
     if (
       input.vehicle?.make &&
@@ -94,10 +86,9 @@ export function planSourceSearch(
       return {
         sourceId,
         strategy: "text",
-        query:
-          rawArticle && !capabilities.article
-            ? `${input.part.name} ${normalizePartNumber(rawArticle)}`
-            : vehicleQuery(input, sourceId),
+        query: rawArticle
+          ? `${input.part.name} ${normalizePartNumber(rawArticle)}`
+          : vehicleQuery(input, sourceId),
         skipReason: null,
       };
     }
