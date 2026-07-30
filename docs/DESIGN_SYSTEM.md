@@ -7,7 +7,8 @@
 Дата: **29 июля 2026**
 
 Этот файл задаёт визуальный язык и responsive-поведение «Авто Радар». Точные
-значения находятся в `DESIGN_TOKENS.css`. Не добавлять случайные цвета,
+значения находятся в `../packages/ui/styles/design-tokens.css`. Не добавлять случайные
+цвета,
 радиусы, тени и типографические уровни без обновления этих двух файлов.
 
 ## 1. Направление
@@ -437,7 +438,7 @@ Toasts:
 
 Before UI work:
 
-1. read this file and `DESIGN_TOKENS.css`;
+1. read this file and `../packages/ui/styles/design-tokens.css`;
 2. reuse an existing component/composition;
 3. use semantic tokens, not raw palette values;
 4. implement loading, empty, error and partial states;
@@ -471,5 +472,5 @@ Forbidden:
 - reduced motion works;
 - no secret or full VIN is exposed.
 
-Reference rationale is kept in `docs/DESIGN_NOTES.md`; implementation values
-are kept in `DESIGN_TOKENS.css`.
+Implementation values are kept in
+`../packages/ui/styles/design-tokens.css`.
