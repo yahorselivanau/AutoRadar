@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "apps/web/**/*.ts": {
+      "regions": ["fra1"]
+    }
+  }
+}

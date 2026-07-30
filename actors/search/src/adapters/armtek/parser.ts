@@ -100,6 +100,16 @@ function readRating(value: string | number | undefined): number | undefined {
     : undefined;
 }
 
+const vehicleApplicabilityPattern = /\b([A-Za-z][A-Za-z0-9\s/-]+(?:1\.[0-9A-Za-z]+|[0-9]+\.[0-9])\s*[A-Za-z0-9\s/.-]*)\b/;
+
+function extractVehicleApplicability(name: string): string | undefined {
+  const brandModels = name.split(/\s{2,}/).slice(1).join(" ").trim();
+  if (!brandModels) return undefined;
+  const cleaned = brandModels.replace(/\s+/g, " ").trim();
+  if (cleaned.length < 5 || cleaned === name) return undefined;
+  return cleaned;
+}
+
 export function hashArmtekPayload(payload: unknown): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
@@ -129,6 +139,7 @@ export function parseArmtekSearchPayload(
         "DOM_CHANGED: Armtek.by вернул небезопасный product alias",
       );
     }
+    const compatibilityText = extractVehicleApplicability(article.NAME);
     for (const suggestion of article.SUGGESTIONS) {
       const supplierReference = String(suggestion.PARNR ?? "0");
       const warehouseReference = suggestion.KEYZAK ?? "unknown";
@@ -161,6 +172,7 @@ export function parseArmtekSearchPayload(
           deliveryText: readDelivery(suggestion.DLVDT),
           sellerName: "ARMTEK",
           sellerRatingPercent: readRating(suggestion.VENSL),
+          compatibilityText: compatibilityText ?? undefined,
           sourceAttributes: {
             armtekArticleId: [String(article.ARTID)],
             armtekSupplierReference: [supplierReference],

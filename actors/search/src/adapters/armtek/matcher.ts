@@ -48,6 +48,18 @@ function vehicleEvidence(input: SearchRequest, evidence: string): boolean {
   return containsWords(input.vehicle.make, evidence);
 }
 
+function evidenceText(offer: NormalizedOffer): string {
+  return [
+    offer.title,
+    offer.description,
+    offer.rawPartNumber,
+    offer.brand,
+    offer.compatibilityText,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function evaluateArmtekOffer(
   offer: NormalizedOffer,
   input: SearchRequest,
@@ -67,27 +79,49 @@ export function evaluateArmtekOffer(
     });
   }
 
-  const evidence = [
-    offer.title,
-    offer.description,
-    offer.rawPartNumber,
-    offer.brand,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  if (
+    offer.priceAmount !== undefined &&
+    offer.priceAmount !== null &&
+    (offer.priceAmount === "0" || offer.priceAmount === "0.00")
+  ) {
+    return undefined;
+  }
+
+  const evidence = evidenceText(offer);
   if (
     !containsWords(input.part.name, evidence) ||
     !vehicleEvidence(input, evidence)
   ) {
     return undefined;
   }
+
+  const matchReasons: string[] = [
+    input.vehicle
+      ? "Название детали и идентификатор автомобиля присутствуют в выдаче Armtek.by"
+      : "Название детали присутствует в выдаче Armtek.by",
+  ];
+
+  if (offer.compatibilityText && input.vehicle) {
+    const vehicleCompatibility = [
+      input.vehicle.generation,
+      input.vehicle.model && input.vehicle.model.length >= 2
+        ? input.vehicle.model
+        : undefined,
+      input.vehicle.engine,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    if (
+      vehicleCompatibility &&
+      containsWords(vehicleCompatibility, offer.compatibilityText)
+    ) {
+      matchReasons.push("Совместимость указана в названии товара");
+    }
+  }
+
   return NormalizedOfferSchema.parse({
     ...offer,
     matchStatus: "possible",
-    matchReasons: [
-      input.vehicle
-        ? "Название детали и идентификатор автомобиля присутствуют в выдаче Armtek.by"
-        : "Название детали присутствует в выдаче Armtek.by",
-    ],
+    matchReasons,
   });
 }

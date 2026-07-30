@@ -6,14 +6,14 @@ const ZapTransportConfigSchema = z.object({
     .string()
     .trim()
     .min(1)
-    .default("AutoRadar/0.1 (+https://autoradar.vercel.app; parts search)"),
+    .default("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"),
   ZAP_HTTP_TIMEOUT_MS: z.coerce
     .number()
     .int()
     .min(3_000)
     .max(30_000)
     .default(15_000)
-    .transform((value) => Math.max(value, 15_000)),
+    .transform((value) => Math.max(value, 5_000)),
   ZAP_REQUEST_INTERVAL_MS: z.coerce
     .number()
     .int()

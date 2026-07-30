@@ -314,25 +314,24 @@ export function chooseRemzonaCandidate(
   const eligible = preferredKind
     ? candidates.filter((candidate) => candidate.kind === preferredKind)
     : candidates;
-  const exactArticle = eligible.find(
+  const pool = eligible.length > 0 ? eligible : candidates;
+  const exactArticle = pool.find(
     (candidate) =>
       candidate.kind === "product" &&
       candidate.normalizedPartNumber === normalizePartNumber(query),
   );
   return (
     exactArticle ??
-    eligible.find(
+    pool.find(
       (candidate) =>
         candidate.kind === "category" && comparable(candidate.title) === target,
     ) ??
-    eligible.find(
+    pool.find(
       (candidate) =>
         candidate.kind === "product" && comparable(candidate.title) === target,
     ) ??
-    (preferredKind
-      ? undefined
-      : (eligible.find((candidate) => candidate.kind === "category") ??
-        eligible.find((candidate) => candidate.kind === "product")))
+    pool.find((candidate) => candidate.kind === "category") ??
+    pool.find((candidate) => candidate.kind === "product")
   );
 }
 
@@ -393,13 +392,13 @@ export function filterRemzonaOffersByPlacement(
     const sideMatches =
       part.side === "unknown" ||
       (part.side === "left"
-        ? /слева|лев(ый|ая|ое)|\bleft\b/.test(text)
-        : /справа|прав(ый|ая|ое)|\bright\b/.test(text));
+        ? /слева|лев(?:ый|ая|ое|ую)|\bleft\b|\blh\b/i.test(text)
+        : /справа|прав(?:ый|ая|ое|ую)|\bright\b|\brh\b/i.test(text));
     const positionMatches =
       part.position === "unknown" ||
       (part.position === "front"
-        ? /спереди|передн(ий|яя|ее)|\bfront\b/.test(text)
-        : /сзади|задн(ий|яя|ее)|\brear\b/.test(text));
+        ? /спереди|передн(?:ий|яя|ее|юю)|\bfront\b/i.test(text)
+        : /сзади|задн(?:ий|яя|ее|юю)|\brear\b/i.test(text));
     return sideMatches && positionMatches;
   });
 }

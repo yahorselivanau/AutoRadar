@@ -17,6 +17,8 @@ export function getAuto1Query(input: SearchRequest): string {
     input.part.rawPartNumber?.trim() || input.part.normalizedPartNumber?.trim();
   if (partNumber) return partNumber;
 
+  if (input.query?.trim()) return input.query.trim();
+
   const values = [
     input.part.name,
     input.vehicle?.make,

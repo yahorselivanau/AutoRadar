@@ -86,9 +86,10 @@ export function planSourceSearch(
       return {
         sourceId,
         strategy: "text",
-        query: rawArticle
-          ? `${input.part.name} ${normalizePartNumber(rawArticle)}`
-          : vehicleQuery(input, sourceId),
+        query:
+          rawArticle && !capabilities.article
+            ? `${input.part.name} ${normalizePartNumber(rawArticle)}`
+            : vehicleQuery(input, sourceId),
         skipReason: null,
       };
     }

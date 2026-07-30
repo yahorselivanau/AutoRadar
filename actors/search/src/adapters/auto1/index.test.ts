@@ -179,7 +179,7 @@ describe("Auto1 public HTTP search", () => {
 
     await expect(loader("OX339/2D")).rejects.toMatchObject({
       sourceId: "auto1",
-      code: "rate-limited",
+      code: "blocked",
       message: expect.stringContaining("HTTP_BLOCKED"),
     });
   });

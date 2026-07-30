@@ -77,10 +77,10 @@ export function getZapDiagnosticReason(
 export class ZapPartsAdapter implements PartsSourceAdapter {
   readonly id = "zap";
   readonly capabilities = {
-    article: false,
+    article: true,
     vehicleCatalog: true,
     vin: false,
-    text: false,
+    text: true,
     category: false,
     conditions: ["new", "used"],
   } as const;

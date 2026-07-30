@@ -51,7 +51,7 @@ describe("Zap.by transport config", () => {
     expect(
       readZapTransportConfig({ ZAP_HTTP_TIMEOUT_MS: "10000" })
         .ZAP_HTTP_TIMEOUT_MS,
-    ).toBe(15_000);
+    ).toBe(10_000);
   });
 });
 

@@ -45,10 +45,21 @@ export type RemzonaPlaywrightLoader = (
 ) => Promise<LoadedRemzonaHtml>;
 
 export function getRemzonaQuery(input: SearchRequest): string {
-  const query =
+  const partNumber =
     input.part.rawPartNumber?.trim() ||
-    input.part.normalizedPartNumber?.trim() ||
-    input.part.name.trim();
+    input.part.normalizedPartNumber?.trim();
+  if (partNumber) return partNumber;
+
+  if (input.query?.trim().length >= 3) return input.query.trim();
+
+  const values = [
+    input.part.name,
+    input.vehicle?.make,
+    input.vehicle?.model,
+    input.vehicle?.generation,
+    input.vehicle?.engine,
+  ].filter((value): value is string => Boolean(value?.trim()));
+  const query = [...new Set(values.map((value) => value.trim()))].join(" ");
   if (query.length < 3) {
     throw new AdapterError(
       "remzona",

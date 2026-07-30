@@ -11,6 +11,7 @@ const CONSUMABLE_PATTERN =
   /(?:масл[оа]|фильтр[а-яё]*|антифриз[а-яё]*|тормозн[а-яё]*\s+жидк[а-яё]*|жидк[а-яё]*\s+гур|свеч[а-яё]*|щетк[а-яё]*\s+(?:стеклоочистител|дворник)|ламп[а-яё]*|аккумулятор[а-яё]*)/i;
 const ACCESSORY_PATTERN =
   /(?:коврик[а-яё]*|чех(?:ол|л)[а-яё]*|багажник[а-яё]*\s+на\s+крыш|держател[а-яё]*|зарядк[а-яё]*|автокресл[а-яё]*|дефлектор[а-яё]*|органайзер[а-яё]*)/i;
+const CHASSIS_CODE_PATTERN = /^[A-Z]\d{2,3}$/;
 const DTC_PATTERN = /\b[BCPU][0-9A-F]{4}\b/i;
 const EXPLICIT_ARTICLE_PATTERN =
   /(?:артикул|oem|номер(?:\s+детали)?|код(?:\s+детали)?)\s*[:№#-]?\s*([A-ZА-Я0-9][A-ZА-Я0-9 ./_-]{3,30})/i;
@@ -28,7 +29,7 @@ function likelyArticleToken(text: string): string | undefined {
   if (explicit) {
     const articleParts = explicit
       .split(/\s+/)
-      .filter((part) => /\d/.test(part))
+      .filter((part) => /\d/.test(part) && !CHASSIS_CODE_PATTERN.test(part))
       .slice(0, 4);
     if (articleParts.length > 0) return articleParts.join(" ");
   }

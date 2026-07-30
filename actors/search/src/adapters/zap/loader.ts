@@ -1,4 +1,5 @@
 import { AdapterError } from "../types";
+import { detectBlock } from "../../transport";
 import { readZapTransportConfig, type ZapTransportConfig } from "./config";
 
 export interface LoadedZapHtml {
@@ -100,12 +101,6 @@ function resolveZapJsonUrl(
   return url.toString();
 }
 
-function isBlockPage(html: string): boolean {
-  return /captcha|слишком много запросов|too many requests|access denied/i.test(
-    html,
-  );
-}
-
 export function createZapClient(options: ZapLoaderOptions = {}): ZapClient {
   const config = options.config ?? readZapTransportConfig();
   const fetchImpl =
@@ -167,18 +162,12 @@ export function createZapClient(options: ZapLoaderOptions = {}): ZapClient {
         );
         rememberCookies(response.headers);
         const html = await response.text();
-        if (response.status === 429 || isBlockPage(html)) {
+        const block = detectBlock(html, response.status);
+        if (block.blocked) {
           throw new AdapterError(
             "zap",
-            "rate-limited",
-            "HTTP_BLOCKED: Zap.by ограничил частоту запросов",
-          );
-        }
-        if (response.status === 401 || response.status === 403) {
-          throw new AdapterError(
-            "zap",
-            "blocked",
-            `HTTP_BLOCKED: Zap.by вернул HTTP ${response.status}`,
+            block.code,
+            `HTTP_BLOCKED: ${block.reason}`,
           );
         }
         if (!response.ok) {
@@ -227,11 +216,12 @@ export function createZapClient(options: ZapLoaderOptions = {}): ZapClient {
         );
         rememberCookies(response.headers);
         const text = await response.text();
-        if (response.status === 429 || isBlockPage(text)) {
+        const block = detectBlock(text, response.status);
+        if (block.blocked) {
           throw new AdapterError(
             "zap",
-            "rate-limited",
-            "HTTP_BLOCKED: Zap.by ограничил частоту запросов",
+            block.code,
+            `HTTP_BLOCKED: ${block.reason}`,
           );
         }
         if (!response.ok) {

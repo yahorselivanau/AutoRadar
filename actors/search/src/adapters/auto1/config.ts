@@ -6,7 +6,7 @@ const Auto1TransportConfigSchema = z.object({
     .string()
     .trim()
     .min(1)
-    .default("AutoRadar/0.1 (+https://autoradar.vercel.app; parts search)"),
+    .default("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"),
   AUTO1_HTTP_TIMEOUT_MS: z.coerce
     .number()
     .int()
