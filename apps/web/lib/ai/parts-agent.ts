@@ -5,6 +5,7 @@ import {
   SearchRequestSchema,
   VehicleContextSchema,
   type ConversationState,
+  type SearchRequest,
 } from "@autoradar/domain";
 import { InferAgentUIMessage, stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
@@ -41,12 +42,33 @@ export function createPartsAgent({
   identity,
   conversationId,
   initialState,
+  latestUserText,
 }: {
   identity: RequestIdentity;
   conversationId: string;
   initialState: ConversationState;
+  latestUserText: string;
 }) {
   let state = ConversationStateSchema.parse(initialState);
+
+  const removeInventedDoorCount = <T extends SearchRequest>(request: T): T => {
+    if (!request.vehicle?.doors) return request;
+    const previousDoors =
+      state.searchDraft?.vehicle?.doors ?? state.activeVehicle?.doors;
+    const explicitDoors = latestUserText.match(
+      /\b([2-6])\s*(?:-?\s*)?(?:двер(?:и|ей|ь)?|door(?:s)?)\b/i,
+    )?.[1];
+    if (
+      previousDoors === request.vehicle.doors ||
+      Number(explicitDoors) === request.vehicle.doors
+    ) {
+      return request;
+    }
+    return {
+      ...request,
+      vehicle: { ...request.vehicle, doors: undefined },
+    } as T;
+  };
 
   const persistState = async (nextState: ConversationState) => {
     state = ConversationStateSchema.parse(nextState);
@@ -95,10 +117,10 @@ export function createPartsAgent({
         "Сохранить или изменить структурированный запрос детали без запуска поиска. Вызывай для новой детали или изменения параметров.",
       inputSchema: SearchRequestSchema,
       execute: async (request) => {
-        const merged = {
+        const merged = removeInventedDoorCount({
           ...request,
           vehicle: request.vehicle ?? state.activeVehicle ?? undefined,
-        };
+        });
         const parsed = SearchRequestSchema.parse(merged);
         await persistState({ ...state, searchDraft: parsed });
         return { kind: "search_draft" as const, request: parsed };
@@ -119,10 +141,12 @@ export function createPartsAgent({
       inputSchema: SearchRequestSchema,
       execute: async (request) => {
         try {
-          const merged = SearchRequestSchema.parse({
-            ...request,
-            vehicle: request.vehicle ?? state.activeVehicle ?? undefined,
-          });
+          const merged = SearchRequestSchema.parse(
+            removeInventedDoorCount({
+              ...request,
+              vehicle: request.vehicle ?? state.activeVehicle ?? undefined,
+            }),
+          );
           await persistState({ ...state, searchDraft: merged });
           const result = await runPersistedSearch({
             identity,

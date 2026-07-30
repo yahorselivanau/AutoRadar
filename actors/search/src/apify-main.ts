@@ -2,7 +2,9 @@ import { Actor } from "apify";
 import { SearchRequestSchema } from "@autoradar/domain";
 import { z } from "zod";
 
+import { ArmtekPartsAdapter } from "./adapters/armtek";
 import { Auto1PartsAdapter } from "./adapters/auto1";
+import { DavinagazPartsAdapter } from "./adapters/davinagaz";
 import { MockPartsAdapter } from "./adapters/mock";
 import { MotorlandPartsAdapter } from "./adapters/motorland";
 import { RemzonaPartsAdapter } from "./adapters/remzona";
@@ -12,7 +14,17 @@ import { runFederatedSearch } from "./federated-search";
 
 const ActorInputSchema = SearchRequestSchema.extend({
   sources: z
-    .array(z.enum(["auto1", "motorland", "remzona", "zap", "mock"]))
+    .array(
+      z.enum([
+        "armtek",
+        "auto1",
+        "davinagaz",
+        "motorland",
+        "remzona",
+        "zap",
+        "mock",
+      ]),
+    )
     .default(["motorland"]),
 });
 
@@ -20,8 +32,14 @@ await Actor.main(async () => {
   const input = ActorInputSchema.parse(await Actor.getInput());
   const adapters: PartsSourceAdapter[] = [];
 
+  if (input.sources.includes("armtek")) {
+    adapters.push(new ArmtekPartsAdapter());
+  }
   if (input.sources.includes("auto1")) {
     adapters.push(new Auto1PartsAdapter());
+  }
+  if (input.sources.includes("davinagaz")) {
+    adapters.push(new DavinagazPartsAdapter());
   }
   if (input.sources.includes("motorland")) {
     adapters.push(new MotorlandPartsAdapter());

@@ -12,9 +12,17 @@
     "SEARCH_JOB_SIGNING_SECRET",
     "SUPABASE_SECRET_KEY",
     "VEHICLE_DATA_ENCRYPTION_KEY",
+    "SOURCE_ARMTEK_ENABLED",
     "SOURCE_MOTORLAND_ENABLED",
+    "SOURCE_DAVINAGAZ_ENABLED",
     "SOURCE_REMZONA_ENABLED",
     "SOURCE_ZAP_ENABLED",
+    "ARMTEK_BASE_URL",
+    "ARMTEK_GUEST_AUTH_TOKEN",
+    "ARMTEK_USER_AGENT",
+    "ARMTEK_HTTP_TIMEOUT_MS",
+    "ARMTEK_REQUEST_INTERVAL_MS",
+    "ARMTEK_RESULT_LIMIT",
     "MOTORLAND_BASE_URL",
     "MOTORLAND_USER_AGENT",
     "MOTORLAND_HTTP_TIMEOUT_MS",
@@ -39,7 +47,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]

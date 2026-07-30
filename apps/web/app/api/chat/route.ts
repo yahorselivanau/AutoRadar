@@ -118,6 +118,13 @@ export async function POST(request: Request) {
     identity,
     conversationId: conversation.id,
     initialState: state,
+    latestUserText: incoming.data.parts
+      .filter(
+        (part): part is typeof part & { text: string } =>
+          part.type === "text" && typeof part.text === "string",
+      )
+      .map((part) => part.text)
+      .join(" "),
   });
 
   let validated: PartsAgentUIMessage[];

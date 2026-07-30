@@ -12,7 +12,9 @@ import {
   type SearchRequest,
   type SourceId,
 } from "@autoradar/domain";
+import { ArmtekPartsAdapter } from "@autoradar/search-actor/armtek";
 import { Auto1PartsAdapter } from "@autoradar/search-actor/auto1";
+import { DavinagazPartsAdapter } from "@autoradar/search-actor/davinagaz";
 import { MotorlandPartsAdapter } from "@autoradar/search-actor/motorland";
 import { RemzonaPartsAdapter } from "@autoradar/search-actor/remzona";
 import type {
@@ -64,6 +66,14 @@ function enabledAdapters(): Array<{
   adapter: PartsSourceAdapter;
 }> {
   return [
+    ...(process.env.SOURCE_ARMTEK_ENABLED === "true"
+      ? [
+          {
+            sourceId: "armtek" as const,
+            adapter: new ArmtekPartsAdapter(),
+          },
+        ]
+      : []),
     ...(process.env.SOURCE_ZAP_ENABLED === "false"
       ? []
       : [{ sourceId: "zap" as const, adapter: new ZapPartsAdapter() }]),
@@ -78,6 +88,14 @@ function enabledAdapters(): Array<{
     ...(process.env.SOURCE_AUTO1_ENABLED === "false"
       ? []
       : [{ sourceId: "auto1" as const, adapter: new Auto1PartsAdapter() }]),
+    ...(process.env.SOURCE_DAVINAGAZ_ENABLED === "true"
+      ? [
+          {
+            sourceId: "davinagaz" as const,
+            adapter: new DavinagazPartsAdapter(),
+          },
+        ]
+      : []),
     ...(process.env.SOURCE_REMZONA_ENABLED === "true"
       ? [
           {
@@ -259,9 +277,7 @@ export async function runPersistedSearch({
   );
   const clarification =
     runs.find((run) => run.clarification)?.clarification ?? null;
-  const offers = clarification
-    ? []
-    : deduplicateOffers(runs.flatMap((run) => run.offers));
+  const offers = deduplicateOffers(runs.flatMap((run) => run.offers));
   const failedCount = runs.filter((run) =>
     ["timeout", "blocked", "failed"].includes(run.status),
   ).length;

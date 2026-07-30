@@ -128,6 +128,7 @@ export const SourceIdSchema = z.enum([
   "armtek",
   "auto1",
   "av-parts",
+  "davinagaz",
   "motorland",
   "remzona",
   "zap",

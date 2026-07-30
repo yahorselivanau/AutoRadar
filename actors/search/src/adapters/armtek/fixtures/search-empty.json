@@ -1,0 +1,16 @@
+{
+  "data": {
+    "typeView": "list",
+    "cacheKey": "fixture-empty-cache-key",
+    "searchByVin": true,
+    "searchLiquids": false,
+    "articlesData": [],
+    "pagination": {
+      "currentPage": 1,
+      "perPage": 36,
+      "totalCount": 0,
+      "pageCount": 0
+    }
+  },
+  "arr_messages": []
+}

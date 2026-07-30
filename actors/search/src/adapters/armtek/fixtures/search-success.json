@@ -1,0 +1,73 @@
+{
+  "data": {
+    "typeView": "list",
+    "cacheKey": "fixture-cache-key",
+    "searchByVin": true,
+    "searchLiquids": false,
+    "articlesData": [
+      {
+        "ARTID": 37519801,
+        "PIN": "7700274177",
+        "BRAND": "РФ",
+        "NAME": "Фильтр масляный NO BRAND 7700274177",
+        "ARTICLE_ALIAS": "filtr-maslyanyy-no-brand-7700274177-37519801",
+        "PHOTO": [],
+        "SUGGESTIONS": [
+          {
+            "PARNR": "868938",
+            "PRICES1": "10.01",
+            "RVALUE": "2",
+            "DLVDT": "20260731090000",
+            "WAERS": "BYN",
+            "KEYZAK": "0000156495",
+            "VENSL": 95,
+            "NAME": "Фильтр масляный"
+          }
+        ]
+      },
+      {
+        "ARTID": 517827,
+        "PIN": "7700274177",
+        "BRAND": "RENAULT",
+        "NAME": "Фильтр масляный RENAULT 7700274177 Renault Clio/Megane/Laguna 1.4i-1.9DTi 95>",
+        "ARTICLE_ALIAS": "filtr-maslyanyy-renault-7700274177-renault-cliomeganelaguna-14i-19dti-95-517827",
+        "PHOTO": [
+          "https://img.armtek.ru/img/article/517/517827/230x230/517827_0.webp"
+        ],
+        "SUGGESTIONS": [
+          {
+            "PARNR": "1026239",
+            "PRICES1": "15.68",
+            "RVALUE": ">20",
+            "DLVDT": "20260805090000",
+            "WAERS": "BYN",
+            "KEYZAK": "0000175351",
+            "VENSL": 95,
+            "NAME": "Фильтр масляный RENAULT 7700274177"
+          },
+          {
+            "PARNR": "0",
+            "PRICES1": "26.08",
+            "RVALUE": ">20",
+            "DLVDT": "20260731104500",
+            "WAERS": "BYN",
+            "KEYZAK": "MOV0004435",
+            "VENSL": 98,
+            "NAME": "Фильтр масляный Renault Clio/Megane/Laguna"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "currentPage": 1,
+      "perPage": 36,
+      "totalCount": 43,
+      "pageCount": 2
+    }
+  },
+  "arr_messages": [],
+  "execution_time": {
+    "seconds": 0.402,
+    "milliseconds": 402
+  }
+}

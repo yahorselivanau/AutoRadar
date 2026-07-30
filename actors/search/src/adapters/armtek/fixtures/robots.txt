@@ -1,0 +1,34 @@
+User-agent: Yandex
+Allow: /product/markdown/*
+Allow: /search?*
+Allow: */laximo/*
+Allow: */nla24/*
+Allow: */acat/*
+Allow: */replacement/*
+Allow: /profile/*
+Allow: /basket/*
+
+
+User-agent: Googlebot
+Allow: /product/markdown/*
+Allow: /search?*
+Allow: */laximo/*
+Allow: */nla24/*
+Allow: */acat/*
+Allow: */replacement/*
+Allow: /profile/*
+Allow: /basket/*
+Allow: /*.js$
+
+User-agent: *
+Allow: /product/markdown/*
+Allow: /search?*
+Allow: */laximo/*
+Allow: */nla24/*
+Allow: */acat/*
+Allow: */replacement/*
+Allow: /profile/*
+Allow: /basket/*
+Allow: /rest/
+
+Sitemap: https://armtek.by/sitemap.xml
