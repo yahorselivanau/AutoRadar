@@ -1,4 +1,9 @@
-import type { NormalizedOffer, SearchRequest } from "@autoradar/domain";
+import {
+  NormalizedOfferSchema,
+  normalizePartNumber,
+  type NormalizedOffer,
+  type SearchRequest,
+} from "@autoradar/domain";
 
 import {
   AdapterError,
@@ -135,11 +140,15 @@ export class RemzonaPartsAdapter implements PartsSourceAdapter {
 
   async search(input: SearchRequest): Promise<AdapterResult> {
     const query = getRemzonaQuery(input);
+    const requestedPartNumber =
+      input.part.rawPartNumber?.trim() ??
+      input.part.normalizedPartNumber?.trim();
     const candidate =
       getVerifiedDirectCategory(input) ??
       chooseRemzonaCandidate(
         parseRemzonaSearchCandidates((await this.loadSearchHtml(query)).html),
-        input.part.name,
+        requestedPartNumber ?? input.part.name,
+        requestedPartNumber ? "product" : undefined,
       );
     if (!candidate) {
       throw diagnostic(
@@ -215,6 +224,26 @@ export class RemzonaPartsAdapter implements PartsSourceAdapter {
       throw diagnostic(
         "PRICE_NOT_FOUND",
         "ни один подтверждённый источник цены не найден",
+      );
+    }
+
+    if (
+      requestedPartNumber &&
+      candidate.kind === "product" &&
+      candidate.rawPartNumber &&
+      candidate.normalizedPartNumber ===
+        normalizePartNumber(requestedPartNumber)
+    ) {
+      offers = offers.map((offer) =>
+        NormalizedOfferSchema.parse({
+          ...offer,
+          rawPartNumber: candidate.rawPartNumber,
+          normalizedPartNumber: candidate.normalizedPartNumber,
+          matchStatus: "confirmed",
+          matchReasons: [
+            "Точный артикул в структурированной подсказке Remzona.by",
+          ],
+        }),
       );
     }
 

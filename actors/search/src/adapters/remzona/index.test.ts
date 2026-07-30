@@ -6,7 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 import { RemzonaPartsAdapter } from ".";
 import type { RemzonaTransportConfig } from "./config";
 import { createRemzonaHtmlLoader } from "./loader";
-import { normalizeRemzonaPrice, parseRemzonaCatalogHtml } from "./parser";
+import {
+  normalizeRemzonaPrice,
+  parseRemzonaCatalogHtml,
+  parseRemzonaSearchCandidates,
+} from "./parser";
 
 const fixture = (name: string) =>
   readFile(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
@@ -112,6 +116,44 @@ describe("Remzona adapter modes", () => {
     );
 
     await expect(adapter.search(request)).rejects.toThrow("DOM_CHANGED");
+  });
+
+  it("uses a structured article suggestion and confirms the unchanged number", async () => {
+    const searchHtml = await fixture("search-success.html");
+    const candidates = parseRemzonaSearchCandidates(searchHtml);
+    expect(candidates[0]).toMatchObject({
+      kind: "product",
+      rawPartNumber: "7700274177",
+      normalizedPartNumber: "7700274177",
+    });
+
+    const adapter = new RemzonaPartsAdapter(
+      async () => ({ html: searchHtml, status: 200 }),
+      async (path) => ({
+        html: `<html><head>
+          <link rel="canonical" href="https://remzona.by${path}">
+          <script type="application/ld+json">
+            {"@type":"Product","offers":{"price":"12.50","priceCurrency":"BYN"}}
+          </script>
+        </head><body><h1>Масляный фильтр RENAULT</h1></body></html>`,
+        status: 200,
+      }),
+      vi.fn(),
+      false,
+    );
+    const result = await adapter.search(
+      SearchRequestSchema.parse({
+        query: "7700 274 177",
+        part: { name: "Масляный фильтр", rawPartNumber: "7700 274 177" },
+      }),
+    );
+
+    expect(result.offers[0]).toMatchObject({
+      rawPartNumber: "7700274177",
+      normalizedPartNumber: "7700274177",
+      matchStatus: "confirmed",
+      matchReasons: ["Точный артикул в структурированной подсказке Remzona.by"],
+    });
   });
 });
 

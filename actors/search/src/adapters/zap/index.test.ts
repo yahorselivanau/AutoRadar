@@ -134,6 +134,8 @@ describe("Zap.by SSR parser", () => {
 
     expect(parseZapCatalogMetadata(html)).toEqual({
       categoryId: "525",
+      vehicleManufacturerId: "16",
+      vehicleModelId: "9831",
       vehicleTypeId: "59409",
       canonicalPath: "/carparts/bmw/3-f30-f80/320-i-59409/maslyanyi-nasos",
     });
@@ -142,10 +144,29 @@ describe("Zap.by SSR parser", () => {
       description: "фильтр АКПП! BMW F20/F21/F30/F31/F10/F11",
       sourceAttributes: {
         catalogCategoryId: ["525"],
+        catalogVehicleManufacturerId: ["16"],
+        catalogVehicleModelId: ["9831"],
         catalogVehicleTypeId: ["59409"],
       },
       compatibilityText:
         "Каталог Zap.by: BMW · 3 Series · 320 i · Детали двигателя",
+    });
+  });
+
+  it("uses the selected-vehicle hidden IDs when inline variables are absent", () => {
+    expect(
+      parseZapCatalogMetadata(`
+        <input id="ses_sel_manufacturer" name="ses_sel_manufacturer" value="16">
+        <input id="ses_sel_model" name="ses_sel_model" value="9831">
+        <input id="ses_sel_type" name="ses_sel_type" value="59409">
+        <input id="search-category-id" name="category_id" value="0">
+      `),
+    ).toEqual({
+      categoryId: undefined,
+      vehicleManufacturerId: "16",
+      vehicleModelId: "9831",
+      vehicleTypeId: "59409",
+      canonicalPath: undefined,
     });
   });
 

@@ -93,6 +93,8 @@ closure, never logged or persisted, and refreshed once after an HTTP 401.
 - title: suggestion `NAME`, falling back to article `NAME`
 - image: first HTTPS `PHOTO` on `img.armtek.ru`
 - offer identity: `ARTID-PARNR-KEYZAK`
+- source evidence: `ARTID`, supplier reference `PARNR` and warehouse
+  reference `KEYZAK` are preserved separately in `sourceAttributes`
 - price: `SUGGESTIONS[].PRICES1` when `WAERS = BYN`;
   `priceSource = api`
 - quantity: `RVALUE`

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Verification</title>
+  </head>
+  <body>
+    <div class="loader"></div>
+    <script>
+      if (!navigator.webdriver) {
+        document.cookie = "hg-security=fixture; path=/; max-age=120";
+        location.reload();
+      }
+    </script>
+  </body>
+</html>

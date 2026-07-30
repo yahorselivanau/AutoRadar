@@ -31,6 +31,9 @@ query-параметры явно разрешены. Фрагмент прав�
 - canonical:
   `/carparts/bmw/3-f30-f80/320-i-59409/maslyanyi-nasos`;
 - `section_id = 525`, `type_id = 59409`;
+- скрытые выбранные ID автомобиля:
+  `ses_sel_manufacturer=16`, `ses_sel_model=9831`,
+  `ses_sel_type=59409`; адаптер использует их как резерв к inline-переменным;
 - 4 карточки `.product-block`;
 - товарная ссылка `a.td-info-name`;
 - цена в `data-price`, наличие в `.avail`, срок в `.td-delivery`;

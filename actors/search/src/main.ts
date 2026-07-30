@@ -2,7 +2,6 @@ import { SearchRequestSchema } from "@autoradar/domain";
 
 import { ArmtekPartsAdapter } from "./adapters/armtek";
 import { Auto1PartsAdapter } from "./adapters/auto1";
-import { DavinagazPartsAdapter } from "./adapters/davinagaz";
 import { MockPartsAdapter } from "./adapters/mock";
 import { MotorlandPartsAdapter } from "./adapters/motorland";
 import { RemzonaPartsAdapter } from "./adapters/remzona";
@@ -21,9 +20,6 @@ const adapters = [
     : []),
   ...(process.env.SOURCE_AUTO1_ENABLED === "true"
     ? [new Auto1PartsAdapter()]
-    : []),
-  ...(process.env.SOURCE_DAVINAGAZ_ENABLED === "true"
-    ? [new DavinagazPartsAdapter()]
     : []),
   ...(process.env.SOURCE_MOTORLAND_ENABLED === "true"
     ? [new MotorlandPartsAdapter()]

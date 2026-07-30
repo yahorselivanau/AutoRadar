@@ -98,24 +98,25 @@ Researcher: Codex for AutoRadar
 
 ## Data mapping and verified selectors
 
-| Field             | Source                                                   |
-| ----------------- | -------------------------------------------------------- |
-| card              | `.grid-new > .new-grid__item`                            |
-| external id       | `data-gtm-ecomerce-item-id`                              |
-| title and URL     | `.item-title a[href]`                                    |
-| brand             | `data-gtm-ecomerce-item-brand`                           |
-| Motorland article | `.item-article`, prefix `Артикул товара:`                |
-| category          | `data-gtm-ecomerce-item-category2`                       |
-| price             | `data-gtm-ecomerce-item-price`; DOM price is fallback    |
-| condition         | page title/description marker `б/у`; otherwise `unknown` |
-| original/analog   | `unknown` (not stated)                                   |
-| image             | first `.present_car_img img[src]`                        |
-| characteristics   | `.item-characteristics tr > th + td`                     |
-| description       | characteristic row `Описание`                            |
-| delivery          | verified `.item-garant` text `Доставка по РБ`            |
-| availability      | not exposed reliably; omitted                            |
-| seller            | constant `Motorland.by`                                  |
-| location          | not exposed per card; omitted                            |
+| Field              | Source                                                   |
+| ------------------ | -------------------------------------------------------- |
+| card               | `.grid-new > .new-grid__item`                            |
+| external id        | `data-gtm-ecomerce-item-id`                              |
+| title and URL      | `.item-title a[href]`                                    |
+| brand              | `data-gtm-ecomerce-item-brand`                           |
+| Motorland article  | `.item-article`, prefix `Артикул товара:`                |
+| category           | `data-gtm-ecomerce-item-category2`                       |
+| price              | `data-gtm-ecomerce-item-price`; DOM price is fallback    |
+| condition          | page title/description marker `б/у`; otherwise `unknown` |
+| original/analog    | `unknown` (not stated)                                   |
+| image              | first `.present_car_img img[src]`                        |
+| characteristics    | `.item-characteristics tr > th + td`                     |
+| catalogue identity | structured product URL: make/model/generation/category   |
+| description        | characteristic row `Описание`                            |
+| delivery           | verified `.item-garant` text `Доставка по РБ`            |
+| availability       | not exposed reliably; omitted                            |
+| seller             | constant `Motorland.by`                                  |
+| location           | not exposed per card; omitted                            |
 
 Product URLs are accepted only when they are HTTPS links on `motorland.by`
 matching `/auto-parts/.../sku-<digits>/`. Image URLs are accepted only from
@@ -133,6 +134,9 @@ matching `/auto-parts/.../sku-<digits>/`. Image URLs are accepted only from
   title substrings. Make, model and category must match their corresponding
   normalized URL segments exactly. This prevents a request for BMW `3` from
   accepting BMW `X3`, BMW `X5` or a digit that occurs only in a year.
+- Those four source IDs are also preserved in `sourceAttributes` as
+  `catalogMake`, `catalogModel`, `catalogGeneration` and `catalogCategory`, so
+  the UI/evidence layer can explain the accepted catalogue branch.
 - When a year is supplied and the generation URL contains a year range, that
   year must be inside the range. The donor vehicle year shown on a card is
   retained as informational text and is not treated as the model's

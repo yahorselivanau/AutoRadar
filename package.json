@@ -22,7 +22,6 @@
     "actor:test": "pnpm --filter @autoradar/search-actor test",
     "armtek:smoke": "pnpm --filter @autoradar/search-actor armtek:smoke",
     "auto1:smoke": "pnpm --filter @autoradar/search-actor auto1:smoke",
-    "davinagaz:smoke": "pnpm --filter @autoradar/search-actor davinagaz:smoke",
     "motorland:smoke": "pnpm --filter @autoradar/search-actor motorland:smoke",
     "remzona:discover": "pnpm --filter @autoradar/search-actor remzona:discover",
     "remzona:smoke": "pnpm --filter @autoradar/search-actor remzona:smoke",

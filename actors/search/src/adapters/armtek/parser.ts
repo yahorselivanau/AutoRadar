@@ -161,6 +161,11 @@ export function parseArmtekSearchPayload(
           deliveryText: readDelivery(suggestion.DLVDT),
           sellerName: "ARMTEK",
           sellerRatingPercent: readRating(suggestion.VENSL),
+          sourceAttributes: {
+            armtekArticleId: [String(article.ARTID)],
+            armtekSupplierReference: [supplierReference],
+            armtekWarehouseReference: [warehouseReference],
+          },
           fetchedAt,
           rawPayloadHash: hashArmtekPayload({
             articleId: article.ARTID,

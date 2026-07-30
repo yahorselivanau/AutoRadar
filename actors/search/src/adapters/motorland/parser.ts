@@ -81,6 +81,27 @@ function readCharacteristics(
   return Object.keys(attributes).length > 0 ? attributes : undefined;
 }
 
+function readCatalogIdentity(
+  externalUrl: string,
+): Record<string, string[]> | undefined {
+  const segments = new URL(externalUrl).pathname.split("/").filter(Boolean);
+  if (
+    segments[0] !== "auto-parts" ||
+    segments.length < 6 ||
+    !/^sku-\d+$/.test(segments.at(-1) ?? "")
+  ) {
+    return undefined;
+  }
+  const [make, model, generation, category] = segments.slice(1, 5);
+  if (!make || !model || !generation || !category) return undefined;
+  return {
+    catalogMake: [make],
+    catalogModel: [model],
+    catalogGeneration: [generation],
+    catalogCategory: [category],
+  };
+}
+
 function readDescription(
   attributes: Record<string, string[]> | undefined,
 ): string | undefined {
@@ -154,7 +175,10 @@ export function parseMotorlandSearchHtml(
           card.find(".item-price .prices-not_checkbox > span").first().text(),
         ),
       );
-    const attributes = readCharacteristics(card);
+    const attributes = {
+      ...readCharacteristics(card),
+      ...readCatalogIdentity(externalUrl),
+    };
     const deliveryText = cleanText(card.find(".item-garant").text()).includes(
       "Доставка по РБ",
     )
@@ -187,7 +211,8 @@ export function parseMotorlandSearchHtml(
         deliveryText,
         sellerName: "Motorland.by",
         compatibilityText: readCompatibility(attributes),
-        sourceAttributes: attributes,
+        sourceAttributes:
+          Object.keys(attributes).length > 0 ? attributes : undefined,
         fetchedAt,
         rawPayloadHash,
       }),

@@ -22,7 +22,6 @@ const sourceLabels: Record<SourceId, string> = {
   armtek: "ARMTEK",
   auto1: "Auto1.by",
   "av-parts": "AV-parts",
-  davinagaz: "Davinagaz.by",
   motorland: "Motorland.by",
   remzona: "Remzona",
   zap: "Zap.by",

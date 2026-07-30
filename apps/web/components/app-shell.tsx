@@ -1,5 +1,8 @@
 "use client";
 
+import { AlertDialog } from "@base-ui/react/alert-dialog";
+import { Avatar } from "@base-ui/react/avatar";
+import { Menu as BaseMenu } from "@base-ui/react/menu";
 import {
   CircleHelp,
   Menu,
@@ -9,7 +12,6 @@ import {
   PanelLeftOpen,
   Pencil,
   Trash2,
-  UserRound,
   Warehouse,
   X,
 } from "lucide-react";
@@ -31,13 +33,19 @@ export function AppShell({
   const [recentConversations, setRecentConversations] = useState<
     Array<{ id: string; title: string }>
   >([]);
-  const [conversationMenu, setConversationMenu] = useState<string | null>(null);
   const [editingConversation, setEditingConversation] = useState<{
     id: string;
     title: string;
   } | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { garage } = useGarage();
+  const accountInitial = accountEmail?.trim().charAt(0).toLocaleUpperCase("ru");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -69,34 +77,54 @@ export function AppShell({
   }, [pathname]);
 
   const closeDrawer = () => setDrawerOpen(false);
-  const refreshConversations = () =>
-    window.dispatchEvent(new Event("autoradar:conversations-changed"));
 
   const renameConversation = async () => {
-    if (!editingConversation?.title.trim()) return;
+    const draft = editingConversation;
+    const title = draft?.title.trim().replace(/\s+/g, " ");
+    if (!draft || !title || renamingId) return;
+
+    setActionError(null);
+    setRenamingId(draft.id);
     const response = await fetch(
-      `/api/conversations/${editingConversation.id}`,
+      `/api/conversations/${draft.id}`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editingConversation.title }),
+        body: JSON.stringify({ title }),
       },
     );
     if (response.ok) {
+      const renamed = (await response.json()) as { id: string; title: string };
+      setRecentConversations((conversations) =>
+        conversations.map((conversation) =>
+          conversation.id === renamed.id
+            ? { ...conversation, title: renamed.title }
+            : conversation,
+        ),
+      );
       setEditingConversation(null);
-      setConversationMenu(null);
-      refreshConversations();
+    } else {
+      setActionError("Не удалось переименовать запрос. Попробуйте ещё раз.");
     }
+    setRenamingId(null);
   };
 
   const deleteConversation = async (id: string) => {
+    setActionError(null);
+    setDeletingId(id);
     const response = await fetch(`/api/conversations/${id}`, {
       method: "DELETE",
     });
-    if (!response.ok) return;
-    setDeleteConfirmId(null);
-    setConversationMenu(null);
-    refreshConversations();
+    if (!response.ok) {
+      setActionError("Не удалось удалить запрос. Попробуйте ещё раз.");
+      setDeletingId(null);
+      return;
+    }
+    setRecentConversations((conversations) =>
+      conversations.filter((conversation) => conversation.id !== id),
+    );
+    setDeleteTarget(null);
+    setDeletingId(null);
     if (pathname === `/chat/${id}`) window.location.assign("/chat");
   };
 
@@ -168,8 +196,15 @@ export function AppShell({
                     <input
                       autoFocus
                       aria-label="Название диалога"
+                      aria-invalid={actionError ? true : undefined}
+                      disabled={renamingId === conversation.id}
+                      maxLength={72}
                       value={editingConversation.title}
-                      onBlur={() => void renameConversation()}
+                      onBlur={() => {
+                        if (renamingId !== conversation.id) {
+                          setEditingConversation(null);
+                        }
+                      }}
                       onChange={(event) =>
                         setEditingConversation({
                           ...editingConversation,
@@ -199,51 +234,48 @@ export function AppShell({
                     <span>{conversation.title}</span>
                   </Link>
                 )}
-                <button
-                  className="history-more pressable"
-                  type="button"
-                  aria-label={`Действия: ${conversation.title}`}
-                  aria-expanded={conversationMenu === conversation.id}
-                  onClick={() =>
-                    setConversationMenu((current) =>
-                      current === conversation.id ? null : conversation.id,
-                    )
-                  }
-                >
-                  <MoreHorizontal size={17} />
-                </button>
-                {conversationMenu === conversation.id ? (
-                  <div className="history-menu">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingConversation({
-                          id: conversation.id,
-                          title: conversation.title,
-                        })
-                      }
+                <BaseMenu.Root>
+                  <BaseMenu.Trigger
+                    className="history-more pressable"
+                    aria-label={`Действия: ${conversation.title}`}
+                  >
+                    <MoreHorizontal size={17} />
+                  </BaseMenu.Trigger>
+                  <BaseMenu.Portal>
+                    <BaseMenu.Positioner
+                      className="history-menu-positioner"
+                      side="right"
+                      align="start"
+                      sideOffset={6}
                     >
-                      <Pencil size={15} />
-                      Переименовать
-                    </button>
-                    <button
-                      className="destructive"
-                      type="button"
-                      onClick={() => {
-                        if (deleteConfirmId === conversation.id) {
-                          void deleteConversation(conversation.id);
-                        } else {
-                          setDeleteConfirmId(conversation.id);
-                        }
-                      }}
-                    >
-                      <Trash2 size={15} />
-                      {deleteConfirmId === conversation.id
-                        ? "Удалить точно?"
-                        : "Удалить"}
-                    </button>
-                  </div>
-                ) : null}
+                      <BaseMenu.Popup className="history-menu">
+                        <BaseMenu.Item
+                          className="history-menu-item"
+                          onClick={() => {
+                            setActionError(null);
+                            setEditingConversation({
+                              id: conversation.id,
+                              title: conversation.title,
+                            });
+                          }}
+                        >
+                          <Pencil size={15} />
+                          Переименовать
+                        </BaseMenu.Item>
+                        <BaseMenu.Item
+                          className="history-menu-item destructive"
+                          onClick={() => {
+                            setActionError(null);
+                            setDeleteTarget(conversation);
+                          }}
+                        >
+                          <Trash2 size={15} />
+                          Удалить
+                        </BaseMenu.Item>
+                      </BaseMenu.Popup>
+                    </BaseMenu.Positioner>
+                  </BaseMenu.Portal>
+                </BaseMenu.Root>
               </div>
             ))
           ) : (
@@ -257,14 +289,21 @@ export function AppShell({
             <span>Помощь</span>
           </button>
           <Link className="account-row pressable" href="/auth/sign-in">
-            <span className="account-avatar">
-              <UserRound size={17} />
-            </span>
-            <span>
+            <Avatar.Root className="account-avatar">
+              <Avatar.Fallback className="account-avatar-fallback">
+                {accountInitial ?? "Г"}
+              </Avatar.Fallback>
+            </Avatar.Root>
+            <span className="account-copy">
               <strong>{accountEmail ?? "Гостевой режим"}</strong>
-              <small>{accountEmail ? "Аккаунт" : "Войти и сохранить"}</small>
+              {!accountEmail ? <small>Войти и сохранить</small> : null}
             </span>
           </Link>
+          {actionError ? (
+            <p className="sidebar-action-error" role="status">
+              {actionError}
+            </p>
+          ) : null}
         </div>
       </aside>
 
@@ -290,8 +329,22 @@ export function AppShell({
             <PanelLeftOpen size={19} />
           </button>
           <Wordmark />
-          <Link className="desktop-sign-in pressable" href="/auth/sign-in">
-            {accountEmail ? "Аккаунт" : "Войти"}
+          <Link
+            className={`desktop-sign-in pressable ${
+              accountEmail ? "desktop-account-avatar" : ""
+            }`}
+            href="/auth/sign-in"
+            aria-label={accountEmail ? `Аккаунт: ${accountEmail}` : "Войти"}
+          >
+            {accountEmail ? (
+              <Avatar.Root className="header-avatar">
+                <Avatar.Fallback className="account-avatar-fallback">
+                  {accountInitial}
+                </Avatar.Fallback>
+              </Avatar.Root>
+            ) : (
+              "Войти"
+            )}
           </Link>
         </header>
         <header className="mobile-header">
@@ -311,11 +364,65 @@ export function AppShell({
             href="/auth/sign-in"
             aria-label={accountEmail ? "Открыть аккаунт" : "Войти"}
           >
-            <UserRound size={20} />
+            <Avatar.Root className="mobile-account-avatar">
+              <Avatar.Fallback className="account-avatar-fallback">
+                {accountInitial ?? "Г"}
+              </Avatar.Fallback>
+            </Avatar.Root>
           </Link>
         </header>
         {children}
       </main>
+
+      <AlertDialog.Root
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingId) {
+            setDeleteTarget(null);
+            setActionError(null);
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Backdrop className="delete-dialog-backdrop" />
+          <AlertDialog.Viewport className="delete-dialog-viewport">
+            <AlertDialog.Popup className="delete-dialog">
+              <AlertDialog.Title className="delete-dialog-title">
+                Удалить запрос?
+              </AlertDialog.Title>
+              <AlertDialog.Description className="delete-dialog-description">
+                «{deleteTarget?.title}» исчезнет из истории без возможности
+                восстановления.
+              </AlertDialog.Description>
+              {actionError ? (
+                <p className="delete-dialog-error" role="alert">
+                  {actionError}
+                </p>
+              ) : null}
+              <div className="delete-dialog-actions">
+                <AlertDialog.Close
+                  className="delete-dialog-button pressable"
+                  disabled={Boolean(deletingId)}
+                >
+                  Отмена
+                </AlertDialog.Close>
+                <button
+                  className="delete-dialog-button destructive pressable"
+                  type="button"
+                  disabled={Boolean(deletingId)}
+                  onClick={() => {
+                    if (deleteTarget) {
+                      void deleteConversation(deleteTarget.id);
+                    }
+                  }}
+                >
+                  {deletingId ? "Удаляем…" : "Удалить"}
+                </button>
+              </div>
+            </AlertDialog.Popup>
+          </AlertDialog.Viewport>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }

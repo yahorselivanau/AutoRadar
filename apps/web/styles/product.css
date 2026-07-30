@@ -445,8 +445,10 @@
   inset: 0 auto 0 0;
   z-index: 40;
   display: flex;
+  box-sizing: border-box;
   width: var(--shell-sidebar-width);
   flex-direction: column;
+  overflow: hidden;
   padding: 16px 12px 12px;
   border-right: 1px solid var(--ar-border);
   background: var(--ar-surface-subtle);
@@ -585,12 +587,14 @@
 
 .sidebar-footer {
   display: grid;
+  min-width: 0;
   gap: 10px;
   padding-top: 16px;
   border-top: 1px solid var(--ar-border);
 }
 
 .footer-link {
+  width: 100%;
   min-height: 44px;
   gap: 10px;
   padding: 0 12px;
@@ -601,6 +605,8 @@
 }
 
 .account-row {
+  min-width: 0;
+  width: 100%;
   gap: 10px;
   padding: 8px;
   border-radius: 14px;
@@ -612,30 +618,59 @@
 }
 
 .account-avatar {
-  display: flex;
-  width: 36px;
-  height: 36px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: var(--ar-surface);
-  box-shadow: var(--shadow-border);
+  overflow: hidden;
+  background: var(--ar-surface-muted);
+  color: var(--ar-foreground);
+  box-shadow:
+    0 0 0 1px rgb(33 30 27 / 7%),
+    0 1px 2px rgb(33 30 27 / 7%);
 }
 
-.account-row > span:last-child {
+.account-avatar-fallback {
   display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.account-copy {
+  display: grid;
+  min-width: 0;
 }
 
 .account-row strong {
+  display: block;
+  overflow: hidden;
   color: var(--ar-foreground);
   font-size: 13px;
   font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .account-row small {
   margin-top: 2px;
   color: var(--ar-foreground-muted);
   font-size: 12px;
+}
+
+.sidebar-action-error {
+  margin: 0;
+  padding: 0 8px 2px;
+  color: var(--ar-red);
+  font-size: 12px;
+  line-height: 1.4;
+  text-wrap: pretty;
 }
 
 .main-shell {
@@ -2767,6 +2802,31 @@
   color: var(--ar-foreground);
 }
 
+.desktop-account-avatar {
+  width: 40px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 9999px;
+}
+
+.header-avatar,
+.mobile-account-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--ar-surface-muted);
+  color: var(--ar-foreground);
+  box-shadow: 0 0 0 1px rgb(33 30 27 / 7%);
+}
+
+.mobile-account-avatar {
+  width: 28px;
+  height: 28px;
+}
+
 .header-control-hidden {
   pointer-events: none;
   opacity: 0;
@@ -2816,20 +2876,34 @@
 }
 
 .history-menu {
-  position: absolute;
-  top: 40px;
-  right: 4px;
-  z-index: 4;
   display: grid;
   width: 164px;
   gap: 2px;
   padding: 5px;
   border-radius: 14px;
   background: var(--ar-surface);
-  box-shadow: var(--shadow-md);
+  box-shadow:
+    0 0 0 1px rgb(33 30 27 / 6%),
+    0 4px 10px rgb(33 30 27 / 6%),
+    0 14px 32px rgb(33 30 27 / 10%);
+  transform-origin: var(--transform-origin);
+  transition-property: opacity, transform;
+  transition-duration: 120ms;
+  transition-timing-function: var(--ease-standard);
 }
 
-.history-menu button {
+.history-menu-positioner {
+  z-index: 60;
+  outline: 0;
+}
+
+.history-menu[data-starting-style],
+.history-menu[data-ending-style] {
+  opacity: 0;
+  transform: translateX(-4px) scale(0.98);
+}
+
+.history-menu-item {
   display: flex;
   min-height: 38px;
   align-items: center;
@@ -2841,13 +2915,15 @@
   color: var(--ar-foreground);
   font-size: 13px;
   text-align: left;
+  outline: 0;
 }
 
-.history-menu button:hover {
+.history-menu-item:hover,
+.history-menu-item[data-highlighted] {
   background: var(--ar-surface-subtle);
 }
 
-.history-menu button.destructive {
+.history-menu-item.destructive {
   color: var(--ar-red);
 }
 
@@ -2867,6 +2943,114 @@
   color: var(--ar-foreground);
   font-size: 13px;
   outline: 0;
+}
+
+.history-edit input:disabled {
+  opacity: 0.65;
+}
+
+.delete-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgb(33 30 27 / 28%);
+  backdrop-filter: blur(2px);
+  transition-property: opacity;
+  transition-duration: 180ms;
+  transition-timing-function: var(--ease-standard);
+}
+
+.delete-dialog-viewport {
+  position: fixed;
+  inset: 0;
+  z-index: 81;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.delete-dialog {
+  width: min(100%, 420px);
+  padding: 24px;
+  border-radius: 20px;
+  background: var(--ar-surface);
+  color: var(--ar-foreground);
+  box-shadow:
+    0 0 0 1px rgb(33 30 27 / 6%),
+    0 18px 48px rgb(33 30 27 / 16%);
+  outline: 0;
+  transition-property: opacity, transform;
+  transition-duration: 180ms;
+  transition-timing-function: var(--ease-standard);
+}
+
+.delete-dialog-backdrop[data-starting-style],
+.delete-dialog-backdrop[data-ending-style],
+.delete-dialog[data-starting-style],
+.delete-dialog[data-ending-style] {
+  opacity: 0;
+}
+
+.delete-dialog[data-starting-style],
+.delete-dialog[data-ending-style] {
+  transform: translateY(8px) scale(0.98);
+}
+
+.delete-dialog-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.delete-dialog-description {
+  margin: 8px 0 0;
+  color: var(--ar-foreground-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.delete-dialog-error {
+  margin: 12px 0 0;
+  color: var(--ar-red);
+  font-size: 13px;
+}
+
+.delete-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.delete-dialog-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ar-surface-muted);
+  color: var(--ar-foreground);
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.delete-dialog-button:hover {
+  background: var(--ar-surface-strong);
+}
+
+.delete-dialog-button.destructive {
+  background: var(--ar-red);
+  color: white;
+}
+
+.delete-dialog-button.destructive:hover {
+  filter: brightness(0.94);
+}
+
+.delete-dialog-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .empty-chat {
@@ -3956,6 +4140,8 @@
   width: var(--shell-sidebar-width);
   padding: 16px 12px 12px;
   transform: translateX(-101%);
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .sidebar-collapsed .main-shell {
@@ -4050,6 +4236,8 @@
 
   .sidebar.sidebar-open {
     transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .main-shell > .chat-page {

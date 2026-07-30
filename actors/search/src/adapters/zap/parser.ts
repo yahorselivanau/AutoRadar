@@ -426,17 +426,29 @@ function catalogContext($: CheerioAPI): string | undefined {
 
 export interface ZapCatalogMetadata {
   categoryId?: string;
+  vehicleManufacturerId?: string;
+  vehicleModelId?: string;
   vehicleTypeId?: string;
   canonicalPath?: string;
 }
 
 export function parseZapCatalogMetadata(html: string): ZapCatalogMetadata {
   const $ = load(html);
+  const hiddenId = (selector: string): string | undefined => {
+    const value = $(selector).first().attr("value")?.trim();
+    return value && /^\d+$/.test(value) && Number(value) > 0
+      ? value
+      : undefined;
+  };
   return {
     categoryId: parseZapCategoryId(html),
-    vehicleTypeId: html.match(
-      /\b(?:let|var|const)?\s*type_id\s*=\s*["']?(\d+)/,
-    )?.[1],
+    vehicleManufacturerId: hiddenId(
+      'input#ses_sel_manufacturer[name="ses_sel_manufacturer"]',
+    ),
+    vehicleModelId: hiddenId('input#ses_sel_model[name="ses_sel_model"]'),
+    vehicleTypeId:
+      html.match(/\b(?:let|var|const)?\s*type_id\s*=\s*["']?(\d+)/)?.[1] ??
+      hiddenId('input#ses_sel_type[name="ses_sel_type"]'),
     canonicalPath: safeZapPath($('link[rel="canonical"]').attr("href")),
   };
 }
@@ -510,6 +522,16 @@ export function parseZapCatalogHtml(
             ...descriptionSourceAttributes(description),
             ...(metadata.categoryId
               ? { catalogCategoryId: [metadata.categoryId] }
+              : {}),
+            ...(metadata.vehicleManufacturerId
+              ? {
+                  catalogVehicleManufacturerId: [
+                    metadata.vehicleManufacturerId,
+                  ],
+                }
+              : {}),
+            ...(metadata.vehicleModelId
+              ? { catalogVehicleModelId: [metadata.vehicleModelId] }
               : {}),
             ...(metadata.vehicleTypeId
               ? { catalogVehicleTypeId: [metadata.vehicleTypeId] }

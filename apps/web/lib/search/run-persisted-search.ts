@@ -14,7 +14,6 @@ import {
 } from "@autoradar/domain";
 import { ArmtekPartsAdapter } from "@autoradar/search-actor/armtek";
 import { Auto1PartsAdapter } from "@autoradar/search-actor/auto1";
-import { DavinagazPartsAdapter } from "@autoradar/search-actor/davinagaz";
 import { MotorlandPartsAdapter } from "@autoradar/search-actor/motorland";
 import { RemzonaPartsAdapter } from "@autoradar/search-actor/remzona";
 import { planSourceSearch } from "@autoradar/search-actor/search-plan";
@@ -103,14 +102,6 @@ function enabledAdapters(): Array<{
         ]),
     ...(process.env.SOURCE_AUTO1_ENABLED === "true"
       ? [{ sourceId: "auto1" as const, adapter: new Auto1PartsAdapter() }]
-      : []),
-    ...(process.env.SOURCE_DAVINAGAZ_ENABLED === "true"
-      ? [
-          {
-            sourceId: "davinagaz" as const,
-            adapter: new DavinagazPartsAdapter(),
-          },
-        ]
       : []),
     ...(process.env.SOURCE_REMZONA_ENABLED === "false"
       ? []

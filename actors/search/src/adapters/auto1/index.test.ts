@@ -46,7 +46,7 @@ describe("Auto1 parser", () => {
       priceAmount: "10.45",
       priceSource: "microdata",
       currency: "BYN",
-      availability: "В наличии",
+      availability: "В наличии · >10 шт",
       location: "Минск, ул. Бабушкина, д.27а",
       sellerName: "Auto1.by",
     });
@@ -64,6 +64,20 @@ describe("Auto1 parser", () => {
         '<div class="catalog-list"><div class="catalog-list-card"></div></div>',
       ),
     ).toThrow("DOM_CHANGED");
+  });
+
+  it("accepts a numeric product URL under a robots-allowed catalogue root", () => {
+    const [offer] = parseAuto1SearchHtml(`
+      <div class="catalog-list"><div class="catalog-list-card">
+        <a class="link-name" href="/Oil/filters/315677">MAHLE OX339/2D</a>
+        <span data-articleid="315677"></span>
+        <div itemprop="offers">
+          <meta itemprop="price" content="10.45">
+          <meta itemprop="priceCurrency" content="BYN">
+        </div>
+      </div></div>
+    `);
+    expect(offer?.externalUrl).toBe("https://auto1.by/Oil/filters/315677");
   });
 });
 
@@ -151,6 +165,22 @@ describe("Auto1 public HTTP search", () => {
     await expect(loader("Масляный фильтр")).rejects.toMatchObject({
       sourceId: "auto1",
       code: "rate-limited",
+    });
+  });
+
+  it("does not mistake the observed JavaScript verification page for empty results", async () => {
+    const loader = createAuto1SearchLoader({
+      config,
+      fetchImpl: async () =>
+        new Response(await fixture("search-verification.html"), {
+          status: 200,
+        }),
+    });
+
+    await expect(loader("OX339/2D")).rejects.toMatchObject({
+      sourceId: "auto1",
+      code: "rate-limited",
+      message: expect.stringContaining("HTTP_BLOCKED"),
     });
   });
 });

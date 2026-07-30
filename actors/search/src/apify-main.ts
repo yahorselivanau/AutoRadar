@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { ArmtekPartsAdapter } from "./adapters/armtek";
 import { Auto1PartsAdapter } from "./adapters/auto1";
-import { DavinagazPartsAdapter } from "./adapters/davinagaz";
 import { MockPartsAdapter } from "./adapters/mock";
 import { MotorlandPartsAdapter } from "./adapters/motorland";
 import { RemzonaPartsAdapter } from "./adapters/remzona";
@@ -14,17 +13,7 @@ import { runFederatedSearch } from "./federated-search";
 
 const ActorInputSchema = SearchRequestSchema.extend({
   sources: z
-    .array(
-      z.enum([
-        "armtek",
-        "auto1",
-        "davinagaz",
-        "motorland",
-        "remzona",
-        "zap",
-        "mock",
-      ]),
-    )
+    .array(z.enum(["armtek", "auto1", "motorland", "remzona", "zap", "mock"]))
     .default(["motorland"]),
 });
 
@@ -37,9 +26,6 @@ await Actor.main(async () => {
   }
   if (input.sources.includes("auto1")) {
     adapters.push(new Auto1PartsAdapter());
-  }
-  if (input.sources.includes("davinagaz")) {
-    adapters.push(new DavinagazPartsAdapter());
   }
   if (input.sources.includes("motorland")) {
     adapters.push(new MotorlandPartsAdapter());

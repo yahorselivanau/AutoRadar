@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   NormalizedOfferSchema,
+  normalizePartNumber,
   type NormalizedOffer,
   type SearchRequest,
 } from "@autoradar/domain";
@@ -19,6 +20,8 @@ export interface RemzonaSearchCandidate {
   kind: "category" | "product";
   title: string;
   path: string;
+  rawPartNumber?: string;
+  normalizedPartNumber?: string;
 }
 
 function cleanText(value: string): string {
@@ -288,6 +291,14 @@ export function parseRemzonaSearchCandidates(
       kind: section === "group" ? "category" : "product",
       title,
       path,
+      ...(section === "article" && anchor.attr("data-choose")?.trim()
+        ? {
+            rawPartNumber: anchor.attr("data-choose")!.trim(),
+            normalizedPartNumber: normalizePartNumber(
+              anchor.attr("data-choose")!,
+            ),
+          }
+        : {}),
     });
   });
   return candidates;
@@ -296,15 +307,31 @@ export function parseRemzonaSearchCandidates(
 export function chooseRemzonaCandidate(
   candidates: RemzonaSearchCandidate[],
   query: string,
+  preferredKind?: RemzonaSearchCandidate["kind"],
 ): RemzonaSearchCandidate | undefined {
   const target = comparable(query);
+  const eligible = preferredKind
+    ? candidates.filter((candidate) => candidate.kind === preferredKind)
+    : candidates;
+  const exactArticle = eligible.find(
+    (candidate) =>
+      candidate.kind === "product" &&
+      candidate.normalizedPartNumber === normalizePartNumber(query),
+  );
   return (
-    candidates.find(
+    exactArticle ??
+    eligible.find(
       (candidate) =>
         candidate.kind === "category" && comparable(candidate.title) === target,
     ) ??
-    candidates.find((candidate) => candidate.kind === "category") ??
-    candidates.find((candidate) => candidate.kind === "product")
+    eligible.find(
+      (candidate) =>
+        candidate.kind === "product" && comparable(candidate.title) === target,
+    ) ??
+    (preferredKind
+      ? undefined
+      : (eligible.find((candidate) => candidate.kind === "category") ??
+        eligible.find((candidate) => candidate.kind === "product")))
   );
 }
 

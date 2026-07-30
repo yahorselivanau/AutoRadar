@@ -6,7 +6,6 @@
   "exports": {
     "./armtek": "./src/adapters/armtek/index.ts",
     "./auto1": "./src/adapters/auto1/index.ts",
-    "./davinagaz": "./src/adapters/davinagaz/index.ts",
     "./motorland": "./src/adapters/motorland/index.ts",
     "./remzona": "./src/adapters/remzona/index.ts",
     "./zap": "./src/adapters/zap/index.ts",
@@ -17,7 +16,6 @@
   "scripts": {
     "armtek:smoke": "tsx src/adapters/armtek/live-smoke.ts",
     "auto1:smoke": "tsx src/adapters/auto1/live-smoke.ts",
-    "davinagaz:smoke": "tsx src/adapters/davinagaz/live-smoke.ts",
     "motorland:smoke": "tsx src/adapters/motorland/live-smoke.ts",
     "remzona:discover": "tsx src/discovery/remzona.ts",
     "remzona:smoke": "tsx src/adapters/remzona/live-smoke.ts",

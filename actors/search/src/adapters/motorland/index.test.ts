@@ -56,6 +56,12 @@ describe("Motorland parser", () => {
       deliveryText: "Доставка по РБ",
       compatibilityText:
         "Автомобиль-донор: 2016 · Седан · КПП 6-ст.мех.(МКПП) · B38B15A",
+      sourceAttributes: {
+        catalogMake: ["bmw"],
+        catalogModel: ["3"],
+        catalogGeneration: ["f30-2012-2019"],
+        catalogCategory: ["kapot"],
+      },
     });
   });
 

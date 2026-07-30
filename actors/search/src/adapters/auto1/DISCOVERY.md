@@ -1,8 +1,8 @@
 # Auto1.by discovery
 
-Checked at: 2026-07-29  
-Researcher: Codex, only from owner-supplied local captures; no request to
-`auto1.by` was made during this task.
+Checked at: 2026-07-30
+Researcher: Codex, owner-supplied local captures first, followed by one
+allowed live `/Search` smoke.
 
 ## Access
 
@@ -15,10 +15,14 @@ Researcher: Codex, only from owner-supplied local captures; no request to
   `75cb63a869c1a24b7955e6356071e81bdbe917428cd1ab947449076a9cbb021e`.
 - Terms: not present in the supplied files, therefore not independently
   verified in this offline discovery.
-- CAPTCHA: absent from the supplied catalogue page. The loader still maps a
-  challenge/captcha page to a typed access error.
-- Rate-limit observations: no live requests were made. The adapter serializes
-  requests with a 1-second default interval and handles HTTP 429.
+- CAPTCHA: absent from the supplied catalogue page. The live `/Search` smoke
+  for `OX339/2D` returned an HTTP 200 JavaScript `Verification` page with a
+  short-lived `hg-security` cookie. The loader recognizes that signature and
+  reports `HTTP_BLOCKED` instead of a false empty result. It does not execute
+  or bypass the challenge.
+- Rate-limit observations: the one live search was verification-gated. The
+  adapter serializes requests with a 1-second default interval and handles
+  both HTTP 429 and the observed HTTP 200 verification body.
 - Proxy required: no evidence of a requirement; proxy use is not implemented.
 - Proxy region: none.
 - TLS/CA requirements: standard trusted HTTPS only. TLS verification is never
@@ -109,11 +113,15 @@ future captured page provides a dedicated OEM field.
 - original/analog: `unknown`.
 - price: `[itemprop=offers] [itemprop=price][content]`, only when
   `[itemprop=priceCurrency]` is `BYN`.
-- availability: `[itemprop=availability]`; `InStock` → `В наличии`.
+- availability: `[itemprop=availability]`; `InStock` → `В наличии`, с
+  сохранением явно указанного в складской строке количества (`>10 шт`,
+  `>10 к-т`).
 - seller: `[itemprop=seller] [itemprop=name][content]`.
 - location: first `addressLocality` plus `streetAddress`.
-- URL: HTTPS links on `auto1.by` matching the observed product path families
-  or `/details?id=<number>`.
+- URL: HTTPS links on `auto1.by` matching the observed localized product path
+  families, разрешённые robots корни `/Parts`, `/Tyres`, `/Battery`, `/Oil`,
+  `/Chemistry`, `/Tools`, `/GarageTools`, `/CarBodyParts`, `/Accessories`,
+  `/CarMount` с числовым product id, или `/details?id=<number>`.
 - image: not returned. The supplied list uses embedded data URIs and
   product-path `data-href`, not a verified public image URL.
 
@@ -183,15 +191,17 @@ Key supplied-capture hashes:
 - empty: `fixtures/search-empty.html` — parser contract fixture using the
   no-results copy observed in supplied JavaScript. A real empty `/Search`
   response was not supplied and was not fetched.
-- error: `fixtures/search-error.html` — typed rate-limit contract fixture. No
-  real block was encountered because live access was intentionally skipped.
+- error: `fixtures/search-error.html` — typed HTTP 429 contract fixture.
+- verification: `fixtures/search-verification.html` — minimized form of the
+  live HTTP 200 `Verification` response, ensuring it cannot be interpreted as
+  an empty catalogue.
 - robots: `fixtures/robots.txt` — owner-supplied capture.
 
 ## Known limitations
 
-- No live `/Search` request was made at the owner's request, so current
-  production response headers, empty-page markup and rate limits remain
-  unverified.
+- Direct server-side `/Search` is currently verification-gated, so Auto1
+  remains disabled by default until a stable public HTTP contract or owner
+  permission exists. The challenge is not bypassed.
 - The success HTML is a vehicle-catalog page, not a captured `/Search`
   response. The shared card template and search form are verified, but a live
   or owner-supplied search-result capture is still required before claiming

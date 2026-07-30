@@ -20,15 +20,19 @@ function safeProductUrl(href: string | undefined): string | undefined {
   if (!href) return undefined;
   try {
     const url = new URL(href, origin);
-    const isProductPath =
+    const isLocalizedProductPath =
       (/^\/details$/i.test(url.pathname) &&
         /^\d+$/.test(url.searchParams.get("id") ?? "")) ||
       /^\/(?:avtozapchasti|avtohimija-i-avtokosmetika|akkumulyatory|shiny-i-diski|masla-motornye-i-industrialnye|instrumenty|garazhnoe-oborudovanie|optika-i-detali-kuzova|aksessuary|krepesh-avtomobilnyj)\/.+\/\d+\/?$/i.test(
         url.pathname,
       );
+    const isAllowedRootProductPath =
+      /^\/(?:Parts|Tyres|Battery|Oil|Chemistry|Tools|GarageTools|CarBodyParts|Accessories|CarMount)\/.+\/\d+\/?$/i.test(
+        url.pathname,
+      );
     return url.protocol === "https:" &&
       url.hostname === "auto1.by" &&
-      isProductPath
+      (isLocalizedProductPath || isAllowedRootProductPath)
       ? url.toString()
       : undefined;
   } catch {
@@ -72,7 +76,14 @@ function readDescription(card: Cheerio<AnyNode>): string | undefined {
 
 function readAvailability(card: Cheerio<AnyNode>): string | undefined {
   const schemaValue = card.find('[itemprop="availability"]').attr("href");
-  if (schemaValue?.endsWith("/InStock")) return "В наличии";
+  const stockQuantity = card
+    .find("td")
+    .map((_, element) => cleanText(card.find(element).text()))
+    .get()
+    .find((value) => /^(?:[<>]\s*)?\d+\s*(?:шт|к-?т)\.?$/i.test(value));
+  if (schemaValue?.endsWith("/InStock")) {
+    return stockQuantity ? `В наличии · ${stockQuantity}` : "В наличии";
+  }
   if (schemaValue?.endsWith("/OutOfStock")) return "Нет в наличии";
   const visible = card
     .find("td")

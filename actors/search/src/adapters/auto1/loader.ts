@@ -36,7 +36,7 @@ async function schedule<T>(
 }
 
 function isBlockedPage(html: string): boolean {
-  return /<title>[^<]*(?:captcha|access denied|http error 429)|(?:class|id)=["'][^"']*(?:captcha|challenge)[^"']*["']|слишком много запросов/i.test(
+  return /<title>[^<]*(?:captcha|verification|access denied|http error 429)|(?:class|id)=["'][^"']*(?:captcha|challenge)[^"']*["']|hg-security=|navigator\.webdriver|слишком много запросов/i.test(
     html,
   );
 }

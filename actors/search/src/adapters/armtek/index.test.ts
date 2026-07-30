@@ -70,6 +70,11 @@ describe("Armtek public JSON parser", () => {
       deliveryText: "Отгрузка 31.07.2026 09:00",
       sellerName: "ARMTEK",
       sellerRatingPercent: 95,
+      sourceAttributes: {
+        armtekArticleId: ["37519801"],
+        armtekSupplierReference: ["868938"],
+        armtekWarehouseReference: ["0000156495"],
+      },
     });
     expect(offers[1]?.imageUrl).toBe(
       "https://img.armtek.ru/img/article/517/517827/230x230/517827_0.webp",
