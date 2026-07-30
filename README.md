@@ -25,8 +25,8 @@ Mobile-first приложение, которое понимает запрос 
 - Zap.by и Motorland.by подключены к приватному MVP.
 - Auto1.by проверен по fixtures и ожидает opt-in live smoke.
 - Remzona сохранён, но по умолчанию выключен.
-- AI-модель задаётся через `AI_MODEL`; текущий проект использует
-  `openai/gpt-5.4-nano` через Vercel AI Gateway.
+- AI-модель задаётся через `AI_MODEL`; текущий проект напрямую использует
+  Gemini API с серверным ключом `GEMINI_API_KEY`.
 
 ## Быстрый старт
 

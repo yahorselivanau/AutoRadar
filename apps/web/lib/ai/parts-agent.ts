@@ -14,10 +14,7 @@ import { InferAgentUIMessage, stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import type { RequestIdentity } from "@/lib/auth/identity";
-import {
-  PARTS_AGENT_PROMPT_VERSION,
-  PARTS_AGENT_SYSTEM_PROMPT,
-} from "@/lib/ai/prompts/parts-agent.v1";
+import { PARTS_AGENT_SYSTEM_PROMPT } from "@/lib/ai/prompts/parts-agent.v1";
 import { loadConversation, saveConversationState } from "@/lib/chat/store";
 import { assessSymptomSafety } from "@/lib/ai/symptom-safety";
 import { confirmVehicleTransition } from "@/lib/ai/conversation-transitions";
@@ -25,18 +22,9 @@ import {
   getPersistedSearchResult,
   streamPersistedSearch,
 } from "@/lib/search/run-persisted-search";
+import { GEMINI_MODEL, getGeminiModel } from "@/lib/ai/gemini";
 
-export const PARTS_AGENT_MODEL = "openai/gpt-5.4-nano";
-
-function configuredModel() {
-  const model = process.env.AI_MODEL ?? PARTS_AGENT_MODEL;
-  if (model !== PARTS_AGENT_MODEL) {
-    throw new Error(
-      `AI_MODEL должен оставаться ${PARTS_AGENT_MODEL} для текущего релиза.`,
-    );
-  }
-  return model;
-}
+export const PARTS_AGENT_MODEL = GEMINI_MODEL;
 
 const ClarificationInputSchema = z.object({
   question: z.string().trim().min(1).max(240),
@@ -351,7 +339,7 @@ export function createPartsAgent({
   };
 
   return new ToolLoopAgent({
-    model: configuredModel(),
+    model: getGeminiModel(),
     instructions: `${PARTS_AGENT_SYSTEM_PROMPT}
 
 Текущее серверное состояние:
@@ -403,18 +391,6 @@ ${JSON.stringify(state)}`,
     },
     stopWhen: stepCountIs(6),
     maxOutputTokens: 1200,
-    providerOptions: {
-      gateway: {
-        disallowPromptTraining: true,
-        user: identity.trackingId,
-        tags: [
-          "app:autoradar",
-          "feature:parts-agent",
-          `prompt:${PARTS_AGENT_PROMPT_VERSION}`,
-          "model:gpt-5.4-nano",
-        ],
-      },
-    },
   });
 }
 

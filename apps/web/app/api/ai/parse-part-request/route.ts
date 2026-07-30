@@ -10,6 +10,7 @@ import {
   PART_REQUEST_PROMPT_VERSION,
   PART_REQUEST_SYSTEM_PROMPT,
 } from "@/lib/ai/prompts/part-request.v4";
+import { GEMINI_MODEL, getGeminiModel } from "@/lib/ai/gemini";
 
 export const maxDuration = 30;
 
@@ -36,11 +37,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const model = process.env.AI_MODEL ?? "openai/gpt-5.4-nano";
-
   try {
     const { output } = await generateText({
-      model,
+      model: getGeminiModel(),
       output: Output.object({ schema: PartRequestExtractionSchema }),
       system: PART_REQUEST_SYSTEM_PROMPT,
       prompt: JSON.stringify({
@@ -49,16 +48,6 @@ export async function POST(request: Request) {
         activeVehicle: parsedInput.data.activeVehicle ?? null,
       }),
       maxOutputTokens: 900,
-      providerOptions: {
-        gateway: {
-          disallowPromptTraining: true,
-          tags: [
-            "app:autoradar",
-            "feature:part-request",
-            `prompt:${PART_REQUEST_PROMPT_VERSION}`,
-          ],
-        },
-      },
     });
 
     return Response.json({
@@ -68,26 +57,21 @@ export async function POST(request: Request) {
           ? normalizePartNumber(output.rawPartNumber)
           : null,
       },
-      model,
+      model: GEMINI_MODEL,
       promptVersion: PART_REQUEST_PROMPT_VERSION,
     });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "statusCode" in error &&
-      error.statusCode === 403
-    ) {
-      return Response.json(
-        {
-          error:
-            "AI Gateway временно недоступен. Повторите запрос или заполните форму вручную.",
-        },
-        { status: 503 },
-      );
-    }
-
     if (APICallError.isInstance(error)) {
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        return Response.json(
+          {
+            error:
+              "Gemini API недоступен. Проверьте API-ключ или заполните форму вручную.",
+          },
+          { status: 503 },
+        );
+      }
+
       if (error.statusCode === 402) {
         return Response.json(
           { error: "Лимит AI временно исчерпан. Попробуйте позже." },

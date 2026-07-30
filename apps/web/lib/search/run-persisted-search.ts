@@ -371,20 +371,6 @@ export async function runPersistedSearch({
               query: entry.query ?? request.query,
             });
       if (admin) {
-        const { error: sourceError } = await admin
-          .from("search_job_sources")
-          .update({
-            status: run.status,
-            offer_count: run.offers.length,
-            duration_ms: run.durationMs,
-            error_code: run.errorCode,
-            error_message: run.errorMessage,
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("search_job_id", jobId)
-          .eq("source_id", run.sourceId);
-        if (sourceError) throw sourceError;
         if (run.offers.length > 0) {
           const { error: offerError } = await admin.from("offers").upsert(
             run.offers.map((offer) => ({
@@ -403,6 +389,20 @@ export async function runPersistedSearch({
           );
           if (offerError) throw offerError;
         }
+        const { error: sourceError } = await admin
+          .from("search_job_sources")
+          .update({
+            status: run.status,
+            offer_count: run.offers.length,
+            duration_ms: run.durationMs,
+            error_code: run.errorCode,
+            error_message: run.errorMessage,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("search_job_id", jobId)
+          .eq("source_id", run.sourceId);
+        if (sourceError) throw sourceError;
       }
       await onProgress?.({
         kind: "source_completed",

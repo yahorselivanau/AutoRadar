@@ -8,6 +8,10 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 
+minimumReleaseAgeExclude:
+  - '@ai-sdk/google@3.0.103'
+  - '@ai-sdk/provider-utils@4.0.41'
+
 onlyBuiltDependencies:
   - esbuild
   - sharp

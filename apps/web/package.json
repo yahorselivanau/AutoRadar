@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.103",
     "@ai-sdk/react": "^4.0.43",
     "@autoradar/domain": "workspace:*",
     "@autoradar/search-actor": "workspace:*",
