@@ -199,7 +199,15 @@ export async function POST(request: Request) {
         promptVersion: PARTS_AGENT_PROMPT_VERSION,
       });
     },
-    onError: () =>
-      "Не удалось получить ответ. Запрос и история сохранены — попробуйте ещё раз.",
+    onError: (error) => {
+      console.error("[api/chat] AI response failed", {
+        conversationId: conversation.id,
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message }
+            : { name: "UnknownError" },
+      });
+      return "Не удалось получить ответ. Запрос и история сохранены — попробуйте ещё раз.";
+    },
   });
 }
