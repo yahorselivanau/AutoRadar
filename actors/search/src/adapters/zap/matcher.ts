@@ -38,27 +38,43 @@ function sameWords(left: string[], right: string[]): boolean {
   });
 }
 
+function stripLeadingArticle(
+  title: string[],
+  rawPartNumber: string | undefined,
+): void {
+  const article = normalize(rawPartNumber ?? "").replace(/[^a-zа-я0-9]/gi, "");
+  if (!article) return;
+
+  let joined = "";
+  let consumed = 0;
+  while (consumed < title.length && article.startsWith(joined)) {
+    joined += title[consumed] ?? "";
+    consumed += 1;
+    if (joined === article) {
+      title.splice(0, consumed);
+      return;
+    }
+    if (!article.startsWith(joined)) return;
+  }
+}
+
 export function matchesZapPartIdentity(
   offer: NormalizedOffer,
   input: SearchRequest,
 ): boolean {
-  if (input.part.rawPartNumber || input.part.normalizedPartNumber) return true;
   const requested = words(input.part.name);
   if (requested.length === 0) return false;
 
-  const removablePrefix = new Set([
-    ...words(offer.brand ?? ""),
-    ...words(offer.rawPartNumber ?? ""),
-  ]);
   const title = words(offer.title);
-  while (title[0] && removablePrefix.has(title[0])) title.shift();
+  const brand = words(offer.brand ?? "");
+  if (sameWords(title.slice(0, brand.length), brand)) {
+    title.splice(0, brand.length);
+  }
+  stripLeadingArticle(title, offer.rawPartNumber ?? offer.normalizedPartNumber);
   return sameWords(title.slice(0, requested.length), requested);
 }
 
-function valuesFor(
-  offer: NormalizedOffer,
-  key: string,
-): string[] {
+function valuesFor(offer: NormalizedOffer, key: string): string[] {
   return offer.sourceAttributes?.[key] ?? [];
 }
 
@@ -107,6 +123,9 @@ export function evaluateZapOffers(
       if (!rejected) {
         appendReason(reasons, "Название детали совпало с запросом");
       }
+      if (input.vehicle && !vehicleModelId) {
+        missingEvidence = true;
+      }
       const placement = detectZapPlacement(
         [
           ...(offer.sourceAttributes?.mounting ?? []),
@@ -146,11 +165,10 @@ export function evaluateZapOffers(
         }
       }
 
-      if (input.vehicle?.engine && vehicleTypeId) {
-        const catalogVehicleTypes = valuesFor(
-          offer,
-          "catalogVehicleTypeId",
-        );
+      if (input.vehicle?.engine && !vehicleTypeId) {
+        missingEvidence = true;
+      } else if (input.vehicle?.engine && vehicleTypeId) {
+        const catalogVehicleTypes = valuesFor(offer, "catalogVehicleTypeId");
         if (catalogVehicleTypes.length === 0) {
           missingEvidence = true;
         } else if (!catalogVehicleTypes.includes(vehicleTypeId)) {

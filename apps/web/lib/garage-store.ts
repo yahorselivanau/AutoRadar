@@ -61,7 +61,16 @@ async function saveVehicleToCloud(vehicle: SavedVehicle) {
 async function syncCloudGarage(localGarage: GarageState) {
   const response = await fetch("/api/vehicles");
   if (!response.ok) return;
-  const cloud = GarageStateSchema.safeParse(await response.json());
+  const payload = (await response.json()) as unknown;
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "code" in payload &&
+    payload.code === "guest"
+  ) {
+    return;
+  }
+  const cloud = GarageStateSchema.safeParse(payload);
   if (!cloud.success) return;
 
   const merged = new Map<string, SavedVehicle>();
@@ -99,6 +108,8 @@ export type VehicleDraft = VehicleContext & {
   displayName: string;
   vin?: string;
   notes?: string;
+  vinResolutionSource?: SavedVehicle["vinResolutionSource"];
+  vinResolutionProvenance?: SavedVehicle["vinResolutionProvenance"];
 };
 
 export function upsertVehicle(

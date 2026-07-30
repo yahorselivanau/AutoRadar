@@ -116,6 +116,14 @@ function logPriceSources(offers: NormalizedOffer[]): void {
 
 export class RemzonaPartsAdapter implements PartsSourceAdapter {
   readonly id = "remzona";
+  readonly capabilities = {
+    article: true,
+    vehicleCatalog: true,
+    vin: false,
+    text: true,
+    category: true,
+    conditions: ["new"],
+  } as const;
 
   constructor(
     private readonly loadSearchHtml: RemzonaHtmlLoader = loadRemzonaSearchHtml,

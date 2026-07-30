@@ -89,15 +89,13 @@ export function VehicleEditor({
     <form className="vehicle-editor" onSubmit={submit}>
       <div className="vehicle-editor-heading">
         <div>
-          <span className="eyebrow">
-            {initialVehicle ? "Редактирование" : "Новый автомобиль"}
-          </span>
           <h2>
-            {initialVehicle ? initialVehicle.displayName : "Данные автомобиля"}
+            {initialVehicle
+              ? `Редактировать ${initialVehicle.displayName}`
+              : "Добавить автомобиль"}
           </h2>
           <p>
-            VIN необязателен. Данные декодера всегда нужно проверить перед
-            сохранением.
+            Укажите основные данные. Комплектацию и VIN можно добавить позже.
           </p>
         </div>
         <button
@@ -110,103 +108,120 @@ export function VehicleEditor({
         </button>
       </div>
 
-      <div className="vehicle-form-grid">
-        <label className="field field-wide">
-          <span>Название в гараже</span>
-          <input
-            value={values.displayName}
-            onChange={(event) => setField("displayName", event.target.value)}
-            placeholder="Например, Мой Peugeot"
-          />
-        </label>
-        <label className="field field-wide">
-          <span>VIN</span>
-          <input
-            className="font-tabular"
-            value={values.vin}
-            onChange={(event) => setField("vin", event.target.value)}
-            placeholder="17 символов"
-            maxLength={17}
-            autoCapitalize="characters"
-            spellCheck={false}
-          />
-        </label>
-        <label className="field">
-          <span>Марка *</span>
-          <input
-            value={values.make}
-            onChange={(event) => setField("make", event.target.value)}
-            placeholder="Peugeot"
-          />
-        </label>
-        <label className="field">
-          <span>Модель *</span>
-          <input
-            value={values.model}
-            onChange={(event) => setField("model", event.target.value)}
-            placeholder="308"
-          />
-        </label>
-        <label className="field">
-          <span>Год *</span>
-          <input
-            className="font-tabular"
-            value={values.year}
-            onChange={(event) => setField("year", event.target.value)}
-            inputMode="numeric"
-            placeholder="2008"
-          />
-        </label>
-        <label className="field">
-          <span>Поколение / версия</span>
-          <input
-            value={values.generation}
-            onChange={(event) => setField("generation", event.target.value)}
-            placeholder="T7, рестайлинг"
-          />
-        </label>
-        <label className="field">
-          <span>Кузов</span>
-          <input
-            value={values.body}
-            onChange={(event) => setField("body", event.target.value)}
-            placeholder="Хэтчбек"
-          />
-        </label>
-        <label className="field">
-          <span>Двигатель</span>
-          <input
-            value={values.engine}
-            onChange={(event) => setField("engine", event.target.value)}
-            placeholder="1.6 VTi"
-          />
-        </label>
-        <label className="field">
-          <span>Коробка</span>
-          <input
-            value={values.transmission}
-            onChange={(event) => setField("transmission", event.target.value)}
-            placeholder="Механика"
-          />
-        </label>
-        <label className="field">
-          <span>Дверей</span>
-          <input
-            value={values.doors}
-            onChange={(event) => setField("doors", event.target.value)}
-            inputMode="numeric"
-            placeholder="5"
-          />
-        </label>
-        <label className="field field-wide">
-          <span>Заметки</span>
-          <textarea
-            value={values.notes}
-            onChange={(event) => setField("notes", event.target.value)}
-            placeholder="Комплектация или важные особенности"
-            rows={3}
-          />
-        </label>
+      <div className="vehicle-form-section">
+        <div className="vehicle-form-section-heading">
+          <h3>Основные данные</h3>
+          <span>Обязательные поля отмечены звёздочкой</span>
+        </div>
+        <div className="vehicle-form-grid">
+          <label className="field field-wide">
+            <span>Название в гараже</span>
+            <input
+              value={values.displayName}
+              onChange={(event) => setField("displayName", event.target.value)}
+              placeholder="Например, Мой Peugeot"
+            />
+          </label>
+          <label className="field">
+            <span>Марка *</span>
+            <input
+              value={values.make}
+              onChange={(event) => setField("make", event.target.value)}
+              placeholder="Peugeot"
+            />
+          </label>
+          <label className="field">
+            <span>Модель *</span>
+            <input
+              value={values.model}
+              onChange={(event) => setField("model", event.target.value)}
+              placeholder="308"
+            />
+          </label>
+          <label className="field">
+            <span>Год *</span>
+            <input
+              className="font-tabular"
+              value={values.year}
+              onChange={(event) => setField("year", event.target.value)}
+              inputMode="numeric"
+              placeholder="2008"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="vehicle-form-section">
+        <div className="vehicle-form-section-heading">
+          <h3>Дополнительные данные</h3>
+          <span>Помогут точнее подбирать запчасти</span>
+        </div>
+        <div className="vehicle-form-grid">
+          <label className="field field-wide">
+            <span>VIN</span>
+            <input
+              className="font-tabular"
+              value={values.vin}
+              onChange={(event) => setField("vin", event.target.value)}
+              placeholder="17 символов"
+              maxLength={17}
+              autoCapitalize="characters"
+              spellCheck={false}
+            />
+          </label>
+          <label className="field">
+            <span>Поколение / версия</span>
+            <input
+              value={values.generation}
+              onChange={(event) => setField("generation", event.target.value)}
+              placeholder="T7, рестайлинг"
+            />
+          </label>
+          <label className="field">
+            <span>Кузов</span>
+            <input
+              value={values.body}
+              onChange={(event) => setField("body", event.target.value)}
+              placeholder="Хэтчбек"
+            />
+          </label>
+          <label className="field">
+            <span>Двигатель</span>
+            <input
+              value={values.engine}
+              onChange={(event) => setField("engine", event.target.value)}
+              placeholder="1.6 VTi"
+            />
+          </label>
+          <label className="field">
+            <span>Коробка</span>
+            <input
+              value={values.transmission}
+              onChange={(event) =>
+                setField("transmission", event.target.value)
+              }
+              placeholder="Механика"
+            />
+          </label>
+          <label className="field">
+            <span>Дверей</span>
+            <input
+              value={values.doors}
+              onChange={(event) => setField("doors", event.target.value)}
+              inputMode="numeric"
+              placeholder="5"
+            />
+          </label>
+          <label className="field field-wide">
+            <span>Заметки</span>
+            <textarea
+              value={values.notes}
+              onChange={(event) => setField("notes", event.target.value)}
+              placeholder="Комплектация или важные особенности"
+              rows={3}
+            />
+          </label>
+        </div>
       </div>
 
       {error ? (
@@ -215,7 +230,7 @@ export function VehicleEditor({
         </p>
       ) : null}
 
-      <div className="request-actions">
+      <div className="vehicle-editor-actions">
         <button
           className="button secondary pressable"
           type="button"

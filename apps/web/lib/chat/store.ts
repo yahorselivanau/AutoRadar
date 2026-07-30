@@ -132,7 +132,7 @@ export async function loadConversation(
       admin
         .from("conversation_states")
         .select(
-          "active_vehicle,search_draft,latest_search_job_id,latest_search_summary",
+          "schema_version,active_vehicle,vehicle_draft,search_draft,readiness,pending_clarification,symptom_assessment,latest_search_job_id,latest_search_summary",
         )
         .eq("conversation_id", id)
         .maybeSingle(),
@@ -141,8 +141,13 @@ export async function loadConversation(
   if (stateResult.error) throw stateResult.error;
 
   const state = ConversationStateSchema.parse({
+    schemaVersion: stateResult.data?.schema_version ?? 2,
     activeVehicle: stateResult.data?.active_vehicle ?? null,
+    vehicleDraft: stateResult.data?.vehicle_draft ?? null,
     searchDraft: stateResult.data?.search_draft ?? null,
+    readiness: stateResult.data?.readiness ?? "collecting",
+    pendingClarification: stateResult.data?.pending_clarification ?? null,
+    symptomAssessment: stateResult.data?.symptom_assessment ?? null,
     latestSearchJobId: stateResult.data?.latest_search_job_id ?? null,
     latestSearchSummary: stateResult.data?.latest_search_summary ?? null,
   });
@@ -243,8 +248,13 @@ export async function saveConversationState({
 
   const { error } = await admin.from("conversation_states").upsert({
     conversation_id: conversationId,
+    schema_version: parsed.schemaVersion,
     active_vehicle: parsed.activeVehicle,
+    vehicle_draft: parsed.vehicleDraft,
     search_draft: parsed.searchDraft,
+    readiness: parsed.readiness,
+    pending_clarification: parsed.pendingClarification,
+    symptom_assessment: parsed.symptomAssessment,
     latest_search_job_id: parsed.latestSearchJobId,
     latest_search_summary: parsed.latestSearchSummary,
     updated_at: new Date().toISOString(),

@@ -28,10 +28,12 @@ const sourceLabels: Record<SourceId, string> = {
   zap: "Zap.by",
 };
 
-type Filter = "all" | "original" | "analog" | "used";
+type Filter = "all" | "confirmed" | "possible" | "original" | "analog" | "used";
 
 function matchesFilter(offer: NormalizedOffer, filter: Filter) {
   if (filter === "all") return true;
+  if (filter === "confirmed") return offer.matchStatus === "confirmed";
+  if (filter === "possible") return offer.matchStatus !== "confirmed";
   if (filter === "used") return offer.condition === "used";
   return offer.condition === "new" && offer.partKind === filter;
 }
@@ -72,6 +74,15 @@ function OfferCard({ offer }: { offer: NormalizedOffer }) {
           <span className="offer-badge confirmed">
             {sourceLabels[offer.sourceId]}
           </span>
+          <span
+            className={`offer-badge ${
+              offer.matchStatus === "confirmed" ? "confirmed" : "analog"
+            }`}
+          >
+            {offer.matchStatus === "confirmed"
+              ? "Подтверждено источником"
+              : "Возможно подходит"}
+          </span>
           {offer.condition === "used" ? (
             <span className="offer-badge used">Б/у</span>
           ) : null}
@@ -86,6 +97,11 @@ function OfferCard({ offer }: { offer: NormalizedOffer }) {
         <span className="part-number">
           Артикул: {offer.rawPartNumber ?? "не указан"}
         </span>
+        {offer.matchReasons?.length ? (
+          <span className="part-number">
+            Основание: {offer.matchReasons.join(" · ")}
+          </span>
+        ) : null}
       </div>
       <div className="offer-logistics">
         <span>
@@ -176,6 +192,8 @@ export function SearchResults({
               {(
                 [
                   ["all", "Все"],
+                  ["confirmed", "Подтверждено"],
+                  ["possible", "Возможно подходит"],
                   ["original", "Новые оригиналы"],
                   ["analog", "Новые аналоги"],
                   ["used", "Б/у"],

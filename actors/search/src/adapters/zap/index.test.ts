@@ -32,7 +32,6 @@ const config: ZapTransportConfig = {
   ZAP_REQUEST_INTERVAL_MS: 250,
   ZAP_RESULT_LIMIT: 50,
   ZAP_ENRICH_LIMIT: 12,
-  ZAP_EXPERIMENTAL_SEARCH_ENABLED: false,
 };
 
 const request = SearchRequestSchema.parse({
@@ -136,8 +135,7 @@ describe("Zap.by SSR parser", () => {
     expect(parseZapCatalogMetadata(html)).toEqual({
       categoryId: "525",
       vehicleTypeId: "59409",
-      canonicalPath:
-        "/carparts/bmw/3-f30-f80/320-i-59409/maslyanyi-nasos",
+      canonicalPath: "/carparts/bmw/3-f30-f80/320-i-59409/maslyanyi-nasos",
     });
     expect(parseZapCatalogHtml(html)[0]).toMatchObject({
       title: "Масляный насос STELLOX 20-51145-SX",
@@ -211,6 +209,36 @@ describe("Zap.by part identity", () => {
       ),
     ).toBe(true);
   });
+
+  it("accepts a spaced OEM article but rejects unrelated search neighbors", () => {
+    const oemRequest = SearchRequestSchema.parse({
+      query: "7700274177",
+      part: { name: "Масляный фильтр", rawPartNumber: "7700274177" },
+    });
+
+    expect(
+      matchesZapPartIdentity(
+        {
+          ...baseOffer,
+          brand: "OEM",
+          rawPartNumber: "7700274177",
+          title: "OEM 77 00 274 177 Масляный фильтр",
+        },
+        oemRequest,
+      ),
+    ).toBe(true);
+    expect(
+      matchesZapPartIdentity(
+        {
+          ...baseOffer,
+          brand: "GANZ",
+          rawPartNumber: "GIE11409",
+          title: "GANZ GIE11409 Прокладка сливной пробки",
+        },
+        oemRequest,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("Zap.by allowed catalog navigation", () => {
@@ -242,10 +270,10 @@ describe("Zap.by allowed catalog navigation", () => {
     ).toBe("/carparts/audi/a4/maslyanyi-filtr");
   });
 
-  it("rejects the robots-disallowed search route before fetch", () => {
-    expect(() =>
+  it("allows the search route explicitly covered by the supplied robots.txt", () => {
+    expect(
       resolveZapCatalogUrl("https://zap.by/", "/carparts/search/7700274177"),
-    ).toThrow("ROBOTS_DISALLOWED");
+    ).toBe("https://zap.by/carparts/search/7700274177");
   });
 });
 
@@ -285,28 +313,42 @@ describe("Zap.by adapter", () => {
     ]);
   });
 
-  it("does not call the forbidden search route for an OEM-only request", async () => {
-    const loader = vi.fn();
-    const adapter = new ZapPartsAdapter(loader, 50, false);
+  it("uses the public SSR search route for an OEM-only request", async () => {
+    const productHtml = await fixture("catalog-success.html");
+    const loader = vi.fn(async (path: string) => ({
+      html:
+        path === "/carparts/search/7700274177"
+          ? '<div id="content"><a href="/nakayama/fo169ny">NAKAYAMA FO169NY</a></div>'
+          : productHtml,
+      path,
+      status: 200,
+    }));
+    const adapter = new ZapPartsAdapter(loader, 50);
     const oemRequest = SearchRequestSchema.parse({
       query: "7700274177",
       part: { name: "Масляный фильтр", rawPartNumber: "7700274177" },
     });
 
-    await expect(adapter.search(oemRequest)).rejects.toThrow(
-      "ROBOTS_DISALLOWED",
-    );
-    expect(loader).not.toHaveBeenCalled();
+    const result = await adapter.search(oemRequest);
+
+    expect(result.offers.map((offer) => offer.externalId)).toEqual([
+      "NAKAYAMAFO169NY",
+    ]);
+    expect(loader.mock.calls.map(([path]) => path)).toEqual([
+      "/carparts/search/7700274177",
+      "/nakayama/fo169ny",
+      "/nakayama/fo169ny",
+    ]);
   });
 
-  it("allows the explicitly enabled experimental search route", async () => {
+  it("uses direct text search when vehicle context is absent", async () => {
     const placementHtml = await fixture("catalog-placement.html");
     const loader = vi.fn(async (path: string) => ({
       html: placementHtml,
       path,
       status: 200,
     }));
-    const adapter = new ZapPartsAdapter(loader, 50, true);
+    const adapter = new ZapPartsAdapter(loader, 50);
     const textRequest = SearchRequestSchema.parse({
       query: "передний левый стеклоподъемник",
       part: {
@@ -338,7 +380,7 @@ describe("Zap.by adapter", () => {
       path,
       status: 200,
     }));
-    const adapter = new ZapPartsAdapter(loader, 50, true);
+    const adapter = new ZapPartsAdapter(loader, 50);
     const textRequest = SearchRequestSchema.parse({
       query: "передний левый стеклоподъемник на пятидверный Peugeot 308",
       part: {
@@ -378,10 +420,7 @@ describe("Zap.by adapter", () => {
            href="/carparts/audi/a4/maslyanyi-filtr">Масляный фильтр</a>`,
       ],
       ["/carparts/audi/a4/maslyanyi-filtr", genericHtml],
-      [
-        "/carparts/audi/a4-b8/2-7-tdi-900/maslyanyi-filtr",
-        exactHtml,
-      ],
+      ["/carparts/audi/a4-b8/2-7-tdi-900/maslyanyi-filtr", exactHtml],
     ]);
     const loader = vi.fn(async (path: string) => ({
       html: pages.get(path) ?? "",
@@ -399,7 +438,7 @@ describe("Zap.by adapter", () => {
       .mockResolvedValueOnce({
         uri: "audi/a4-b8/2-7-tdi-900/maslyanyi-filtr",
       });
-    const adapter = new ZapPartsAdapter(loader, 50, true, jsonLoader, 12);
+    const adapter = new ZapPartsAdapter(loader, 50, jsonLoader, 12);
 
     const result = await adapter.search(request);
 

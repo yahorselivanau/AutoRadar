@@ -37,6 +37,14 @@ export function getArmtekQuery(input: SearchRequest): string {
 
 export class ArmtekPartsAdapter implements PartsSourceAdapter {
   readonly id = "armtek";
+  readonly capabilities = {
+    article: true,
+    vehicleCatalog: false,
+    vin: false,
+    text: true,
+    category: true,
+    conditions: ["new"],
+  } as const;
 
   constructor(
     private readonly loadJson: ArmtekJsonLoader = loadArmtekSearchJson,

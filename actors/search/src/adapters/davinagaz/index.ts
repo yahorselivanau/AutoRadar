@@ -32,6 +32,14 @@ export function getDavinagazArticle(input: SearchRequest): string {
 
 export class DavinagazPartsAdapter implements PartsSourceAdapter {
   readonly id = "davinagaz";
+  readonly capabilities = {
+    article: true,
+    vehicleCatalog: false,
+    vin: false,
+    text: false,
+    category: false,
+    conditions: ["new"],
+  } as const;
 
   constructor(
     private readonly loadHtml: DavinagazHtmlLoader = loadDavinagazSearchHtml,

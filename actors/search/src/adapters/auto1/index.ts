@@ -38,6 +38,14 @@ export function getAuto1Query(input: SearchRequest): string {
 
 export class Auto1PartsAdapter implements PartsSourceAdapter {
   readonly id = "auto1";
+  readonly capabilities = {
+    article: true,
+    vehicleCatalog: false,
+    vin: false,
+    text: true,
+    category: false,
+    conditions: ["new"],
+  } as const;
 
   constructor(
     private readonly loadHtml: Auto1HtmlLoader = loadAuto1SearchHtml,

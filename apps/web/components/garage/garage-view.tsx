@@ -2,12 +2,14 @@
 
 import { maskVin, type SavedVehicle } from "@autoradar/domain";
 import {
+  ArrowLeft,
   Check,
   Pencil,
   Plus,
   Trash2,
   Warehouse,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { useGarage } from "@/lib/garage-store";
@@ -28,6 +30,7 @@ export function GarageView() {
     null,
   );
   const pendingVin = garage.pendingVin;
+  const editing = editorOpen || Boolean(pendingVin);
 
   const openNew = () => {
     setEditingVehicle(null);
@@ -41,16 +44,19 @@ export function GarageView() {
   };
 
   return (
-    <section className="content-page">
+    <section className="content-page garage-page">
+      <Link className="garage-back pressable" href="/chat">
+        <ArrowLeft size={17} />
+        Вернуться в чат
+      </Link>
       <header className="page-header">
         <div>
           <h1>Гараж</h1>
           <p>
-            Сохраните автомобиль один раз — он будет доступен при каждом
-            поиске.
+            Сохранённый автомобиль автоматически подставляется в новые запросы.
           </p>
         </div>
-        {garage.vehicles.length > 0 ? (
+        {garage.vehicles.length > 0 && !editing ? (
           <button
             className="button primary pressable"
             type="button"
@@ -62,7 +68,7 @@ export function GarageView() {
         ) : null}
       </header>
 
-      {editorOpen || pendingVin ? (
+      {editing ? (
         <VehicleEditor
           key={editingVehicle?.id ?? pendingVin ?? "new"}
           initialVehicle={editingVehicle}
@@ -73,14 +79,13 @@ export function GarageView() {
             closeEditor();
           }}
         />
-      ) : null}
-
-      {garage.vehicles.length === 0 ? (
+      ) : garage.vehicles.length === 0 ? (
         <div className="garage-empty">
           <Warehouse size={28} />
-          <h2>Добавьте автомобиль</h2>
+          <h2>Ваш гараж пока пуст</h2>
           <p>
-            Так не придётся повторять марку, модель и год в каждом запросе.
+            Добавьте автомобиль один раз, чтобы не повторять марку, модель и
+            год в каждом запросе.
           </p>
           <button
             className="button primary pressable"

@@ -43,10 +43,7 @@ async function schedule<T>(intervalMs: number, task: () => Promise<T>) {
   return run;
 }
 
-export function resolveZapCatalogUrl(
-  baseUrl: string,
-  path: string,
-): string {
+export function resolveZapCatalogUrl(baseUrl: string, path: string): string {
   const url = new URL(path, baseUrl);
   const base = new URL(baseUrl);
   const isPublicCatalog = /^\/carparts(?:\/[^?#]*)?$/.test(url.pathname);
@@ -221,11 +218,7 @@ export function createZapClient(options: ZapLoaderOptions = {}): ZapClient {
       );
       try {
         const response = await fetchImpl(
-          resolveZapJsonUrl(
-            config.ZAP_BASE_URL,
-            path,
-            params,
-          ),
+          resolveZapJsonUrl(config.ZAP_BASE_URL, path, params),
           {
             headers: requestHeaders(referrer),
             redirect: "error",

@@ -11,6 +11,10 @@ export const VehicleContextSchema = z.object({
   doors: z.number().int().min(2).max(6).optional(),
 });
 
+export const SearchVehicleContextSchema = VehicleContextSchema.extend({
+  year: z.number().int().min(1886).max(2200).optional(),
+});
+
 export const VinSchema = z
   .string()
   .transform((value) => value.toUpperCase().replace(/\s+/g, ""))
@@ -24,6 +28,36 @@ export const VinSchema = z
       ),
   );
 
+export const VehicleDraftSchema = z.object({
+  vin: VinSchema.optional(),
+  make: z.string().trim().min(1).optional(),
+  model: z.string().trim().min(1).optional(),
+  year: z.number().int().min(1886).max(2200).optional(),
+  generation: z.string().trim().min(1).optional(),
+  body: z.string().trim().min(1).optional(),
+  engine: z.string().trim().min(1).optional(),
+  transmission: z.string().trim().min(1).optional(),
+  doors: z.number().int().min(2).max(6).optional(),
+});
+
+export const VehicleCandidateSchema = VehicleDraftSchema.omit({
+  vin: true,
+}).extend({
+  id: z.string().min(1),
+  source: z.enum(["nhtsa-vpic", "manual", "source-catalog"]),
+  confidence: z.enum(["high", "medium", "low"]),
+  evidence: z.array(z.string().trim().min(1)).max(12).default([]),
+});
+
+export const VinResolutionSchema = z.object({
+  status: z.enum(["invalid", "unresolved", "partial", "resolved"]),
+  maskedVin: z.string().min(1),
+  source: z.literal("nhtsa-vpic"),
+  candidates: z.array(VehicleCandidateSchema).max(5),
+  warnings: z.array(z.string().trim().min(1)).max(8).default([]),
+  resolvedAt: z.iso.datetime(),
+});
+
 export const SavedVehicleSchema = VehicleContextSchema.extend({
   id: z.string().min(1),
   displayName: z.string().trim().min(1),
@@ -31,6 +65,13 @@ export const SavedVehicleSchema = VehicleContextSchema.extend({
   notes: z.string().trim().max(1000).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+  vinResolutionSource: z.enum(["nhtsa-vpic", "manual"]).optional(),
+  vinResolutionProvenance: z
+    .object({
+      resolvedAt: z.iso.datetime(),
+      candidateId: z.string().min(1).optional(),
+    })
+    .optional(),
 });
 
 export const GarageStateSchema = z.object({
@@ -72,11 +113,28 @@ export const PartRequestSchema = z.object({
   constraints: z.array(PartConstraintSchema).max(12).default([]),
 });
 
+export const SearchIntentModeSchema = z.enum([
+  "part_number",
+  "vehicle_part",
+  "consumable",
+  "accessory",
+  "symptom",
+]);
+
+export const SearchIntentSchema = z.object({
+  mode: SearchIntentModeSchema,
+  rawText: z.string().trim().min(1),
+  vin: VinSchema.optional(),
+  rawPartNumber: z.string().trim().min(1).optional(),
+  normalizedPartNumber: z.string().trim().min(1).optional(),
+  confidence: z.enum(["high", "medium", "low"]),
+});
+
 export const SearchRequestSchema = z.object({
   query: z.string().min(2),
   locale: z.literal("ru-BY").default("ru-BY"),
   currency: z.literal("BYN").default("BYN"),
-  vehicle: VehicleContextSchema.optional(),
+  vehicle: SearchVehicleContextSchema.optional(),
   part: PartRequestSchema,
 });
 
@@ -116,13 +174,6 @@ export const SearchClarificationSchema = z.object({
   options: z.array(SearchClarificationOptionSchema).min(2).max(8),
 });
 
-export const SavedSearchContextSchema = z.object({
-  activeVehicle: VehicleContextSchema.optional(),
-  partPreferences: z
-    .record(z.string(), z.array(PartConstraintSchema).max(12))
-    .default({}),
-});
-
 export const SourceIdSchema = z.enum([
   "mock",
   "armtek",
@@ -133,6 +184,65 @@ export const SourceIdSchema = z.enum([
   "remzona",
   "zap",
 ]);
+
+export const SourceSearchStrategySchema = z.enum([
+  "article",
+  "vehicle_catalog",
+  "vin",
+  "category",
+  "text",
+  "skip",
+]);
+
+export const SourceSearchPlanEntrySchema = z.object({
+  sourceId: SourceIdSchema,
+  strategy: SourceSearchStrategySchema,
+  query: z.string().min(1).nullable(),
+  skipReason: z.string().min(1).nullable(),
+});
+
+export const SourceSearchPlanSchema = z.object({
+  entries: z.array(SourceSearchPlanEntrySchema),
+});
+
+export const ConversationReadinessSchema = z.enum([
+  "collecting",
+  "needs_vehicle_confirmation",
+  "needs_part_confirmation",
+  "ready",
+  "searching",
+]);
+
+export const PendingClarificationSchema = SearchClarificationSchema.extend({
+  sourceId: SourceIdSchema.optional(),
+  searchJobId: z.string().uuid().optional(),
+  originalSearchRequest: SearchRequestSchema.optional(),
+});
+
+export const SymptomHypothesisSchema = z.object({
+  id: z.string().min(1),
+  partName: z.string().trim().min(2),
+  label: z.string().trim().min(2),
+  confidence: z.enum(["high", "medium", "low"]),
+  explanation: z.string().trim().min(1).max(500),
+});
+
+export const SymptomAssessmentSchema = z.object({
+  observations: z.array(z.string().trim().min(1)).min(1).max(12),
+  nextQuestion: z.string().trim().min(1).max(240).nullable(),
+  hypotheses: z.array(SymptomHypothesisSchema).min(1).max(3),
+  selectedHypothesisId: z.string().min(1).nullable().default(null),
+  safetySeverity: z.enum(["none", "service_soon", "stop_driving"]),
+  safetyMessage: z.string().trim().min(1).max(500).nullable(),
+  clarificationCount: z.number().int().min(0).max(5),
+});
+
+export const SavedSearchContextSchema = z.object({
+  activeVehicle: VehicleContextSchema.optional(),
+  partPreferences: z
+    .record(z.string(), z.array(PartConstraintSchema).max(12))
+    .default({}),
+});
 
 export const NormalizedOfferSchema = z.object({
   sourceId: SourceIdSchema,
@@ -164,6 +274,24 @@ export const NormalizedOfferSchema = z.object({
   sourceAttributes: z.record(z.string(), z.array(z.string().min(1))).optional(),
   matchStatus: z.enum(["confirmed", "possible"]).optional(),
   matchReasons: z.array(z.string().min(1)).optional(),
+  matchEvidence: z
+    .discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("structured_article"),
+        requestedNormalizedArticle: z.string().min(1),
+        offeredNormalizedArticle: z.string().min(1),
+      }),
+      z.object({
+        kind: z.literal("source_vehicle_catalog"),
+        sourceVehicleId: z.string().min(1),
+        attributes: z.array(z.string().min(1)).min(1),
+      }),
+      z.object({
+        kind: z.literal("textual"),
+        matchedTerms: z.array(z.string().min(1)).min(1),
+      }),
+    ])
+    .optional(),
   fetchedAt: z.iso.datetime(),
   rawPayloadHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
@@ -190,8 +318,13 @@ export const SearchJobSourceStatusSchema = z.enum([
 ]);
 
 export const ConversationStateSchema = z.object({
+  schemaVersion: z.literal(2).default(2),
   activeVehicle: VehicleContextSchema.nullable().default(null),
+  vehicleDraft: VehicleDraftSchema.nullable().default(null),
   searchDraft: SearchRequestSchema.nullable().default(null),
+  readiness: ConversationReadinessSchema.default("collecting"),
+  pendingClarification: PendingClarificationSchema.nullable().default(null),
+  symptomAssessment: SymptomAssessmentSchema.nullable().default(null),
   latestSearchJobId: z.string().uuid().nullable().default(null),
   latestSearchSummary: z
     .object({
@@ -230,17 +363,30 @@ export const SearchJobResultSchema = z.object({
 });
 
 export type VehicleContext = z.infer<typeof VehicleContextSchema>;
+export type SearchVehicleContext = z.infer<typeof SearchVehicleContextSchema>;
+export type VehicleDraft = z.infer<typeof VehicleDraftSchema>;
+export type VehicleCandidate = z.infer<typeof VehicleCandidateSchema>;
+export type VinResolution = z.infer<typeof VinResolutionSchema>;
 export type SavedVehicle = z.infer<typeof SavedVehicleSchema>;
 export type GarageState = z.infer<typeof GarageStateSchema>;
 export type PartConstraintKey = z.infer<typeof PartConstraintKeySchema>;
 export type PartConstraint = z.infer<typeof PartConstraintSchema>;
 export type PartRequest = z.infer<typeof PartRequestSchema>;
+export type SearchIntentMode = z.infer<typeof SearchIntentModeSchema>;
+export type SearchIntent = z.infer<typeof SearchIntentSchema>;
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 export type PartRequestExtraction = z.infer<typeof PartRequestExtractionSchema>;
 export type SearchClarification = z.infer<typeof SearchClarificationSchema>;
+export type PendingClarification = z.infer<typeof PendingClarificationSchema>;
+export type ConversationReadiness = z.infer<typeof ConversationReadinessSchema>;
+export type SymptomHypothesis = z.infer<typeof SymptomHypothesisSchema>;
+export type SymptomAssessment = z.infer<typeof SymptomAssessmentSchema>;
 export type SavedSearchContext = z.infer<typeof SavedSearchContextSchema>;
 export type NormalizedOffer = z.infer<typeof NormalizedOfferSchema>;
 export type SourceId = z.infer<typeof SourceIdSchema>;
+export type SourceSearchStrategy = z.infer<typeof SourceSearchStrategySchema>;
+export type SourceSearchPlanEntry = z.infer<typeof SourceSearchPlanEntrySchema>;
+export type SourceSearchPlan = z.infer<typeof SourceSearchPlanSchema>;
 export type SearchJobStatus = z.infer<typeof SearchJobStatusSchema>;
 export type SearchJobSourceStatus = z.infer<typeof SearchJobSourceStatusSchema>;
 export type ConversationState = z.infer<typeof ConversationStateSchema>;

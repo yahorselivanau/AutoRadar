@@ -43,6 +43,14 @@ export function getMotorlandQuery(input: SearchRequest): string {
 
 export class MotorlandPartsAdapter implements PartsSourceAdapter {
   readonly id = "motorland";
+  readonly capabilities = {
+    article: false,
+    vehicleCatalog: true,
+    vin: false,
+    text: true,
+    category: false,
+    conditions: ["used"],
+  } as const;
 
   constructor(
     private readonly loadHtml: MotorlandHtmlLoader = loadMotorlandSearchHtml,

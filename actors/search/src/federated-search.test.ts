@@ -13,12 +13,28 @@ describe("runFederatedSearch", () => {
   it("isolates a source error and preserves successful sources", async () => {
     const success: PartsSourceAdapter = {
       id: "success",
+      capabilities: {
+        article: true,
+        vehicleCatalog: true,
+        vin: false,
+        text: true,
+        category: true,
+        conditions: ["new", "used"],
+      },
       async search() {
         return { method: "html", offers: [] };
       },
     };
     const timeout: PartsSourceAdapter = {
       id: "timeout",
+      capabilities: {
+        article: true,
+        vehicleCatalog: true,
+        vin: false,
+        text: true,
+        category: true,
+        conditions: ["new", "used"],
+      },
       async search() {
         throw new AdapterError("timeout", "timeout", "source timeout");
       },

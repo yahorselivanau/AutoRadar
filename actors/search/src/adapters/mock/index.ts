@@ -6,6 +6,14 @@ const fixtureTimestamp = "2026-07-28T12:00:00.000Z";
 
 export class MockPartsAdapter implements PartsSourceAdapter {
   readonly id = "mock";
+  readonly capabilities = {
+    article: true,
+    vehicleCatalog: true,
+    vin: false,
+    text: true,
+    category: true,
+    conditions: ["new", "used"],
+  } as const;
 
   async search(input: SearchRequest): Promise<AdapterResult> {
     const title = `${input.part.name} ${input.vehicle?.make ?? ""} ${

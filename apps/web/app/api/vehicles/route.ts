@@ -22,7 +22,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("vehicles")
     .select(
-      "id,display_name,vin_encrypted,make,model,year,generation,body,engine,transmission,doors,notes,is_active,created_at,updated_at",
+      "id,display_name,vin_encrypted,vin_resolution_source,vin_resolution_provenance,make,model,year,generation,body,engine,transmission,doors,notes,is_active,created_at,updated_at",
     )
     .eq("user_id", identity.userId)
     .order("updated_at", { ascending: false });
@@ -45,6 +45,8 @@ export async function GET() {
           transmission: row.transmission ?? undefined,
           doors: row.doors ?? undefined,
           notes: row.notes ?? undefined,
+          vinResolutionSource: row.vin_resolution_source ?? undefined,
+          vinResolutionProvenance: row.vin_resolution_provenance ?? undefined,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         }),
@@ -91,6 +93,8 @@ export async function POST(request: Request) {
     user_id: identity.userId,
     display_name: vehicle.displayName,
     vin_encrypted: vehicle.vin ? encryptVehicleSecret(vehicle.vin) : null,
+    vin_resolution_source: vehicle.vinResolutionSource ?? null,
+    vin_resolution_provenance: vehicle.vinResolutionProvenance ?? null,
     make: vehicle.make,
     model: vehicle.model,
     year: vehicle.year,

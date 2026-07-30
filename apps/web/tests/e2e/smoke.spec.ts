@@ -209,14 +209,17 @@ test("agent keeps the draft, searches explicitly and answers a follow-up without
   });
   await input.fill("Найди по артикулу 7700274177");
   await page.getByRole("button", { name: "Отправить" }).click();
+  await expect(input).toHaveValue("");
   await expect(
     page.getByRole("heading", { name: "Масляный фильтр" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Искать", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Найти предложения", exact: true })
+    .click();
   await expect(page.getByText("1 предложение")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Посмотреть все предложения" }),
+    page.getByRole("link", { name: "Посмотреть предложения" }),
   ).toHaveAttribute(
     "href",
     `/search/98b65b68-d59d-4ba0-b6b9-e3c064512a30?conversation=${conversationId}`,
@@ -282,12 +285,18 @@ test("garage starts empty and persists a manually added vehicle", async ({
   page,
 }) => {
   await page.goto("/garage");
-  await expect(page.getByRole("heading", { name: "Гараж" })).toBeVisible();
-  await expect(page.getByText("Добавьте автомобиль")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Гараж", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Вернуться в чат" }),
+  ).toHaveAttribute("href", "/chat");
+  await expect(page.getByText("Ваш гараж пока пуст")).toBeVisible();
 
   await page
     .getByRole("button", { name: "Добавить автомобиль" })
     .click();
+  await expect(page.getByText("Ваш гараж пока пуст")).not.toBeVisible();
   await page.getByLabel("Название в гараже").fill("Мой Peugeot");
   await page.getByLabel("VIN").fill("VF3LBBHZHES123456");
   await page.getByLabel("Марка *").fill("Peugeot");

@@ -18,6 +18,9 @@ import {
   saveConversationMessages,
   saveConversationState,
 } from "@/lib/chat/store";
+import { classifySearchIntent } from "@/lib/search/intent-router";
+import { readMvpFeatureFlags } from "@/lib/mvp-feature-flags";
+import { applyIntentTransition } from "@/lib/ai/conversation-transitions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -38,6 +41,7 @@ const InputSchema = z.object({
     })
     .nullable()
     .optional(),
+  vehicleConfirmationPending: z.boolean().optional(),
 });
 
 const IncomingUserMessageSchema = z
@@ -100,18 +104,35 @@ export async function POST(request: Request) {
   if (payload.data.activeVehicle) {
     state = { ...state, activeVehicle: payload.data.activeVehicle };
   }
+  if (payload.data.vehicleConfirmationPending) {
+    state = {
+      ...state,
+      readiness: "needs_vehicle_confirmation",
+    };
+  }
+  const latestUserText = incoming.data.parts
+    .filter(
+      (part): part is typeof part & { text: string } =>
+        part.type === "text" && typeof part.text === "string",
+    )
+    .map((part) => part.text)
+    .join(" ");
+  const flags = readMvpFeatureFlags();
+  const intent = flags.deterministicIntent
+    ? classifySearchIntent(latestUserText)
+    : null;
+  state = applyIntentTransition(state, intent, {
+    vehicleConfirmationPending: Boolean(
+      payload.data.vehicleConfirmationPending,
+    ),
+    symptomDialogueEnabled: flags.symptomDialogue,
+  });
 
   const agent = createPartsAgent({
     identity,
     conversationId: conversation.id,
     initialState: state,
-    latestUserText: incoming.data.parts
-      .filter(
-        (part): part is typeof part & { text: string } =>
-          part.type === "text" && typeof part.text === "string",
-      )
-      .map((part) => part.text)
-      .join(" "),
+    latestUserText,
   });
 
   let validated: PartsAgentUIMessage[];
@@ -139,7 +160,11 @@ export async function POST(request: Request) {
   if (!storedConversation) {
     conversation = await createConversation(identity, payload.data.id);
   }
-  if (payload.data.activeVehicle) {
+  if (
+    payload.data.activeVehicle ||
+    intent?.mode === "part_number" ||
+    (intent?.mode === "symptom" && flags.symptomDialogue)
+  ) {
     await saveConversationState({
       identity,
       conversationId: conversation.id,

@@ -268,8 +268,10 @@ function vehicleVariantScore(
 ): number {
   if (!request) return -1;
   if (
-    (variant.yearFrom && request.year < variant.yearFrom) ||
-    (variant.yearTo && request.year > variant.yearTo)
+    (request.year != null &&
+      variant.yearFrom &&
+      request.year < variant.yearFrom) ||
+    (request.year != null && variant.yearTo && request.year > variant.yearTo)
   ) {
     return -1;
   }
@@ -317,14 +319,14 @@ export function resolveZapVehicleVariants(
 export function resolveZapEngineVariants(
   variants: ZapEngineVariant[],
   engine: string,
-  year: number,
+  year?: number,
 ): ZapEngineVariant[] {
   const requested = comparableWords(engine);
   const scored = variants
     .filter(
       (variant) =>
-        (!variant.yearFrom || year >= variant.yearFrom) &&
-        (!variant.yearTo || year <= variant.yearTo),
+        (year == null || !variant.yearFrom || year >= variant.yearFrom) &&
+        (year == null || !variant.yearTo || year <= variant.yearTo),
     )
     .map((variant) => {
       const words = comparableWords(

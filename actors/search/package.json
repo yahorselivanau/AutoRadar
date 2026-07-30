@@ -10,6 +10,8 @@
     "./motorland": "./src/adapters/motorland/index.ts",
     "./remzona": "./src/adapters/remzona/index.ts",
     "./zap": "./src/adapters/zap/index.ts",
+    "./search-plan": "./src/search-plan.ts",
+    "./part-synonyms": "./src/part-synonyms.v1.ts",
     "./types": "./src/adapters/types.ts"
   },
   "scripts": {

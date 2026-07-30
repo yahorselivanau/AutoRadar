@@ -1,0 +1,17 @@
+# Relevant verbatim excerpts from the owner-supplied zap.by/robots.txt.
+User-agent: *
+Clean-param: tracking
+Clean-param: gad_source
+Clean-param: gad_campaignid
+Clean-param: gbraid
+Clean-param: selectedValues
+
+Allow: /*?*
+Allow: /*&*
+Allow: /?
+Allow: /*route=product/search
+Allow: /*search
+Allow: /*rezultaty-poiska-po-sajtu
+
+Host: https://zap.by
+Sitemap: https://zap.by/sitemap.xml

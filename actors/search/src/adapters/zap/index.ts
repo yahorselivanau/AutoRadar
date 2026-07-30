@@ -76,25 +76,29 @@ export function getZapDiagnosticReason(
 
 export class ZapPartsAdapter implements PartsSourceAdapter {
   readonly id = "zap";
+  readonly capabilities = {
+    article: false,
+    vehicleCatalog: true,
+    vin: false,
+    text: false,
+    category: false,
+    conditions: ["new", "used"],
+  } as const;
 
   constructor(
     private readonly loadPageHtml: ZapPageLoader = loadZapPageHtml,
     private readonly resultLimit = readZapTransportConfig().ZAP_RESULT_LIMIT,
-    private readonly experimentalSearchEnabled = readZapTransportConfig()
-      .ZAP_EXPERIMENTAL_SEARCH_ENABLED,
     private readonly loadJson: ZapJsonLoader = loadZapJson,
     private readonly enrichLimit = readZapTransportConfig().ZAP_ENRICH_LIMIT,
   ) {}
 
   async search(input: SearchRequest): Promise<AdapterResult> {
-    if (!input.vehicle) {
-      if (this.experimentalSearchEnabled) {
-        return this.searchExperimental(input);
-      }
-      throw diagnostic(
-        "ROBOTS_DISALLOWED",
-        "поиск Zap.by по номеру и тексту запрещён robots.txt; для разрешённого каталога нужны марка и модель",
-      );
+    if (
+      !input.vehicle ||
+      input.part.rawPartNumber ||
+      input.part.normalizedPartNumber
+    ) {
+      return this.searchDirect(input);
     }
 
     const root = await this.loadPageHtml("/carparts");
@@ -252,9 +256,7 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
     };
   }
 
-  private async searchExperimental(
-    input: SearchRequest,
-  ): Promise<AdapterResult> {
+  private async searchDirect(input: SearchRequest): Promise<AdapterResult> {
     const query =
       input.part.rawPartNumber?.trim() ||
       input.part.normalizedPartNumber?.trim() ||
@@ -335,12 +337,7 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
         }
       }),
     );
-    return evaluateZapOffers(
-      enriched,
-      input,
-      vehicleModelId,
-      vehicleTypeId,
-    );
+    return evaluateZapOffers(enriched, input, vehicleModelId, vehicleTypeId);
   }
 
   private mergeSourceAttributes(

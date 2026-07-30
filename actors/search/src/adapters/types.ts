@@ -6,6 +6,15 @@ import type {
 
 export type RetrievalMethod = "mock" | "http" | "html" | "json" | "playwright";
 
+export interface AdapterCapabilities {
+  readonly article: boolean;
+  readonly vehicleCatalog: boolean;
+  readonly vin: boolean;
+  readonly text: boolean;
+  readonly category: boolean;
+  readonly conditions: readonly ("new" | "used")[];
+}
+
 export interface AdapterResult {
   method: RetrievalMethod;
   offers: NormalizedOffer[];
@@ -34,5 +43,6 @@ export class AdapterError extends Error {
 
 export interface PartsSourceAdapter {
   readonly id: string;
+  readonly capabilities: AdapterCapabilities;
   search(input: SearchRequest): Promise<AdapterResult>;
 }

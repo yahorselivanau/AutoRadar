@@ -8,6 +8,10 @@ import {
   NormalizedOfferSchema,
   SearchJobResultSchema,
   SearchRequestSchema,
+  SearchIntentSchema,
+  SymptomAssessmentSchema,
+  VehicleDraftSchema,
+  VinResolutionSchema,
   VinSchema,
   normalizePartNumber,
 } from "./index";
@@ -89,7 +93,60 @@ describe("domain schemas", () => {
     });
 
     expect(state.searchDraft?.vehicle?.generation).toBe("F30");
+    expect(state.schemaVersion).toBe(2);
+    expect(state.readiness).toBe("collecting");
     expect(job.sources[0]?.status).toBe("empty");
+  });
+
+  it("keeps VIN-only vehicles as drafts until explicit confirmation", () => {
+    const draft = VehicleDraftSchema.parse({ vin: "vf3lbbhzhes123456" });
+    const resolution = VinResolutionSchema.parse({
+      status: "partial",
+      maskedVin: maskVin(draft.vin!),
+      source: "nhtsa-vpic",
+      candidates: [
+        {
+          id: "vpic-1",
+          source: "nhtsa-vpic",
+          confidence: "low",
+          make: "PEUGEOT",
+          evidence: ["Make"],
+        },
+      ],
+      resolvedAt: "2026-07-30T12:00:00.000Z",
+    });
+
+    expect(draft.model).toBeUndefined();
+    expect(resolution.candidates[0]?.model).toBeUndefined();
+  });
+
+  it("validates deterministic intents and bounded symptom assessments", () => {
+    const intent = SearchIntentSchema.parse({
+      mode: "part_number",
+      rawText: "Найди OX 339/2D",
+      rawPartNumber: "OX 339/2D",
+      normalizedPartNumber: "OX3392D",
+      confidence: "high",
+    });
+    const assessment = SymptomAssessmentSchema.parse({
+      observations: ["Мотор стеклоподъёмника слышно"],
+      nextQuestion: null,
+      hypotheses: [
+        {
+          id: "window-regulator",
+          partName: "Механизм стеклоподъёмника",
+          label: "Механизм стеклоподъёмника",
+          confidence: "medium",
+          explanation: "Мотор работает, но движение не передаётся стеклу.",
+        },
+      ],
+      safetySeverity: "none",
+      safetyMessage: null,
+      clarificationCount: 2,
+    });
+
+    expect(intent.normalizedPartNumber).toBe("OX3392D");
+    expect(assessment.hypotheses).toHaveLength(1);
   });
 
   it("validates guest quota counters without treating messages as searches", () => {

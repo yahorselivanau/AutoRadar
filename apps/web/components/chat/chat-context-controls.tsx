@@ -32,20 +32,22 @@ export function VehicleSwitcher() {
         aria-label="Выбрать автомобиль для поиска"
         className="composer-context-trigger vehicle-switcher-trigger pressable"
       >
-        <CarFront size={16} />
+        <span className="vehicle-switcher-icon">
+          <CarFront size={18} />
+        </span>
         <span>
           {activeVehicle
             ? `${activeVehicle.displayName} · ${activeVehicle.year}`
-            : "Без машины"}
+            : "Выбрать автомобиль"}
         </span>
         <ChevronDown size={14} />
       </PopoverTrigger>
-      <PopoverContent className="vehicle-switcher-popover">
+      <PopoverContent className="vehicle-switcher-popover" side="bottom">
         <div className="popover-heading">
           <div>
-            <PopoverTitle>Автомобиль для поиска</PopoverTitle>
+            <PopoverTitle>Автомобиль</PopoverTitle>
             <PopoverDescription>
-              Контекст применяется к следующему сообщению.
+              Используется для следующего запроса.
             </PopoverDescription>
           </div>
         </div>
@@ -65,7 +67,11 @@ export function VehicleSwitcher() {
                   }}
                 >
                   <span className="vehicle-switcher-mark">
-                    {vehicle.make.slice(0, 1).toUpperCase()}
+                    <CarFront
+                      fill="currentColor"
+                      fillOpacity={0.12}
+                      size={18}
+                    />
                   </span>
                   <span>
                     <strong>{vehicle.displayName}</strong>
@@ -81,13 +87,13 @@ export function VehicleSwitcher() {
         ) : (
           <div className="vehicle-switcher-empty">
             <CarFront size={21} />
-            <p>Добавьте машину, чтобы не повторять её параметры в запросах.</p>
+            <p>В гараже пока нет автомобилей.</p>
           </div>
         )}
         <Link className="popover-footer-action pressable" href="/garage">
           <Plus size={16} />
           {garage.vehicles.length > 0
-            ? "Управлять гаражом"
+            ? "Открыть гараж"
             : "Добавить автомобиль"}
         </Link>
       </PopoverContent>

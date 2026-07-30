@@ -184,11 +184,12 @@ export function evaluateMotorlandOffer(
       };
     }
   } else if (
-    input.vehicle.year < identity.yearFrom ||
-    (identity.yearTo && input.vehicle.year > identity.yearTo)
+    input.vehicle.year != null &&
+    (input.vehicle.year < identity.yearFrom ||
+      (identity.yearTo && input.vehicle.year > identity.yearTo))
   ) {
     return { matches: false, reason: "year", identity, matchReasons: [] };
-  } else {
+  } else if (input.vehicle.year != null) {
     matchReasons.push(
       `Год входит в диапазон ${identity.yearFrom}–${identity.yearTo ?? "н.в."}`,
     );
