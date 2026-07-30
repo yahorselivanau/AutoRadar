@@ -21,10 +21,6 @@ const ZapTransportConfigSchema = z.object({
     .default(500),
   ZAP_RESULT_LIMIT: z.coerce.number().int().min(1).max(100).default(50),
   ZAP_ENRICH_LIMIT: z.coerce.number().int().min(1).max(30).default(12),
-  ZAP_EXPERIMENTAL_SEARCH_ENABLED: z
-    .enum(["true", "false"])
-    .default("true")
-    .transform((value) => value === "true"),
 });
 
 export type ZapTransportConfig = z.infer<typeof ZapTransportConfigSchema>;

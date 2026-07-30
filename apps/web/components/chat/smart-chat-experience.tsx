@@ -11,19 +11,26 @@ import { normalizeVin, VinSchema } from "@autoradar/domain";
 import { useChat } from "@ai-sdk/react";
 import {
   ArrowUp,
+  CarFront,
   Check,
   ChevronRight,
   CircleDot,
-  ExternalLink,
+  FileSearch,
+  Hash,
   LoaderCircle,
-  MapPin,
+  Mic,
+  MicOff,
   Search,
-  Sparkles,
   Square,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DefaultChatTransport, isToolUIPart } from "ai";
@@ -45,10 +52,43 @@ import {
 } from "../ui/message-scroller";
 
 const suggestions = [
-  "Передний левый стеклоподъёмник на Peugeot 308 2008, 5 дверей",
-  "Найди по артикулу 7700274177",
-  "Нужен капот б/у на BMW 3 F30",
+  {
+    icon: FileSearch,
+    title: "По названию",
+    prompt: "Хочу найти запчасть по названию",
+  },
+  {
+    icon: Hash,
+    title: "По артикулу",
+    prompt: "Хочу найти запчасть по артикулу",
+  },
+  {
+    icon: CarFront,
+    title: "По автомобилю или VIN",
+    prompt: "Помоги подобрать запчасть по автомобилю или VIN",
+  },
 ];
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onresult:
+    | ((event: {
+        resultIndex: number;
+        results: ArrayLike<{
+          isFinal: boolean;
+          0: { transcript: string };
+        }>;
+      }) => void)
+    | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 const sourceLabels: Record<NormalizedOffer["sourceId"], string> = {
   mock: "Mock",
@@ -119,6 +159,18 @@ function formatVehicle(vehicle: SearchRequest["vehicle"]) {
     .join(" · ");
 }
 
+function formatOfferCount(count: number) {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  const noun =
+    mod10 === 1 && mod100 !== 11
+      ? "предложение"
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+        ? "предложения"
+        : "предложений";
+  return `${count} ${noun}`;
+}
+
 function AssistantMarkdown({ children }: { children: string }) {
   return (
     <div className="typeset typeset-chat assistant-typeset">
@@ -130,49 +182,97 @@ function AssistantMarkdown({ children }: { children: string }) {
 function DraftCard({
   request,
   onSearch,
+  onUpdate,
   disabled,
 }: {
   request: SearchRequest;
   onSearch: () => void;
+  onUpdate: (message: string) => void;
   disabled: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [partName, setPartName] = useState(request.part.name);
+  const [vehicle, setVehicle] = useState(formatVehicle(request.vehicle));
+
   return (
     <article className="request-card">
       <div className="card-heading">
         <div>
-          <span>Текущий запрос</span>
+          <span>Готово к поиску</span>
           <h2>{request.part.name}</h2>
         </div>
-        <span className="confidence-badge">
-          <Check size={14} /> Контекст сохранён
-        </span>
+        <button
+          className="request-edit-action pressable"
+          type="button"
+          onClick={() => setEditing((value) => !value)}
+        >
+          {editing ? "Отменить" : "Изменить"}
+        </button>
       </div>
-      <dl className="request-details">
-        <div>
-          <dt>Автомобиль</dt>
-          <dd>{formatVehicle(request.vehicle)}</dd>
+      {editing ? (
+        <div className="request-edit-grid">
+          <label>
+            Деталь
+            <input
+              value={partName}
+              onChange={(event) => setPartName(event.target.value)}
+            />
+          </label>
+          <label>
+            Автомобиль
+            <input
+              value={vehicle}
+              onChange={(event) => setVehicle(event.target.value)}
+            />
+          </label>
         </div>
-        <div>
-          <dt>Артикул / OEM</dt>
-          <dd>{request.part.rawPartNumber ?? "Не указан"}</dd>
-        </div>
-        <div>
-          <dt>Сторона / положение</dt>
-          <dd>
-            {request.part.side === "unknown" ? "—" : request.part.side} ·{" "}
-            {request.part.position === "unknown" ? "—" : request.part.position}
-          </dd>
-        </div>
-      </dl>
-      <p className="request-note">
-        Напишите исправление обычным сообщением — агент обновит эту карточку,
-        сохранив остальной контекст.
-      </p>
+      ) : (
+        <dl className="request-details">
+          <div>
+            <dt>Автомобиль</dt>
+            <dd>{formatVehicle(request.vehicle)}</dd>
+          </div>
+          {request.part.rawPartNumber ? (
+            <div>
+              <dt>Артикул / OEM</dt>
+              <dd>{request.part.rawPartNumber}</dd>
+            </div>
+          ) : null}
+          {request.part.side !== "unknown" ||
+          request.part.position !== "unknown" ? (
+            <div>
+              <dt>Сторона / положение</dt>
+              <dd>
+                {request.part.side === "unknown" ? "—" : request.part.side} ·{" "}
+                {request.part.position === "unknown"
+                  ? "—"
+                  : request.part.position}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      )}
       <div className="request-actions">
+        {editing ? (
+          <button
+            className="button secondary pressable"
+            type="button"
+            disabled={disabled || !partName.trim()}
+            onClick={() => {
+              onUpdate(
+                `Обнови запрос: деталь — ${partName.trim()}, автомобиль — ${vehicle.trim()}. Пока не запускай поиск.`,
+              );
+              setEditing(false);
+            }}
+          >
+            <Check size={17} />
+            Сохранить изменения
+          </button>
+        ) : null}
         <button
           className="button primary pressable"
           type="button"
-          disabled={disabled}
+          disabled={disabled || editing}
           onClick={onSearch}
         >
           <Search size={17} />
@@ -183,76 +283,9 @@ function DraftCard({
   );
 }
 
-function OfferCard({ offer }: { offer: NormalizedOffer }) {
-  return (
-    <article className="offer-card">
-      {offer.imageUrl ? (
-        <div className="offer-media">
-          <Image
-            className="media-outline"
-            src={offer.imageUrl}
-            alt={offer.title}
-            width={176}
-            height={132}
-            unoptimized
-          />
-        </div>
-      ) : (
-        <div className="offer-media offer-media-empty">
-          <Search aria-hidden="true" size={24} />
-        </div>
-      )}
-      <div className="offer-main">
-        <div className="offer-badges">
-          <span className="offer-badge confirmed">
-            {sourceLabels[offer.sourceId]}
-          </span>
-          <span
-            className={`offer-badge ${
-              offer.matchStatus === "confirmed" ? "confirmed" : "unknown"
-            }`}
-          >
-            {offer.matchStatus === "confirmed"
-              ? "Подтверждено источником"
-              : "Нужно проверить"}
-          </span>
-        </div>
-        <span className="offer-brand">{offer.brand ?? "Бренд не указан"}</span>
-        <h2>{offer.title}</h2>
-        <span className="part-number">
-          Артикул: {offer.rawPartNumber ?? "не указан"}
-        </span>
-      </div>
-      <div className="offer-logistics">
-        <span>
-          <MapPin size={15} />
-          {offer.availability ?? offer.location ?? "Наличие не указано"}
-        </span>
-        {offer.deliveryText ? (
-          <span>Доставка: {offer.deliveryText}</span>
-        ) : null}
-      </div>
-      <div className="offer-action">
-        <span className="price font-tabular">
-          {offer.priceAmount ? `${offer.priceAmount} BYN` : "Цена на сайте"}
-        </span>
-        <small>Проверьте совместимость, цену и наличие у продавца.</small>
-        <a
-          className="button primary pressable"
-          href={offer.externalUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Открыть на {sourceLabels[offer.sourceId]}
-          <ExternalLink size={16} />
-        </a>
-      </div>
-    </article>
-  );
-}
-
 function SearchResultCard({
   output,
+  conversationId,
 }: {
   output: {
     jobId: string;
@@ -264,58 +297,135 @@ function SearchResultCard({
       options: Array<{ id: string; label: string; value: unknown }>;
     } | null;
   };
+  conversationId: string;
 }) {
+  const groups = [
+    {
+      label: "Новые оригиналы",
+      offers: output.offers.filter(
+        (offer) =>
+          offer.condition === "new" && offer.partKind === "original",
+      ),
+    },
+    {
+      label: "Новые аналоги",
+      offers: output.offers.filter(
+        (offer) => offer.condition === "new" && offer.partKind === "analog",
+      ),
+    },
+    {
+      label: "Б/у",
+      offers: output.offers.filter((offer) => offer.condition === "used"),
+    },
+    {
+      label: "Другие варианты",
+      offers: output.offers.filter(
+        (offer) =>
+          offer.condition !== "used" &&
+          !(offer.condition === "new" && offer.partKind === "original") &&
+          !(offer.condition === "new" && offer.partKind === "analog"),
+      ),
+    },
+  ].filter((group) => group.offers.length > 0);
+  const prices = output.offers
+    .map((offer) => Number(offer.priceAmount))
+    .filter((price) => Number.isFinite(price) && price > 0);
+  const minPrice = prices.length > 0 ? Math.min(...prices) : null;
+  const failedSources = output.sources.filter((source) =>
+    ["failed", "timeout", "blocked"].includes(source.status),
+  ).length;
+
   return (
-    <section className="search-result-block">
-      <article className="progress-card">
+    <section className="search-summary-card">
+      <article>
         <div className="progress-heading">
           <div>
-            <span>Поиск сохранён</span>
+            <span>Поиск завершён</span>
             <strong>
               {output.offers.length > 0
-                ? `Найдено предложений: ${output.offers.length}`
+                ? formatOfferCount(output.offers.length)
                 : "Предложений пока нет"}
             </strong>
           </div>
-          <CircleDot size={22} />
+          <span className="summary-status">
+            <Check size={15} />
+          </span>
         </div>
-        <div className="source-progress-list">
-          {output.sources.map((source) => (
-            <div key={source.sourceId}>
-              <span>{sourceLabels[source.sourceId]}</span>
-              <span>
-                {sourceStatusLabels[source.status]}
-                {source.offerCount > 0 ? ` · ${source.offerCount}` : ""}
-              </span>
-            </div>
-          ))}
+        {groups.length > 0 ? (
+          <div className="search-summary-groups">
+            {groups.map((group) => {
+              const groupPrices = group.offers
+                .map((offer) => Number(offer.priceAmount))
+                .filter((price) => Number.isFinite(price) && price > 0);
+              return (
+                <div key={group.label}>
+                  <span>{group.label}</span>
+                  <strong className="font-tabular">{group.offers.length}</strong>
+                  <small className="font-tabular">
+                    {groupPrices.length > 0
+                      ? `от ${Math.min(...groupPrices).toFixed(2)} BYN`
+                      : "цена на сайте"}
+                  </small>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        <div className="search-summary-meta">
+          {minPrice != null ? (
+            <span className="font-tabular">Цены от {minPrice.toFixed(2)} BYN</span>
+          ) : null}
+          <span>
+            {output.sources.length}{" "}
+            {output.sources.length === 1 ? "источник" : "источника"}
+          </span>
+          {failedSources > 0 ? (
+            <span>{failedSources} не ответили</span>
+          ) : null}
         </div>
+        <Link
+          className="button primary full pressable"
+          href={`/search/${output.jobId}?conversation=${conversationId}`}
+        >
+          Посмотреть все предложения
+          <ChevronRight size={17} />
+        </Link>
+        <details className="source-details">
+          <summary>Как прошёл поиск</summary>
+          <div className="source-progress-list">
+            {output.sources.map((source) => (
+              <div key={source.sourceId}>
+                <span>{sourceLabels[source.sourceId]}</span>
+                <span>
+                  {sourceStatusLabels[source.status]}
+                  {source.offerCount > 0 ? ` · ${source.offerCount}` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
       </article>
-      {output.offers.length > 0 ? (
-        <div className="offer-list">
-          {output.offers.map((offer) => (
-            <OfferCard
-              key={`${offer.sourceId}-${offer.externalId}`}
-              offer={offer}
-            />
-          ))}
-        </div>
-      ) : null}
     </section>
   );
 }
 
 export function SmartChatExperience({
   conversationId,
+  initialConversation = false,
 }: {
   conversationId: string;
+  initialConversation?: boolean;
 }) {
   const { activeVehicle, updateActiveVehicle, setPendingVin } = useGarage();
   const [input, setInput] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(initialConversation);
   const [loadError, setLoadError] = useState("");
   const [guestUsage, setGuestUsage] = useState<GuestUsage | null>(null);
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const initialSpeechText = useRef("");
   const vehicleContext = useMemo(
     () => toVehicleContext(activeVehicle),
     [activeVehicle],
@@ -340,10 +450,8 @@ export function SmartChatExperience({
       transport,
     });
   const busy = status === "submitted" || status === "streaming";
-  const quotaExhausted =
-    guestUsage != null && guestUsage.requestsUsed >= guestUsage.requestsLimit;
-
   useEffect(() => {
+    if (initialConversation) return;
     const controller = new AbortController();
     void fetch(`/api/conversations/${conversationId}`, {
       signal: controller.signal,
@@ -366,7 +474,59 @@ export function SmartChatExperience({
         );
       });
     return () => controller.abort();
-  }, [conversationId, setMessages]);
+  }, [conversationId, initialConversation, setMessages]);
+
+  useEffect(() => {
+    const speechWindow = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const Recognition =
+      speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+    const supportFrame = window.requestAnimationFrame(() =>
+      setSpeechSupported(Boolean(Recognition)),
+    );
+    if (!Recognition) {
+      return () => window.cancelAnimationFrame(supportFrame);
+    }
+
+    const recognition = new Recognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "ru-RU";
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let index = event.resultIndex; index < event.results.length; index++) {
+        transcript += event.results[index]?.[0]?.transcript ?? "";
+      }
+      setInput(
+        `${initialSpeechText.current}${
+          initialSpeechText.current && transcript ? " " : ""
+        }${transcript}`.trimStart(),
+      );
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    return () => {
+      window.cancelAnimationFrame(supportFrame);
+      recognition.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  const toggleSpeech = () => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    if (listening) {
+      recognition.stop();
+      setListening(false);
+      return;
+    }
+    initialSpeechText.current = input.trim();
+    setListening(true);
+    recognition.start();
+  };
 
   const refreshGuestUsage = async () => {
     try {
@@ -381,7 +541,7 @@ export function SmartChatExperience({
 
   const submitText = async (value: string) => {
     const trimmed = value.trim();
-    if (!trimmed || busy || quotaExhausted) return;
+    if (!trimmed || busy) return;
     const vin = findVin(trimmed);
     let text = trimmed;
     if (vin) {
@@ -396,6 +556,9 @@ export function SmartChatExperience({
     }
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
+    if (initialConversation && window.location.pathname === "/chat") {
+      window.history.replaceState({}, "", `/chat/${conversationId}`);
+    }
     try {
       await sendMessage({ text });
       window.dispatchEvent(new Event("autoradar:conversations-changed"));
@@ -425,19 +588,12 @@ export function SmartChatExperience({
     );
   }
 
-  if (!loaded) {
-    return (
-      <section className="chat-page">
-        <div className="empty-chat" aria-live="polite">
-          <LoaderCircle className="searching-icon" size={28} />
-          <p>Восстанавливаю контекст диалога…</p>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="chat-page">
+    <section
+      className={`chat-page ${
+        loaded && messages.length === 0 ? "chat-page-empty" : ""
+      }`}
+    >
       <MessageScrollerProvider
         autoScroll
         defaultScrollPosition="last-anchor"
@@ -446,37 +602,41 @@ export function SmartChatExperience({
         <MessageScroller className="chat-transcript">
           <MessageScrollerViewport>
             <MessageScrollerContent aria-busy={busy}>
-              {messages.length === 0 ? (
+              {!loaded ? (
+                <div className="conversation conversation-loading" role="status">
+                  <span className="shimmer-text">Открываю диалог…</span>
+                  <div className="message-skeleton" />
+                  <div className="message-skeleton short" />
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="empty-chat">
                   <div className="empty-copy">
-                    <span className="eyebrow">
-                      <Sparkles size={15} />
-                      AI-подбор с памятью
-                    </span>
-                    <h1>Какую запчасть ищем?</h1>
+                    <h1>Что нужно найти?</h1>
                     <p>
-                      Опишите задачу своими словами. Я сохраню машину и
-                      параметры, уточню только важное и сам выберу, когда нужен
-                      поиск.
+                      Назовите деталь, артикул или автомобиль.
                     </p>
                   </div>
                   <div className="suggestion-grid">
-                    {suggestions.map((suggestion) => (
+                    {suggestions.map((suggestion) => {
+                      const SuggestionIcon = suggestion.icon;
+                      return (
                       <button
                         className="suggestion pressable"
-                        key={suggestion}
+                        key={suggestion.title}
                         type="button"
-                        onClick={() => void submitText(suggestion)}
+                        onClick={() => void submitText(suggestion.prompt)}
                       >
-                        <CircleDot size={16} />
-                        <span>{suggestion}</span>
+                        <span className="suggestion-icon">
+                          <SuggestionIcon size={17} />
+                        </span>
+                        <span>
+                          <strong>{suggestion.title}</strong>
+                        </span>
                         <ChevronRight size={16} />
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
-                  <p className="privacy-note">
-                    Web search выключен. Полный VIN не передаётся модели.
-                  </p>
                 </div>
               ) : (
                 <div className="conversation">
@@ -536,7 +696,9 @@ export function SmartChatExperience({
                                         />
                                       </MarkerIcon>
                                       <MarkerContent>
-                                        Уточняю контекст…
+                                        <span className="shimmer-text">
+                                          Уточняю контекст…
+                                        </span>
                                       </MarkerContent>
                                     </Marker>
                                   );
@@ -548,6 +710,9 @@ export function SmartChatExperience({
                                       key={part.toolCallId}
                                       request={part.output.request}
                                       disabled={busy}
+                                      onUpdate={(message) =>
+                                        void submitText(message)
+                                      }
                                       onSearch={() =>
                                         void submitText(
                                           "Ищи по текущему подтверждённому запросу.",
@@ -615,6 +780,7 @@ export function SmartChatExperience({
                                       <SearchResultCard
                                         key={part.toolCallId}
                                         output={part.output}
+                                        conversationId={conversationId}
                                       />
                                     );
                                   }
@@ -634,7 +800,9 @@ export function SmartChatExperience({
                           <LoaderCircle className="searching-icon" size={16} />
                         </MarkerIcon>
                         <MarkerContent>
-                          Понимаю запрос и выбираю следующий шаг
+                          <span className="shimmer-text">
+                            Понимаю запрос и выбираю следующий шаг
+                          </span>
                         </MarkerContent>
                       </Marker>
                     </MessageScrollerItem>
@@ -657,22 +825,20 @@ export function SmartChatExperience({
         </MessageScroller>
 
         <form className="composer-wrap" onSubmit={submit}>
-          <div className="composer">
-            <div className="composer-topbar">
-              <VehicleSwitcher />
+          {guestUsage && guestUsage.searchesUsed >= 2 ? (
+            <div className="composer-notice">
+              <span>Поиск по реальным каталогам</span>
               <GuestQuotaControl usage={guestUsage} />
             </div>
+          ) : null}
+          <div className="composer">
             <textarea
               ref={inputRef}
               value={input}
               rows={1}
-              placeholder={
-                quotaExhausted
-                  ? "Лимит AI-запросов исчерпан — войдите, чтобы продолжить"
-                  : "Опишите деталь или задайте вопрос…"
-              }
+              placeholder="Опишите деталь или задайте вопрос…"
               aria-label="Сообщение Авто Радар"
-              disabled={busy || quotaExhausted}
+              disabled={busy}
               onChange={(event) => {
                 setInput(event.target.value);
                 event.target.style.height = "0px";
@@ -693,7 +859,28 @@ export function SmartChatExperience({
               }}
             />
             <div className="composer-actions">
-              <span>Enter — отправить · Shift+Enter — новая строка</span>
+              <div className="composer-tools">
+                <VehicleSwitcher />
+              </div>
+              <div className="composer-primary-actions">
+                <button
+                  className={`composer-icon pressable ${
+                    listening ? "is-listening" : ""
+                  }`}
+                  type="button"
+                  aria-label={
+                    listening ? "Остановить диктовку" : "Продиктовать запрос"
+                  }
+                  title={
+                    speechSupported
+                      ? "Продиктовать запрос"
+                      : "Диктовка не поддерживается этим браузером"
+                  }
+                  disabled={!speechSupported || busy}
+                  onClick={toggleSpeech}
+                >
+                  {listening ? <MicOff size={18} /> : <Mic size={18} />}
+                </button>
               {busy ? (
                 <button
                   className="submit-button pressable"
@@ -707,12 +894,13 @@ export function SmartChatExperience({
                 <button
                   className="submit-button pressable"
                   type="submit"
-                  disabled={!input.trim() || quotaExhausted}
+                  disabled={!input.trim()}
                   aria-label="Отправить"
                 >
                   <ArrowUp size={19} />
                 </button>
               )}
+              </div>
             </div>
           </div>
         </form>

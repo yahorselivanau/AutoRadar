@@ -300,6 +300,63 @@ export async function listConversations(identity: RequestIdentity) {
     }));
 }
 
+export async function renameConversation({
+  identity,
+  conversationId,
+  title,
+}: {
+  identity: RequestIdentity;
+  conversationId: string;
+  title: string;
+}) {
+  const normalizedTitle = title.trim().replace(/\s+/g, " ").slice(0, 72);
+  if (!normalizedTitle) throw new Error("empty_title");
+  const existing = await loadConversation(conversationId, identity);
+  if (!existing) throw new Error("conversation_not_found");
+  const admin = createSupabaseAdminClient();
+
+  if (!admin) {
+    const conversation = memoryConversations.get(conversationId);
+    if (!conversation) throw new Error("conversation_not_found");
+    memoryConversations.set(conversationId, {
+      ...conversation,
+      title: normalizedTitle,
+      updatedAt: new Date().toISOString(),
+    });
+    return { id: conversationId, title: normalizedTitle };
+  }
+
+  const { error } = await admin
+    .from("conversations")
+    .update({ title: normalizedTitle, updated_at: new Date().toISOString() })
+    .eq("id", conversationId);
+  if (error) throw error;
+  return { id: conversationId, title: normalizedTitle };
+}
+
+export async function deleteConversation({
+  identity,
+  conversationId,
+}: {
+  identity: RequestIdentity;
+  conversationId: string;
+}) {
+  const existing = await loadConversation(conversationId, identity);
+  if (!existing) throw new Error("conversation_not_found");
+  const admin = createSupabaseAdminClient();
+
+  if (!admin) {
+    memoryConversations.delete(conversationId);
+    return;
+  }
+
+  const { error } = await admin
+    .from("conversations")
+    .delete()
+    .eq("id", conversationId);
+  if (error) throw error;
+}
+
 export async function claimGuestData(sessionIdHash: string, userId: string) {
   const admin = createSupabaseAdminClient();
   if (!admin) return;

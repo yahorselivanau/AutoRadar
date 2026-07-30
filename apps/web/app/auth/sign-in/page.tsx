@@ -1,4 +1,4 @@
-import { ArrowRight, KeyRound, Mail, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, KeyRound, Mail, X } from "lucide-react";
 import Link from "next/link";
 
 import { Wordmark } from "@/components/wordmark";
@@ -60,13 +60,12 @@ export default async function SignInPage({
           </>
         ) : (
           <>
-            <div>
-              <span className="eyebrow">Сохраните гараж и историю</span>
-              <h1>{isSignUp ? "Создать аккаунт" : "Войти в Авто Радар"}</h1>
+            <div className="auth-intro">
+              <h1>{isSignUp ? "Создать аккаунт" : "Войти"}</h1>
               <p>
                 {isSignUp
-                  ? "Только email и пароль — без письма с подтверждением."
-                  : "Войдите, чтобы синхронизировать историю и автомобили из гаража."}
+                  ? "Сохраните гараж, поиски и результаты на всех устройствах."
+                  : "Продолжите с сохранённой историей и автомобилями."}
               </p>
             </div>
             <nav className="auth-mode-switch" aria-label="Вход или регистрация">
@@ -143,11 +142,6 @@ export default async function SignInPage({
                 <ArrowRight size={17} />
               </button>
             </form>
-            <p className="auth-privacy">
-              <ShieldCheck size={17} />
-              Пароль хранится в защищённом виде в Supabase. Гостевые диалоги и
-              гараж будут привязаны к аккаунту.
-            </p>
             <Link className="auth-back" href="/chat">
               Продолжить без регистрации
             </Link>

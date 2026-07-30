@@ -84,7 +84,6 @@ export async function assertGuestQuota(
 ): Promise<void> {
   if (identity.kind === "user") return;
   const limits: Partial<Record<UsageEventType, number>> = {
-    assistant_turn: GUEST_AI_REQUEST_LIMIT,
     search_started: GUEST_SEARCH_LIMIT,
   };
   const limit = limits[eventType];

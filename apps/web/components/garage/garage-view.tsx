@@ -5,7 +5,6 @@ import {
   Check,
   Pencil,
   Plus,
-  ShieldCheck,
   Trash2,
   Warehouse,
 } from "lucide-react";
@@ -45,11 +44,10 @@ export function GarageView() {
     <section className="content-page">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Контекст для точного поиска</span>
-          <h1>Мой гараж</h1>
+          <h1>Гараж</h1>
           <p>
-            Сохранённый автомобиль доступен в чате и автоматически дополняет
-            новые запросы.
+            Сохраните автомобиль один раз — он будет доступен при каждом
+            поиске.
           </p>
         </div>
         {garage.vehicles.length > 0 ? (
@@ -80,10 +78,9 @@ export function GarageView() {
       {garage.vehicles.length === 0 ? (
         <div className="garage-empty">
           <Warehouse size={28} />
-          <h2>Гараж пока пуст</h2>
+          <h2>Добавьте автомобиль</h2>
           <p>
-            Добавьте автомобиль вручную или отправьте VIN в чате. Фиктивные
-            машины больше не подставляются.
+            Так не придётся повторять марку, модель и год в каждом запросе.
           </p>
           <button
             className="button primary pressable"
@@ -91,7 +88,7 @@ export function GarageView() {
             onClick={openNew}
           >
             <Plus size={17} />
-            Добавить первый автомобиль
+            Добавить автомобиль
           </button>
         </div>
       ) : (
@@ -170,17 +167,6 @@ export function GarageView() {
           })}
         </div>
       )}
-
-      <aside className="garage-note">
-        <ShieldCheck size={21} />
-        <div>
-          <strong>VIN хранится только на этом устройстве</strong>
-          <p>
-            В гостевом режиме данные сохраняются в браузере. Полный VIN не
-            показывается в списке и не отправляется AI-модели.
-          </p>
-        </div>
-      </aside>
     </section>
   );
 }

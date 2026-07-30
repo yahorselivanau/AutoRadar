@@ -199,10 +199,9 @@ test("agent keeps the draft, searches explicitly and answers a follow-up without
     });
   });
 
-  await page.goto("/chat");
-  await expect(page).toHaveURL(`/chat/${conversationId}`);
+  await page.goto(`/chat/${conversationId}`);
   await expect(
-    page.getByRole("heading", { name: "Какую запчасть ищем?" }),
+    page.getByRole("heading", { name: "Что нужно найти?" }),
   ).toBeVisible();
 
   const input = page.getByRole("textbox", {
@@ -215,12 +214,16 @@ test("agent keeps the draft, searches explicitly and answers a follow-up without
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Искать", exact: true }).click();
+  await expect(page.getByText("1 предложение")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Открыть на Auto1.by" }),
-  ).toHaveAttribute("href", "https://auto1.by/avtozapchasti/dvigatel/315677");
+    page.getByRole("link", { name: "Посмотреть все предложения" }),
+  ).toHaveAttribute(
+    "href",
+    `/search/98b65b68-d59d-4ba0-b6b9-e3c064512a30?conversation=${conversationId}`,
+  );
 
   await input.fill("Какой вариант самый дешёвый?");
-  await page.getByRole("button", { name: "Отправить" }).click();
+  await input.press("Enter");
   await expect(
     page.getByText("Самое дешёвое предложение — 10.45 BYN на Auto1.by."),
   ).toBeVisible();
@@ -237,32 +240,53 @@ test("guest sees request quota and vehicle context inside the composer", async (
     page.getByRole("button", { name: "Выбрать автомобиль для поиска" }),
   ).toBeVisible();
   const quota = page.getByRole("button", {
-    name: "Осталось AI-запросов: 4",
+    name: "Осталось реальных поисков: 1",
   });
   await expect(quota).toBeVisible();
   await quota.click();
   const quotaDialog = page.getByRole("dialog");
-  await expect(quotaDialog.getByText("4", { exact: true })).toBeVisible();
+  await expect(quotaDialog.getByText("1", { exact: true })).toBeVisible();
   await expect(
-    quotaDialog.getByText("из 5 AI-запросов осталось"),
+    quotaDialog.getByText("из 5 реальных поисков осталось"),
   ).toBeVisible();
   await expect(
-    page.getByText("Реальных поисков по каталогам осталось: 1."),
+    page.getByText(
+      "Обычные вопросы в чате бесплатны. Лимит расходуется только при запуске федеративного поиска по каталогам.",
+    ),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Войти без ограничений" }),
   ).toBeVisible();
 });
 
+test("new search renders immediately without creating an empty conversation", async ({
+  page,
+}) => {
+  let draftPosts = 0;
+  await page.route("**/api/conversations", async (route) => {
+    if (route.request().method() === "POST") draftPosts += 1;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ conversations: [] }),
+    });
+  });
+
+  await page.goto("/chat");
+  await expect(
+    page.getByRole("heading", { name: "Что нужно найти?" }),
+  ).toBeVisible();
+  expect(draftPosts).toBe(0);
+});
+
 test("garage starts empty and persists a manually added vehicle", async ({
   page,
 }) => {
   await page.goto("/garage");
-  await expect(page.getByRole("heading", { name: "Мой гараж" })).toBeVisible();
-  await expect(page.getByText("Гараж пока пуст")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Гараж" })).toBeVisible();
+  await expect(page.getByText("Добавьте автомобиль")).toBeVisible();
 
   await page
-    .getByRole("button", { name: "Добавить первый автомобиль" })
+    .getByRole("button", { name: "Добавить автомобиль" })
     .click();
   await page.getByLabel("Название в гараже").fill("Мой Peugeot");
   await page.getByLabel("VIN").fill("VF3LBBHZHES123456");

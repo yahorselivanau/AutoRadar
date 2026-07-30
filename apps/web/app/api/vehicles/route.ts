@@ -13,7 +13,7 @@ const VehicleInputSchema = SavedVehicleSchema;
 export async function GET() {
   const identity = await resolveRequestIdentity();
   if (identity.kind !== "user") {
-    return Response.json({ code: "guest" }, { status: 401 });
+    return Response.json({ code: "guest" });
   }
   const admin = createSupabaseAdminClient();
   if (!admin) {
@@ -61,7 +61,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const identity = await resolveRequestIdentity();
   if (identity.kind !== "user") {
-    return Response.json({ code: "guest" }, { status: 401 });
+    return Response.json({ code: "guest", saved: false });
   }
   const parsed = VehicleInputSchema.safeParse(
     await request.json().catch(() => null),
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const identity = await resolveRequestIdentity();
   if (identity.kind !== "user") {
-    return Response.json({ code: "guest" }, { status: 401 });
+    return Response.json({ code: "guest", saved: false });
   }
   const parsed = z
     .object({ activeVehicleId: z.string().uuid() })

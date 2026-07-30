@@ -99,30 +99,30 @@ export function GuestQuotaControl({ usage }: { usage: GuestUsage | null }) {
   const [open, setOpen] = useState(false);
   if (!usage) return null;
 
-  const requestsLeft = Math.max(usage.requestsLimit - usage.requestsUsed, 0);
   const searchesLeft = Math.max(usage.searchesLimit - usage.searchesUsed, 0);
+  if (usage.searchesUsed < 2 && searchesLeft > 2) return null;
   const state =
-    requestsLeft === 0 ? "empty" : requestsLeft <= 2 ? "low" : "default";
+    searchesLeft === 0 ? "empty" : searchesLeft <= 2 ? "low" : "default";
 
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger
-        aria-label={`Осталось AI-запросов: ${requestsLeft}`}
+        aria-label={`Осталось реальных поисков: ${searchesLeft}`}
         className="composer-context-trigger quota-trigger pressable"
         data-state={state}
       >
         <Gauge size={15} />
-        <span className="font-tabular">{requestsLeft}</span>
-        <span className="quota-label">AI-запросов</span>
+        <span className="font-tabular">{searchesLeft}</span>
+        <span className="quota-label">поиска осталось</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="quota-popover">
         <div className="quota-popover-value font-tabular">
-          <strong>{requestsLeft}</strong>
-          <span>из {usage.requestsLimit} AI-запросов осталось</span>
+          <strong>{searchesLeft}</strong>
+          <span>из {usage.searchesLimit} реальных поисков осталось</span>
         </div>
         <p>
-          Сообщение расходует один запрос в любом диалоге. Реальных поисков по
-          каталогам осталось: {searchesLeft}.
+          Обычные вопросы в чате бесплатны. Лимит расходуется только при
+          запуске федеративного поиска по каталогам.
         </p>
         <Link className="popover-footer-action pressable" href="/auth/sign-in">
           <UserRound size={16} />

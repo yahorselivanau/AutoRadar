@@ -15,7 +15,7 @@ export async function DELETE(
   }
   const identity = await resolveRequestIdentity();
   if (identity.kind !== "user") {
-    return Response.json({ code: "guest" }, { status: 401 });
+    return new Response(null, { status: 204 });
   }
   const admin = createSupabaseAdminClient();
   if (!admin) {

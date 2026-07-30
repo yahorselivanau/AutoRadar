@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 
 import { resolveRequestIdentity } from "@/lib/auth/identity";
-import { assertGuestQuota, recordUsageEvent } from "@/lib/auth/quota";
+import { recordUsageEvent } from "@/lib/auth/quota";
 import { createPartsAgent, PARTS_AGENT_MODEL } from "@/lib/ai/parts-agent";
 import type { PartsAgentUIMessage } from "@/lib/ai/parts-agent";
 import { PARTS_AGENT_PROMPT_VERSION } from "@/lib/ai/prompts/parts-agent.v1";
@@ -77,10 +77,6 @@ function redactVin(messages: PartsAgentUIMessage[]): PartsAgentUIMessage[] {
   }));
 }
 
-function guestLimitResponse(code: string, error: string) {
-  return Response.json({ code, error }, { status: 403 });
-}
-
 export async function POST(request: Request) {
   const payload = InputSchema.safeParse(await request.json().catch(() => null));
   if (!payload.success) {
@@ -99,15 +95,6 @@ export async function POST(request: Request) {
   let conversation =
     storedConversation ??
     (await createConversationDraft(identity, payload.data.id));
-
-  try {
-    await assertGuestQuota(identity, "assistant_turn");
-  } catch {
-    return guestLimitResponse(
-      "guest_ai_request_limit",
-      "Лимит AI-запросов на сегодня исчерпан. История останется доступна; войдите, чтобы продолжить.",
-    );
-  }
 
   let state = conversation.state;
   if (payload.data.activeVehicle) {

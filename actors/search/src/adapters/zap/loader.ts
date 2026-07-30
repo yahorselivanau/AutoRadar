@@ -46,30 +46,24 @@ async function schedule<T>(intervalMs: number, task: () => Promise<T>) {
 export function resolveZapCatalogUrl(
   baseUrl: string,
   path: string,
-  experimentalSearchEnabled = false,
 ): string {
   const url = new URL(path, baseUrl);
   const base = new URL(baseUrl);
-  const isAllowedCatalog =
-    url.pathname.startsWith("/carparts") &&
-    !url.pathname.includes("/search") &&
-    !url.search;
-  const isExperimentalSearch =
-    experimentalSearchEnabled &&
-    !url.search &&
-    (/^\/carparts\/search\/[^/]+$/.test(url.pathname) ||
-      /^\/[^/]+\/[^/]+$/.test(url.pathname));
-  const disallowed =
-    url.search.length > 0 || (!isAllowedCatalog && !isExperimentalSearch);
+  const isPublicCatalog = /^\/carparts(?:\/[^?#]*)?$/.test(url.pathname);
+  const isPublicProduct = /^\/[^/]+\/[^/]+$/.test(url.pathname);
+  const allowedQuery = [...url.searchParams.keys()].every((key) =>
+    ["page", "infinite"].includes(key),
+  );
   if (
     url.protocol !== "https:" ||
     url.hostname !== base.hostname ||
-    disallowed
+    (!isPublicCatalog && !isPublicProduct) ||
+    !allowedQuery
   ) {
     throw new AdapterError(
       "zap",
       "unsupported-query",
-      "ROBOTS_DISALLOWED: разрешены только публичные SSR-страницы /carparts без query parameters",
+      "ROBOTS_DISALLOWED: адаптер использует только подтверждённые публичные страницы каталога и товаров Zap.by",
     );
   }
   return url.toString();
@@ -79,15 +73,13 @@ function resolveZapJsonUrl(
   baseUrl: string,
   path: string,
   params: Record<string, string | number>,
-  experimentalSearchEnabled: boolean,
 ): string {
   const url = new URL(path, baseUrl);
   const base = new URL(baseUrl);
   if (
-    !experimentalSearchEnabled ||
     url.protocol !== "https:" ||
     url.hostname !== base.hostname ||
-    !["/index.php", "/info/apps"].includes(url.pathname)
+    url.pathname !== "/index.php"
   ) {
     throw new AdapterError(
       "zap",
@@ -169,11 +161,7 @@ export function createZapClient(options: ZapLoaderOptions = {}): ZapClient {
       );
       try {
         const response = await fetchImpl(
-          resolveZapCatalogUrl(
-            config.ZAP_BASE_URL,
-            path,
-            config.ZAP_EXPERIMENTAL_SEARCH_ENABLED,
-          ),
+          resolveZapCatalogUrl(config.ZAP_BASE_URL, path),
           {
             headers: requestHeaders(),
             redirect: "error",
@@ -237,7 +225,6 @@ export function createZapClient(options: ZapLoaderOptions = {}): ZapClient {
             config.ZAP_BASE_URL,
             path,
             params,
-            config.ZAP_EXPERIMENTAL_SEARCH_ENABLED,
           ),
           {
             headers: requestHeaders(referrer),

@@ -4,7 +4,7 @@
   color-scheme: light;
 
   /* Raw palette */
-  --ar-canvas: #f8f8f6;
+  --ar-canvas: #f4f4f2;
   --ar-surface: #ffffff;
   --ar-surface-subtle: #f4f4f2;
   --ar-surface-muted: #ececea;
@@ -81,7 +81,7 @@
   --shell-sidebar-collapsed-width: 4.5rem;
   --shell-activity-width: 23.5rem;
   --content-chat-width: 47.5rem;
-  --content-composer-width: 52.5rem;
+  --content-composer-width: 47.5rem;
   --content-structured-width: 65rem;
   --app-header-height: 3.5rem;
 
