@@ -26,7 +26,7 @@ Mobile-first приложение, которое понимает запрос 
 - Auto1.by проверен по fixtures и ожидает opt-in live smoke.
 - Remzona сохранён, но по умолчанию выключен.
 - AI-модель задаётся через `AI_MODEL`; текущий проект напрямую использует
-  Gemini API с серверным ключом `GEMINI_API_KEY`.
+  Gemini 3.5 Flash-Lite API с серверным ключом `GEMINI_API_KEY`.
 
 ## Быстрый старт
 
