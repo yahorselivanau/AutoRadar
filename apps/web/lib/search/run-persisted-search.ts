@@ -16,6 +16,7 @@ import { ArmtekPartsAdapter } from "@autoradar/search-actor/armtek";
 import { Auto1PartsAdapter } from "@autoradar/search-actor/auto1";
 import { MotorlandPartsAdapter } from "@autoradar/search-actor/motorland";
 import { RemzonaPartsAdapter } from "@autoradar/search-actor/remzona";
+import { normalizeSearchRequest } from "@autoradar/search-actor/request-normalizer";
 import { planSourceSearch } from "@autoradar/search-actor/search-plan";
 import type {
   AdapterResult,
@@ -239,7 +240,7 @@ export async function runPersistedSearch({
   onProgress?: (progress: PersistedSearchProgress) => void | Promise<void>;
   sourceIds?: readonly SourceId[];
 }): Promise<SearchJobResult> {
-  const request = SearchRequestSchema.parse(input);
+  const request = normalizeSearchRequest(SearchRequestSchema.parse(input));
   const conversation = await loadConversation(conversationId, identity);
   if (!conversation) throw new Error("conversation_not_found");
 

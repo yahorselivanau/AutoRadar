@@ -17,9 +17,13 @@ const SearchTypeResponseSchema = z
     data: z.object({
       searchType: z.number().int().nonnegative(),
       categoryAlias: z.string().min(1).optional(),
-      filters: z
-        .record(z.string(), z.union([z.string(), z.array(z.string())]))
-        .optional(),
+      filters: z.preprocess(
+        (value) =>
+          Array.isArray(value) && value.length === 0 ? undefined : value,
+        z
+          .record(z.string(), z.union([z.string(), z.array(z.string())]))
+          .optional(),
+      ),
     }),
   })
   .passthrough();

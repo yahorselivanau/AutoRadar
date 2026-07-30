@@ -58,17 +58,17 @@ import {
 const suggestions = [
   {
     icon: FileSearch,
-    title: "По названию",
-    prompt: "Хочу найти запчасть по названию",
+    title: "Описать деталь",
+    prompt: "Помоги найти запчасть по моему описанию",
   },
   {
     icon: Hash,
-    title: "По артикулу",
+    title: "Ввести артикул",
     prompt: "Хочу найти запчасть по артикулу",
   },
   {
     icon: CarFront,
-    title: "По автомобилю или VIN",
+    title: "Подобрать по авто или VIN",
     prompt: "Помоги подобрать запчасть по автомобилю или VIN",
   },
 ];
@@ -976,8 +976,11 @@ export function SmartChatExperience({
               ) : messages.length === 0 ? (
                 <div className="empty-chat">
                   <div className="empty-copy">
-                    <h1>Что нужно найти?</h1>
-                    <p>Назовите деталь, артикул или автомобиль.</p>
+                    <span className="empty-kicker">AI-подбор запчастей</span>
+                    <h1>Найдём нужную запчасть</h1>
+                    <p>
+                      Подберём совместимые варианты и сравним цены в каталогах.
+                    </p>
                   </div>
                   <div className="suggestion-grid">
                     {suggestions.map((suggestion) => {
@@ -1368,10 +1371,9 @@ export function SmartChatExperience({
                 {!limitPromptDismissed ? (
                   <div className="composer-login-prompt">
                     <div>
-                      <strong>Сохраните этот диалог</strong>
+                      <strong>Сохранить диалог?</strong>
                       <span>
-                        Войдите, чтобы сохранить историю и продолжить без
-                        гостевого лимита.
+                        Войдите — история останется, а лимит поиска исчезнет.
                       </span>
                     </div>
                     <div>

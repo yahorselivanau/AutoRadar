@@ -7,6 +7,7 @@ import { RemzonaPartsAdapter } from ".";
 import type { RemzonaTransportConfig } from "./config";
 import { createRemzonaHtmlLoader } from "./loader";
 import {
+  findRemzonaMakeCatalogPath,
   normalizeRemzonaPrice,
   parseRemzonaCatalogHtml,
   parseRemzonaSearchCandidates,
@@ -29,6 +30,16 @@ const request = SearchRequestSchema.parse({
 });
 
 describe("Remzona price parser", () => {
+  it("matches a localized make against the Latin catalog label", () => {
+    expect(
+      findRemzonaMakeCatalogPath(
+        '<a href="/catalog/peugeot/steklopodiemnik">PEUGEOT</a>',
+        "/steklopodiemnik",
+        "Пежо",
+      ),
+    ).toBe("/catalog/peugeot/steklopodiemnik");
+  });
+
   it("normalizes the verified catalog card and BYN price", async () => {
     const offers = parseRemzonaCatalogHtml(
       await fixture("catalog-success.html"),
@@ -101,6 +112,29 @@ describe("Remzona adapter modes", () => {
       "/steklopodiemnik",
       ".box-articleitems .item-list",
     );
+  });
+
+  it("keeps real SSR offers when the source does not publish a price", async () => {
+    const searchHtml = await fixture("search-category.html");
+    const catalogHtml = (await fixture("catalog-success.html"))
+      .replaceAll('data-cur="BYN"', 'data-cur="USD"')
+      .replaceAll(">byn<", ">usd<");
+    const adapter = new RemzonaPartsAdapter(
+      async () => ({ html: searchHtml, status: 200 }),
+      async () => ({ html: catalogHtml, status: 200 }),
+      vi.fn(),
+      false,
+    );
+
+    const result = await adapter.search(request);
+
+    expect(result.method).toBe("html");
+    expect(result.offers).toHaveLength(1);
+    expect(result.offers[0]).toMatchObject({
+      externalId: "4584933",
+      priceAmount: undefined,
+      priceSource: undefined,
+    });
   });
 
   it("returns DOM_CHANGED instead of an empty success", async () => {

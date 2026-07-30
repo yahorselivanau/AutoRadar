@@ -11,6 +11,7 @@ import {
 import { load, type Cheerio, type CheerioAPI } from "cheerio";
 import type { AnyNode } from "domhandler";
 
+import { vehicleMakesMatch } from "../../vehicle-makes.v1";
 import { AdapterError } from "../types";
 
 const origin = "https://zap.by";
@@ -136,12 +137,18 @@ export function findZapMakePath(
   make: string,
 ): string | undefined {
   const $ = load(html);
-  return exactLinkPath(
-    $,
-    ".dropdown.mrgb10 > a.btn-lg[href]",
-    make,
-    "/carparts/",
-  );
+  return $(".dropdown.mrgb10 > a.btn-lg[href]")
+    .toArray()
+    .map((node) => {
+      const link = $(node);
+      return {
+        label: cleanText(link.text()),
+        path: safeZapPath(link.attr("href"), "/carparts/"),
+      };
+    })
+    .find(
+      (candidate) => candidate.path && vehicleMakesMatch(candidate.label, make),
+    )?.path;
 }
 
 export function findZapModelPath(

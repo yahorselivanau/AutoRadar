@@ -144,7 +144,7 @@
   margin-left: 8px;
 }
 
-.vehicle-switcher-trigger {
+  .vehicle-switcher-trigger {
   width: fit-content;
   max-width: 420px;
   min-height: 40px;
@@ -4863,9 +4863,113 @@
     padding: 10px 10px 8px;
   }
 
-  .vehicle-switcher-trigger {
+.vehicle-switcher-trigger {
     max-width: calc(100vw - 154px);
     height: 42px;
+  }
+}
+
+/* First-use hierarchy and guest sign-in refinement. */
+.empty-kicker {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 9999px;
+  background: var(--ar-brand-soft);
+  color: var(--ar-brand-foreground);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1;
+}
+
+.empty-copy h1 {
+  margin-top: 14px;
+}
+
+.composer-login-prompt {
+  min-height: 72px;
+  padding: 12px 14px 12px 16px;
+}
+
+.composer-login-prompt > div:first-child {
+  max-width: 520px;
+}
+
+.composer-login-prompt span {
+  font-size: 13px;
+}
+
+.vehicle-switcher-trigger {
+  gap: 6px;
+  padding-inline: 7px 11px;
+}
+
+.vehicle-switcher-icon {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 767px) {
+  .chat-page-empty {
+    justify-content: flex-start;
+    gap: 0;
+  }
+
+  .chat-page-empty .ui-message-scroller,
+  .chat-page-empty .chat-transcript {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .chat-page-empty .ui-message-scroller-viewport,
+  .chat-page-empty .ui-message-scroller-content,
+  .chat-page-empty .empty-chat {
+    height: 100%;
+  }
+
+  .chat-page-empty .empty-chat {
+    justify-content: center;
+    padding: 24px 0 20px;
+  }
+
+  .chat-page-empty .composer-wrap {
+    flex: 0 0 auto;
+    padding: 16px 10px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .empty-copy {
+    text-align: center;
+  }
+
+  .empty-copy h1 {
+    margin-top: 12px;
+    font-size: 30px;
+  }
+
+  .empty-copy p {
+    max-width: 330px;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .suggestion-grid {
+    width: 100%;
+    margin-top: 24px;
+  }
+
+  .suggestion {
+    min-height: 52px;
+    justify-content: flex-start;
+  }
+
+  .composer-login-prompt {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .composer-login-prompt > div:last-child {
+    width: auto;
   }
 }
 

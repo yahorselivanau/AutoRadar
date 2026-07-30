@@ -109,6 +109,12 @@ export function GuestQuotaControl({ usage }: { usage: GuestUsage | null }) {
   if (usage.searchesUsed < 2 && searchesLeft > 2) return null;
   const state =
     searchesLeft === 0 ? "empty" : searchesLeft <= 2 ? "low" : "default";
+  const searchWord =
+    searchesLeft === 1
+      ? "поиск"
+      : searchesLeft > 1 && searchesLeft < 5
+        ? "поиска"
+        : "поисков";
 
   return (
     <Popover onOpenChange={setOpen} open={open}>
@@ -119,20 +125,17 @@ export function GuestQuotaControl({ usage }: { usage: GuestUsage | null }) {
       >
         <Gauge size={15} />
         <span className="font-tabular">{searchesLeft}</span>
-        <span className="quota-label">поиска осталось</span>
+        <span className="quota-label">{searchWord} осталось</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="quota-popover">
         <div className="quota-popover-value font-tabular">
           <strong>{searchesLeft}</strong>
-          <span>из {usage.searchesLimit} реальных поисков осталось</span>
+          <span>из {usage.searchesLimit} поисков осталось</span>
         </div>
-        <p>
-          Обычные вопросы в чате бесплатны. Лимит расходуется только при
-          запуске федеративного поиска по каталогам.
-        </p>
+        <p>Войдите, чтобы искать без лимита и сохранить историю.</p>
         <Link className="popover-footer-action pressable" href="/auth/sign-in">
           <UserRound size={16} />
-          Войти без ограничений
+          Войти
         </Link>
       </PopoverContent>
     </Popover>

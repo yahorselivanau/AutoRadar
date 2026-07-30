@@ -9,7 +9,7 @@ import {
   matchesZapPartIdentity,
   ZapPartsAdapter,
 } from ".";
-import type { ZapTransportConfig } from "./config";
+import { readZapTransportConfig, type ZapTransportConfig } from "./config";
 import { createZapPageLoader, resolveZapCatalogUrl } from "./loader";
 import {
   findZapCategoryPath,
@@ -44,6 +44,15 @@ const request = SearchRequestSchema.parse({
     engine: "2.7 TDI",
   },
   part: { name: "Масляный фильтр" },
+});
+
+describe("Zap.by transport config", () => {
+  it("keeps the public HTTP timeout inside the architectural budget", () => {
+    expect(
+      readZapTransportConfig({ ZAP_HTTP_TIMEOUT_MS: "10000" })
+        .ZAP_HTTP_TIMEOUT_MS,
+    ).toBe(15_000);
+  });
 });
 
 describe("Zap.by SSR parser", () => {
@@ -151,6 +160,17 @@ describe("Zap.by SSR parser", () => {
       compatibilityText:
         "Каталог Zap.by: BMW · 3 Series · 320 i · Детали двигателя",
     });
+  });
+
+  it("matches a localized make against the Latin catalog label", () => {
+    expect(
+      findZapMakePath(
+        `<div class="dropdown mrgb10">
+          <a class="btn-lg" href="/carparts/peugeot">PEUGEOT</a>
+        </div>`,
+        "Пежо",
+      ),
+    ).toBe("/carparts/peugeot");
   });
 
   it("uses the selected-vehicle hidden IDs when inline variables are absent", () => {

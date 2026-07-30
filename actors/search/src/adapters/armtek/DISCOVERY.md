@@ -54,6 +54,10 @@ The type endpoint can instead return a `categoryAlias` and filters. For
 `масляный фильтр` it returned `filtry-maslyanye-8963`; the observed category
 body uses that alias, preserves the returned filters, adds the original text
 and `from_global: "true"`, and sets `linkingTargetType: "P"`.
+For an unclassified text query such as `масляный фильтр BMW 3 серия`, the
+same endpoint returned `searchType: 1` with `filters: []`. The loader treats
+this observed empty array as no filters instead of reporting a changed
+contract.
 
 Both branches were reproduced with ordinary Node `fetch`, no cookies and no
 browser state. The article query returned 43 products (36 on page 1); the

@@ -9,6 +9,7 @@ import {
 
 import type { PartsSourceAdapter } from "./adapters/types";
 import { sourcePartQuery } from "./part-synonyms.v1";
+import { canonicalVehicleMake } from "./vehicle-makes.v1";
 
 const CATEGORY_PART_PATTERN =
   /(?:масл|фильтр|антифриз|жидкост|ламп|аккумулятор|свеч|щетк|коврик|чехл)/i;
@@ -17,7 +18,7 @@ function vehicleQuery(input: SearchRequest, sourceId: SourceId): string {
   const vehicle = input.vehicle;
   return [
     sourcePartQuery(input.part.name, sourceId),
-    vehicle?.make,
+    vehicle?.make ? canonicalVehicleMake(vehicle.make) : undefined,
     vehicle?.model,
     vehicle?.year,
     vehicle?.generation,

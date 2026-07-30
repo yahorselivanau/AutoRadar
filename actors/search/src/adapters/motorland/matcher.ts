@@ -1,5 +1,6 @@
 import type { NormalizedOffer, SearchRequest } from "@autoradar/domain";
 
+import { vehicleMakesMatch } from "../../vehicle-makes.v1";
 import { comparableMotorlandText } from "./parser";
 
 export type MotorlandRejectionReason =
@@ -138,9 +139,7 @@ export function evaluateMotorlandOffer(
     return { matches: true, identity, matchReasons };
   }
 
-  const requestedMake = comparableMotorlandText(input.vehicle.make);
-  const actualMake = comparableMotorlandText(offer.brand ?? identity.make);
-  if (actualMake !== requestedMake) {
+  if (!vehicleMakesMatch(offer.brand ?? identity.make, input.vehicle.make)) {
     return { matches: false, reason: "make", identity, matchReasons: [] };
   }
   if (canonicalModel(identity.model) !== canonicalModel(input.vehicle.model)) {

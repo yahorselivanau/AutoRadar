@@ -201,7 +201,7 @@ test("agent keeps the draft, searches explicitly and answers a follow-up without
 
   await page.goto(`/chat/${conversationId}`);
   await expect(
-    page.getByRole("heading", { name: "Что нужно найти?" }),
+    page.getByRole("heading", { name: "Найдём нужную запчасть" }),
   ).toBeVisible();
 
   const input = page.getByRole("textbox", {
@@ -250,15 +250,13 @@ test("guest sees request quota and vehicle context inside the composer", async (
   const quotaDialog = page.getByRole("dialog");
   await expect(quotaDialog.getByText("1", { exact: true })).toBeVisible();
   await expect(
-    quotaDialog.getByText("из 5 реальных поисков осталось"),
+    quotaDialog.getByText("из 5 поисков осталось"),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      "Обычные вопросы в чате бесплатны. Лимит расходуется только при запуске федеративного поиска по каталогам.",
-    ),
+    page.getByText("Войдите, чтобы искать без лимита и сохранить историю."),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Войти без ограничений" }),
+    quotaDialog.getByRole("link", { name: "Войти" }),
   ).toBeVisible();
 });
 
@@ -276,7 +274,7 @@ test("new search renders immediately without creating an empty conversation", as
 
   await page.goto("/chat");
   await expect(
-    page.getByRole("heading", { name: "Что нужно найти?" }),
+    page.getByRole("heading", { name: "Найдём нужную запчасть" }),
   ).toBeVisible();
   expect(draftPosts).toBe(0);
 });

@@ -223,6 +223,33 @@ describe("Armtek public API loader", () => {
     });
   });
 
+  it("accepts the observed empty filters array for a text search", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const loader = createArmtekSearchLoader({
+      config: { ...config, ARMTEK_REQUEST_INTERVAL_MS: 502 },
+      fetchImpl: async (url, init) => {
+        requests.push({ url: url.toString(), init });
+        const pathname = new URL(url.toString()).pathname;
+        if (pathname.endsWith("/auth-microservice/v1/guest")) {
+          return Response.json({ data: { accessToken: "fixture-access" } });
+        }
+        if (pathname.endsWith("/search/type")) {
+          return Response.json({ data: { searchType: 1, filters: [] } });
+        }
+        return Response.json(await fixture("search-empty.json"));
+      },
+    });
+
+    await expect(loader("масляный фильтр BMW 3 серия")).resolves.toMatchObject({
+      status: 200,
+    });
+    expect(JSON.parse(String(requests[2]?.init?.body))).toMatchObject({
+      query: "масляный фильтр BMW 3 серия",
+      queryType: 1,
+      filters: { text: "масляный фильтр BMW 3 серия" },
+    });
+  });
+
   it("fails closed when the server-only client credential is absent", async () => {
     const fetchImpl = vi.fn();
     const loader = createArmtekSearchLoader({

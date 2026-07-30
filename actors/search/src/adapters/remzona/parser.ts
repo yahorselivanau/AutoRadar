@@ -9,6 +9,7 @@ import {
 import { load, type Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 
+import { vehicleMakesMatch } from "../../vehicle-makes.v1";
 import { AdapterError } from "../types";
 
 const origin = "https://remzona.by";
@@ -343,16 +344,15 @@ export function findRemzonaMakeCatalogPath(
   const $ = load(html);
   const categorySlug = categoryPath.split("/").filter(Boolean).at(-1);
   if (!categorySlug) return undefined;
-  const target = comparable(make);
   return $("a[href]")
     .toArray()
     .map((node) => ({
       path: safePath($(node).attr("href")),
-      label: comparable($(node).text()),
+      label: cleanText($(node).text()),
     }))
     .find(
       ({ path, label }) =>
-        label === target &&
+        vehicleMakesMatch(label, make) &&
         new RegExp(`^/catalog/[^/]+/${categorySlug}$`).test(path ?? ""),
     )?.path;
 }

@@ -29,16 +29,11 @@ import {
 } from "./parser";
 
 export type RemzonaDiagnosticReason =
-  | "HTTP_BLOCKED"
-  | "EMPTY_RESPONSE"
-  | "PRICE_NOT_FOUND"
-  | "DOM_CHANGED"
-  | "TIMEOUT";
+  "HTTP_BLOCKED" | "EMPTY_RESPONSE" | "DOM_CHANGED" | "TIMEOUT";
 
 const diagnosticReasons: readonly RemzonaDiagnosticReason[] = [
   "HTTP_BLOCKED",
   "EMPTY_RESPONSE",
-  "PRICE_NOT_FOUND",
   "DOM_CHANGED",
   "TIMEOUT",
 ];
@@ -220,13 +215,6 @@ export class RemzonaPartsAdapter implements PartsSourceAdapter {
         "страница не содержит распознанных предложений",
       );
     }
-    if (offers.every((offer) => !offer.priceAmount)) {
-      throw diagnostic(
-        "PRICE_NOT_FOUND",
-        "ни один подтверждённый источник цены не найден",
-      );
-    }
-
     if (
       requestedPartNumber &&
       candidate.kind === "product" &&

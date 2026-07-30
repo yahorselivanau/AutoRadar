@@ -11,6 +11,7 @@ import {
   type SourceId,
 } from "@autoradar/domain";
 import { InferAgentUIMessage, stepCountIs, tool, ToolLoopAgent } from "ai";
+import { normalizeSearchRequest } from "@autoradar/search-actor/request-normalizer";
 import { z } from "zod";
 
 import type { RequestIdentity } from "@/lib/auth/identity";
@@ -131,7 +132,9 @@ export function createPartsAgent({
           ...request,
           vehicle: request.vehicle ?? state.activeVehicle ?? undefined,
         });
-        const parsed = SearchRequestSchema.parse(merged);
+        const parsed = normalizeSearchRequest(
+          SearchRequestSchema.parse(merged),
+        );
         await persistState({
           ...state,
           searchDraft: parsed,
@@ -179,11 +182,13 @@ export function createPartsAgent({
         if (!hypothesis) {
           return { kind: "unknown_hypothesis" as const };
         }
-        const draft = SearchRequestSchema.parse({
-          query: `${hypothesis.partName}${state.activeVehicle ? ` ${state.activeVehicle.make} ${state.activeVehicle.model}` : ""}`,
-          vehicle: state.activeVehicle ?? undefined,
-          part: { name: hypothesis.partName, condition: "any" },
-        });
+        const draft = normalizeSearchRequest(
+          SearchRequestSchema.parse({
+            query: `${hypothesis.partName}${state.activeVehicle ? ` ${state.activeVehicle.make} ${state.activeVehicle.model}` : ""}`,
+            vehicle: state.activeVehicle ?? undefined,
+            part: { name: hypothesis.partName, condition: "any" },
+          }),
+        );
         await persistState({
           ...state,
           symptomAssessment: {
@@ -221,22 +226,24 @@ export function createPartsAgent({
             : pending.field === "doors"
               ? { ...request.vehicle, doors: Number(option.value) }
               : request.vehicle;
-        const updated = SearchRequestSchema.parse({
-          ...request,
-          vehicle: nextVehicle,
-          part:
-            pending.field === "part_attribute" && pending.attributeKey
-              ? {
-                  ...request.part,
-                  constraints: [
-                    ...request.part.constraints.filter(
-                      (constraint) => constraint.key !== pending.attributeKey,
-                    ),
-                    { key: pending.attributeKey, value },
-                  ],
-                }
-              : request.part,
-        });
+        const updated = normalizeSearchRequest(
+          SearchRequestSchema.parse({
+            ...request,
+            vehicle: nextVehicle,
+            part:
+              pending.field === "part_attribute" && pending.attributeKey
+                ? {
+                    ...request.part,
+                    constraints: [
+                      ...request.part.constraints.filter(
+                        (constraint) => constraint.key !== pending.attributeKey,
+                      ),
+                      { key: pending.attributeKey, value },
+                    ],
+                  }
+                : request.part,
+          }),
+        );
         retrySourceIds = pending.sourceId ? [pending.sourceId] : undefined;
         await persistState({
           ...state,
@@ -272,11 +279,13 @@ export function createPartsAgent({
             };
             return;
           }
-          const merged = SearchRequestSchema.parse(
-            removeInventedDoorCount({
-              ...request,
-              vehicle: request.vehicle ?? state.activeVehicle ?? undefined,
-            }),
+          const merged = normalizeSearchRequest(
+            SearchRequestSchema.parse(
+              removeInventedDoorCount({
+                ...request,
+                vehicle: request.vehicle ?? state.activeVehicle ?? undefined,
+              }),
+            ),
           );
           await persistState({
             ...state,

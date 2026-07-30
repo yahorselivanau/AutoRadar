@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
   Pencil,
   Trash2,
+  UserRound,
   Warehouse,
   X,
 } from "lucide-react";
@@ -291,7 +292,7 @@ export function AppShell({
           <Link className="account-row pressable" href="/auth/sign-in">
             <Avatar.Root className="account-avatar">
               <Avatar.Fallback className="account-avatar-fallback">
-                {accountInitial ?? "Г"}
+                {accountInitial ?? <UserRound aria-hidden="true" size={17} />}
               </Avatar.Fallback>
             </Avatar.Root>
             <span className="account-copy">
@@ -366,7 +367,7 @@ export function AppShell({
           >
             <Avatar.Root className="mobile-account-avatar">
               <Avatar.Fallback className="account-avatar-fallback">
-                {accountInitial ?? "Г"}
+                {accountInitial ?? <UserRound aria-hidden="true" size={16} />}
               </Avatar.Fallback>
             </Avatar.Root>
           </Link>

@@ -12,7 +12,8 @@ const ZapTransportConfigSchema = z.object({
     .int()
     .min(3_000)
     .max(30_000)
-    .default(10_000),
+    .default(15_000)
+    .transform((value) => Math.max(value, 15_000)),
   ZAP_REQUEST_INTERVAL_MS: z.coerce
     .number()
     .int()

@@ -11,6 +11,7 @@
     "./zap": "./src/adapters/zap/index.ts",
     "./search-plan": "./src/search-plan.ts",
     "./part-synonyms": "./src/part-synonyms.v1.ts",
+    "./request-normalizer": "./src/request-normalizer.ts",
     "./types": "./src/adapters/types.ts"
   },
   "scripts": {

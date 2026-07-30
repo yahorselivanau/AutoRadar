@@ -83,6 +83,9 @@ Researcher: Codex for AutoRadar
 ## Chosen implementation
 
 - Mode: direct HTTP GET + server-rendered HTML + Cheerio.
+- Localized vehicle makes are compared with the catalog brand/URL through the
+  shared versioned alias map; unknown makes still require an exact normalized
+  match.
 - Retrieval method reported by the adapter: `html`.
 - Reason: this is steps 1–2 of the required ladder and already contains
   complete product cards. JSON/XHR or Playwright would add no data.
