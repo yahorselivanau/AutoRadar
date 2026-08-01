@@ -44,15 +44,22 @@ export const VehicleCandidateSchema = VehicleDraftSchema.omit({
   vin: true,
 }).extend({
   id: z.string().min(1),
-  source: z.enum(["nhtsa-vpic", "manual", "source-catalog"]),
+  source: z.enum(["auto1", "zap", "armtek", "manual"]),
   confidence: z.enum(["high", "medium", "low"]),
   evidence: z.array(z.string().trim().min(1)).max(12).default([]),
 });
 
+export const VinResolutionSourceSchema = z.enum([
+  "auto1",
+  "zap",
+  "armtek",
+  "manual",
+]);
+
 export const VinResolutionSchema = z.object({
   status: z.enum(["invalid", "unresolved", "partial", "resolved"]),
   maskedVin: z.string().min(1),
-  source: z.literal("nhtsa-vpic"),
+  source: VinResolutionSourceSchema,
   candidates: z.array(VehicleCandidateSchema).max(5),
   warnings: z.array(z.string().trim().min(1)).max(8).default([]),
   resolvedAt: z.iso.datetime(),
@@ -65,7 +72,7 @@ export const SavedVehicleSchema = VehicleContextSchema.extend({
   notes: z.string().trim().max(1000).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
-  vinResolutionSource: z.enum(["nhtsa-vpic", "manual"]).optional(),
+  vinResolutionSource: VinResolutionSourceSchema.optional(),
   vinResolutionProvenance: z
     .object({
       resolvedAt: z.iso.datetime(),
@@ -365,6 +372,7 @@ export type VehicleContext = z.infer<typeof VehicleContextSchema>;
 export type SearchVehicleContext = z.infer<typeof SearchVehicleContextSchema>;
 export type VehicleDraft = z.infer<typeof VehicleDraftSchema>;
 export type VehicleCandidate = z.infer<typeof VehicleCandidateSchema>;
+export type VinResolutionSource = z.infer<typeof VinResolutionSourceSchema>;
 export type VinResolution = z.infer<typeof VinResolutionSchema>;
 export type SavedVehicle = z.infer<typeof SavedVehicleSchema>;
 export type GarageState = z.infer<typeof GarageStateSchema>;

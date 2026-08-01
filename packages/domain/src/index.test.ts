@@ -103,11 +103,11 @@ describe("domain schemas", () => {
     const resolution = VinResolutionSchema.parse({
       status: "partial",
       maskedVin: maskVin(draft.vin!),
-      source: "nhtsa-vpic",
+      source: "auto1",
       candidates: [
         {
-          id: "vpic-1",
-          source: "nhtsa-vpic",
+          id: "auto1-1",
+          source: "auto1",
           confidence: "low",
           make: "PEUGEOT",
           evidence: ["Make"],

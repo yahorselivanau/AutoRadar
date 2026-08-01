@@ -88,6 +88,21 @@ closure, never logged or persisted, and refreshed once after an HTTP 401.
 - No filter endpoint is called because filters are not needed to normalize
   the first page.
 
+## Supplied Armtek catalogue
+
+The owner-supplied catalogue is versioned in `catalog.ts` as
+`armtek-catalog.v1`. It contains 266 Armtek vehicle make labels and 280 unique
+part/category labels, including the service/maintenance and additional
+category lists.
+
+- Volkswagen is sent as Armtek's `VW`, Citroën as `CITROËN` and equivalent
+  known labels are mapped to the spelling used by Armtek;
+- common user terms such as `салонный фильтр`, `фильтр масла` and `тормозные
+колодки` are mapped to Armtek labels before a category/text query;
+- the catalogue is only a source-specific query vocabulary. It is not treated
+  as compatibility evidence and does not turn Armtek into a locally copied
+  catalogue.
+
 ## Data mapping
 
 - product id: `articlesData[].ARTID`

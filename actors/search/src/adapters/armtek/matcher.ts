@@ -5,6 +5,8 @@ import {
   type SearchRequest,
 } from "@autoradar/domain";
 
+import { canonicalArmtekVehicleMake } from "./catalog";
+
 function words(value: string): string[] {
   return value
     .toLocaleLowerCase("ru")
@@ -45,7 +47,10 @@ function vehicleEvidence(input: SearchRequest, evidence: string): boolean {
   if (strongIdentities.length > 0) {
     return strongIdentities.some((value) => containsWords(value, evidence));
   }
-  return containsWords(input.vehicle.make, evidence);
+  return [
+    input.vehicle.make,
+    canonicalArmtekVehicleMake(input.vehicle.make),
+  ].some((make) => containsWords(make, evidence));
 }
 
 function evidenceText(offer: NormalizedOffer): string {

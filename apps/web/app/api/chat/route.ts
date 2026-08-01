@@ -4,6 +4,7 @@ import {
   createIdGenerator,
   validateUIMessages,
 } from "ai";
+import { VinSchema } from "@autoradar/domain";
 import { z } from "zod";
 
 import { resolveRequestIdentity } from "@/lib/auth/identity";
@@ -41,6 +42,7 @@ const InputSchema = z.object({
     })
     .nullable()
     .optional(),
+  activeVehicleVin: VinSchema.optional(),
   vehicleConfirmationPending: z.boolean().optional(),
 });
 
@@ -133,6 +135,7 @@ export async function POST(request: Request) {
     conversationId: conversation.id,
     initialState: state,
     latestUserText,
+    activeVehicleVin: payload.data.activeVehicleVin,
   });
 
   let validated: PartsAgentUIMessage[];

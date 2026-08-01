@@ -1,8 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": [
-    "AI_MODEL",
-    "AI_PROVIDER",
+    "GEMINI_API_KEY",
     "ANON_SESSION_SECRET",
     "APIFY_SEARCH_ACTOR_ID",
     "APIFY_TOKEN",

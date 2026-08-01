@@ -1,6 +1,7 @@
 import type { NormalizedOffer, SearchRequest } from "@autoradar/domain";
 
 import { vehicleMakesMatch } from "../../vehicle-makes.v1";
+import { matchesMotorlandCategory } from "./category-vocabulary";
 import { comparableMotorlandText } from "./parser";
 
 export type MotorlandRejectionReason =
@@ -127,10 +128,7 @@ export function evaluateMotorlandOffer(
 
   const category =
     offer.sourceAttributes?.["Категория Motorland"]?.[0] ?? identity.part;
-  if (
-    comparableMotorlandText(category) !==
-    comparableMotorlandText(input.part.name)
-  ) {
+  if (!matchesMotorlandCategory(category, input.part.name)) {
     return { matches: false, reason: "part", identity, matchReasons: [] };
   }
 

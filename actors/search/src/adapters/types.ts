@@ -21,6 +21,14 @@ export interface AdapterResult {
   clarification?: SearchClarification;
 }
 
+/**
+ * Server-only values needed by a source transport. Keep sensitive identifiers
+ * out of SearchRequest because that object is persisted and passed to AI tools.
+ */
+export interface AdapterSearchContext {
+  readonly vin?: string;
+}
+
 export type AdapterErrorCode =
   | "blocked"
   | "network"
@@ -44,5 +52,8 @@ export class AdapterError extends Error {
 export interface PartsSourceAdapter {
   readonly id: string;
   readonly capabilities: AdapterCapabilities;
-  search(input: SearchRequest): Promise<AdapterResult>;
+  search(
+    input: SearchRequest,
+    context?: AdapterSearchContext,
+  ): Promise<AdapterResult>;
 }

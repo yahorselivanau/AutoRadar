@@ -5,6 +5,11 @@ import {
   type AdapterResult,
   type PartsSourceAdapter,
 } from "../types";
+import {
+  armtekPartQuery,
+  canonicalArmtekVehicleMake,
+  normalizeArmtekQuery,
+} from "./catalog";
 import { readArmtekTransportConfig } from "./config";
 import { loadArmtekSearchJson, type LoadedArmtekJson } from "./loader";
 import { evaluateArmtekOffer } from "./matcher";
@@ -17,11 +22,19 @@ export function getArmtekQuery(input: SearchRequest): string {
     input.part.rawPartNumber?.trim() || input.part.normalizedPartNumber?.trim();
   if (partNumber) return partNumber;
 
-  if (input.query?.trim()) return input.query.trim();
+  if (input.query?.trim()) {
+    return normalizeArmtekQuery(
+      input.query,
+      input.part.name,
+      input.vehicle?.make,
+    );
+  }
 
   const values = [
-    input.part.name,
-    input.vehicle?.make,
+    armtekPartQuery(input.part.name),
+    input.vehicle?.make
+      ? canonicalArmtekVehicleMake(input.vehicle.make)
+      : undefined,
     input.vehicle?.model,
     input.vehicle?.generation,
     input.vehicle?.engine,

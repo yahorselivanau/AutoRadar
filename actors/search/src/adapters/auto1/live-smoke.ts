@@ -9,7 +9,9 @@ if (process.env.AUTO1_LIVE_SMOKE !== "true") {
   process.exit(0);
 }
 
-const query = process.argv.slice(2).join(" ").trim() || "Масляный фильтр";
+const query =
+  process.argv.slice(2).filter((arg) => arg !== "--").join(" ").trim() ||
+  "Масляный фильтр";
 const request = SearchRequestSchema.parse({
   query,
   part: { name: query, condition: "new" },

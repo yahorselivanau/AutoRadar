@@ -16,6 +16,8 @@
     "clean:cache": "node -e \"const fs=require('node:fs'); for (const path of ['.turbo','apps/web/.next','apps/web/.turbo','actors/search/.turbo','packages/domain/.turbo','packages/ui/.turbo']) fs.rmSync(path,{recursive:true,force:true})\"",
     "supabase:start": "pnpm dlx supabase@latest start",
     "supabase:reset": "pnpm dlx supabase@latest db reset",
+    "vehicle-catalog:import": "node scripts/import-vehicle-catalog.mjs",
+    "armtek-catalog:import": "node scripts/import-armtek-vehicle-catalog.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "actor:dev": "pnpm --filter @autoradar/search-actor dev",

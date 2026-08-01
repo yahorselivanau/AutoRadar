@@ -31,6 +31,10 @@ import { loadConversation, saveConversationState } from "@/lib/chat/store";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { readMvpFeatureFlags } from "@/lib/mvp-feature-flags";
 import { applyStructuredMatchEvidence } from "@/lib/search/match-evidence";
+import {
+  enrichSearchRequestWithVehicleCatalog,
+  type VehicleCatalogSource,
+} from "@/lib/vehicle-catalog/resolver";
 
 type AdapterRun = {
   sourceId: SourceId;
@@ -141,12 +145,27 @@ async function runAdapter(
   sourceId: SourceId,
   adapter: PartsSourceAdapter,
   input: SearchRequest,
+  activeVehicleVin?: string,
 ): Promise<AdapterRun> {
   const startedAt = Date.now();
   try {
-    const result: AdapterResult = await adapter.search(input);
+    const catalogSource: VehicleCatalogSource | undefined =
+      sourceId === "armtek"
+        ? "armtek"
+        : sourceId === "zap"
+          ? "zap.by"
+          : undefined;
+    const adapterInput = catalogSource
+      ? await enrichSearchRequestWithVehicleCatalog(input, catalogSource)
+      : input;
+    const result: AdapterResult = await adapter.search(
+      adapterInput,
+      adapter.capabilities.vin && activeVehicleVin
+        ? { vin: activeVehicleVin }
+        : undefined,
+    );
     const offers = result.offers.map((offer) =>
-      applyStructuredMatchEvidence(offer, input),
+      applyStructuredMatchEvidence(offer, adapterInput),
     );
     return {
       sourceId,
@@ -182,12 +201,13 @@ async function runAdapterWithDeadline(
   sourceId: SourceId,
   adapter: PartsSourceAdapter,
   input: SearchRequest,
+  activeVehicleVin?: string,
   timeoutMs = 25_000,
 ): Promise<AdapterRun> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      runAdapter(sourceId, adapter, input),
+      runAdapter(sourceId, adapter, input, activeVehicleVin),
       new Promise<AdapterRun>((resolve) => {
         timeout = setTimeout(
           () =>
@@ -231,16 +251,21 @@ export async function runPersistedSearch({
   identity,
   conversationId,
   input,
+  activeVehicleVin,
   onProgress,
   sourceIds,
 }: {
   identity: RequestIdentity;
   conversationId: string;
   input: SearchRequest;
+  activeVehicleVin?: string;
   onProgress?: (progress: PersistedSearchProgress) => void | Promise<void>;
   sourceIds?: readonly SourceId[];
 }): Promise<SearchJobResult> {
-  const request = normalizeSearchRequest(SearchRequestSchema.parse(input));
+  const normalizedRequest = normalizeSearchRequest(
+    SearchRequestSchema.parse(input),
+  );
+  const request = normalizedRequest;
   const conversation = await loadConversation(conversationId, identity);
   if (!conversation) throw new Error("conversation_not_found");
 
@@ -367,10 +392,15 @@ export async function runPersistedSearch({
                   ? "ARMTEK выключен: гостевой токен не настроен."
                   : (entry?.skipReason ?? "Нет подходящей стратегии поиска."),
             }
-          : await runAdapterWithDeadline(sourceId, adapter, {
-              ...request,
-              query: entry.query ?? request.query,
-            });
+          : await runAdapterWithDeadline(
+              sourceId,
+              adapter,
+              {
+                ...request,
+                query: entry.query ?? request.query,
+              },
+              activeVehicleVin,
+            );
       if (admin) {
         if (run.offers.length > 0) {
           const { error: offerError } = await admin.from("offers").upsert(

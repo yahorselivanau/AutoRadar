@@ -11,6 +11,12 @@ export interface HttpTransportConfig {
   intervalMs: number;
   maxRetries?: number;
   fetchImpl?: typeof globalThis.fetch;
+  challengeSolver?: (
+    html: string,
+  ) =>
+    | Promise<Record<string, string> | undefined>
+    | Record<string, string>
+    | undefined;
 }
 
 export interface FetchHtmlResult {
@@ -53,6 +59,15 @@ export interface HttpClient {
   getMetrics(): TransportMetrics;
 }
 
+const vinInUrlPattern = /\b[A-HJ-NPR-Z0-9]{17}\b/gi;
+
+function redactUrlForLog(url: string): string {
+  return url.replace(
+    vinInUrlPattern,
+    (vin) => `${vin.slice(0, 3)}••••••••••${vin.slice(-4)}`,
+  );
+}
+
 export function createHttpClient(config: HttpTransportConfig): HttpClient {
   const sourceId = config.sourceId;
   const maxRetries = config.maxRetries ?? 2;
@@ -79,6 +94,7 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
       body?: string | URLSearchParams;
       referrer?: string;
     },
+    solverHeaders?: Record<string, string>,
   ): Promise<FetchHtmlResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -88,10 +104,16 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
       const mergedHeaders: Record<string, string> = { ...baseHeaders };
 
       if (options?.referrer) {
-        mergedHeaders.referer = new URL(options.referrer, config.baseUrl).toString();
+        mergedHeaders.referer = new URL(
+          options.referrer,
+          config.baseUrl,
+        ).toString();
       }
       if (options?.headers) {
         Object.assign(mergedHeaders, options.headers);
+      }
+      if (solverHeaders) {
+        Object.assign(mergedHeaders, solverHeaders);
       }
 
       const fetchInit: RequestInit = {
@@ -105,7 +127,7 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
         fetchInit.body = options.body;
       }
 
-      console.info(`[${sourceId}] GET ${url.slice(0, 120)}`);
+      console.info(`[${sourceId}] GET ${redactUrlForLog(url).slice(0, 120)}`);
 
       const response = await fetchImpl(url, fetchInit);
 
@@ -119,9 +141,22 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
 
       const block = detectBlock(html, response.status);
       if (block.blocked) {
+        if (!solverHeaders && config.challengeSolver) {
+          const solvedHeaders = await config.challengeSolver(html);
+          if (solvedHeaders && Object.keys(solvedHeaders).length > 0) {
+            console.info(
+              `[${sourceId}] CHALLENGE solved with ${Object.keys(solvedHeaders).join(", ")}`,
+            );
+            return attemptHtml(url, userAgent, options, solvedHeaders);
+          }
+        }
         track({ blocks: metrics.blocks + 1 });
         console.warn(`[${sourceId}] BLOCKED: ${block.reason}`);
-        throw new AdapterError(sourceId, block.code, `HTTP_BLOCKED: ${block.reason}`);
+        throw new AdapterError(
+          sourceId,
+          block.code,
+          `HTTP_BLOCKED: ${block.reason}`,
+        );
       }
 
       if (!response.ok) {
@@ -174,7 +209,10 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
       const mergedHeaders: Record<string, string> = { ...baseHeaders };
 
       if (options?.referrer) {
-        mergedHeaders.referer = new URL(options.referrer, config.baseUrl).toString();
+        mergedHeaders.referer = new URL(
+          options.referrer,
+          config.baseUrl,
+        ).toString();
       }
       if (options?.headers) {
         Object.assign(mergedHeaders, options.headers);
@@ -200,13 +238,19 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
       if (block.blocked) {
         track({ blocks: metrics.blocks + 1 });
         console.warn(`[${sourceId}] BLOCKED: ${block.reason}`);
-        throw new AdapterError(sourceId, block.code, `HTTP_BLOCKED: ${block.reason}`);
+        throw new AdapterError(
+          sourceId,
+          block.code,
+          `HTTP_BLOCKED: ${block.reason}`,
+        );
       }
       if (!response.ok) {
         track({ errors: metrics.errors + 1 });
         throw new AdapterError(
           sourceId,
-          response.status === 401 || response.status === 403 ? "blocked" : "network",
+          response.status === 401 || response.status === 403
+            ? "blocked"
+            : "network",
           `HTTP_BLOCKED: ${sourceId} вернул HTTP ${response.status}`,
         );
       }
@@ -215,7 +259,11 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
       try {
         data = JSON.parse(text) as unknown;
       } catch {
-        throw new AdapterError(sourceId, "parse", `${sourceId} вернул невалидный JSON`);
+        throw new AdapterError(
+          sourceId,
+          "parse",
+          `${sourceId} вернул невалидный JSON`,
+        );
       }
 
       console.info(`[${sourceId}] JSON OK`);
@@ -255,13 +303,20 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
 
         if (error.code === "timeout" && attempt < 1) {
           track({ retries: metrics.retries + 1 });
-          console.warn(`[${sourceId}] RETRY after timeout (attempt ${attempt + 1})`);
+          console.warn(
+            `[${sourceId}] RETRY after timeout (attempt ${attempt + 1})`,
+          );
           continue;
         }
 
-        if ((error.code === "blocked" || error.code === "rate-limited") && attempt < maxRetries) {
+        if (
+          (error.code === "blocked" || error.code === "rate-limited") &&
+          attempt < maxRetries
+        ) {
           track({ retries: metrics.retries + 1 });
-          console.warn(`[${sourceId}] RETRY with different UA (attempt ${attempt + 1})`);
+          console.warn(
+            `[${sourceId}] RETRY with different UA (attempt ${attempt + 1})`,
+          );
           await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
           continue;
         }
@@ -270,7 +325,11 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
       }
     }
 
-    throw new AdapterError(sourceId, "network", `${sourceId} — все попытки исчерпаны`);
+    throw new AdapterError(
+      sourceId,
+      "network",
+      `${sourceId} — все попытки исчерпаны`,
+    );
   }
 
   async function fetchJson(
@@ -296,7 +355,11 @@ export function createHttpClient(config: HttpTransportConfig): HttpClient {
       }
     }
 
-    throw new AdapterError(sourceId, "network", `${sourceId} — все попытки исчерпаны`);
+    throw new AdapterError(
+      sourceId,
+      "network",
+      `${sourceId} — все попытки исчерпаны`,
+    );
   }
 
   return {

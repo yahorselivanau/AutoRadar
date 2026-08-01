@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   evaluateMotorlandOffer,
   getMotorlandQuery,
+  matchesMotorlandCategory,
   MotorlandPartsAdapter,
   parseMotorlandProductIdentity,
 } from ".";
@@ -81,6 +82,34 @@ describe("Motorland parser", () => {
 });
 
 describe("Motorland adapter", () => {
+  it("matches catalogue aliases and reordered words from the supplied list", async () => {
+    expect(matchesMotorlandCategory("Насос водяной (помпа)", "помпа")).toBe(
+      true,
+    );
+    expect(
+      matchesMotorlandCategory("Колодки тормозные", "тормозные колодки"),
+    ).toBe(true);
+    expect(
+      matchesMotorlandCategory(
+        "Головка блока (ГБЦ)",
+        "головка блока цилиндров",
+      ),
+    ).toBe(true);
+    expect(matchesMotorlandCategory("Замок капота", "Капот")).toBe(false);
+  });
+
+  it("uses the Motorland category label in the text query", () => {
+    expect(
+      getMotorlandQuery(
+        SearchRequestSchema.parse({
+          query: "помпа BMW 3",
+          vehicle: { make: "BMW", model: "3" },
+          part: { name: "помпа", condition: "used" },
+        }),
+      ),
+    ).toBe("Насос водяной (помпа) BMW 3");
+  });
+
   it("uses year in the query and rejects substring-model and wrong-generation matches", async () => {
     expect(getMotorlandQuery(request)).toBe("Капот BMW 3 2016 F30");
     const adapter = new MotorlandPartsAdapter(

@@ -25,8 +25,9 @@ Mobile-first приложение, которое понимает запрос 
 - Zap.by и Motorland.by подключены к приватному MVP.
 - Auto1.by проверен по fixtures и ожидает opt-in live smoke.
 - Remzona сохранён, но по умолчанию выключен.
-- AI-модель задаётся через `AI_MODEL`; текущий проект напрямую использует
-  Gemini 3.5 Flash-Lite API с серверным ключом `GEMINI_API_KEY`.
+- AI работает через Vercel AI SDK и официальный Google provider: основная
+  модель — `gemini-3.5-flash-lite`, fallback —
+  `gemini-3.1-flash-lite`; обе используют один серверный `GEMINI_API_KEY`.
 
 ## Быстрый старт
 
@@ -35,6 +36,8 @@ cp .env.example .env.local
 pnpm install
 pnpm dev
 ```
+
+Перед запуском заполните `GEMINI_API_KEY` в `.env.local`.
 
 Приложение откроется на `http://localhost:3000`.
 

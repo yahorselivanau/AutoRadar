@@ -7,6 +7,11 @@ import {
   type SourceSearchPlanEntry,
 } from "@autoradar/domain";
 
+import {
+  armtekPartQuery,
+  canonicalArmtekVehicleMake,
+  isArmtekCatalogPartName,
+} from "./adapters/armtek/catalog";
 import type { PartsSourceAdapter } from "./adapters/types";
 import { sourcePartQuery } from "./part-synonyms.v1";
 import { canonicalVehicleMake } from "./vehicle-makes.v1";
@@ -16,9 +21,14 @@ const CATEGORY_PART_PATTERN =
 
 function vehicleQuery(input: SearchRequest, sourceId: SourceId): string {
   const vehicle = input.vehicle;
+  const partQuery = sourcePartQuery(input.part.name, sourceId);
   return [
-    sourcePartQuery(input.part.name, sourceId),
-    vehicle?.make ? canonicalVehicleMake(vehicle.make) : undefined,
+    sourceId === "armtek" ? armtekPartQuery(partQuery) : partQuery,
+    vehicle?.make
+      ? sourceId === "armtek"
+        ? canonicalArmtekVehicleMake(vehicle.make)
+        : canonicalVehicleMake(vehicle.make)
+      : undefined,
     vehicle?.model,
     vehicle?.year,
     vehicle?.generation,
@@ -73,7 +83,12 @@ export function planSourceSearch(
       };
     }
 
-    if (CATEGORY_PART_PATTERN.test(input.part.name) && capabilities.category) {
+    const isArmtekCatalogPart =
+      sourceId === "armtek" && isArmtekCatalogPartName(input.part.name);
+    if (
+      (CATEGORY_PART_PATTERN.test(input.part.name) || isArmtekCatalogPart) &&
+      capabilities.category
+    ) {
       return {
         sourceId,
         strategy: "category",

@@ -12,6 +12,7 @@
     "./search-plan": "./src/search-plan.ts",
     "./part-synonyms": "./src/part-synonyms.v1.ts",
     "./request-normalizer": "./src/request-normalizer.ts",
+    "./vin-resolver": "./src/vin-resolver.ts",
     "./types": "./src/adapters/types.ts"
   },
   "scripts": {

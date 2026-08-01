@@ -1,79 +1,82 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { parseVpicResponse, resolveVinWithVpic } from "./vin-resolver";
+import {
+  createHttpVinResolver,
+  resolveVinWithSources,
+} from "@autoradar/search-actor/vin-resolver";
 
 const VIN = "VF3LBBHZHES123456";
 
 describe("VIN resolver", () => {
-  it("maps a complete vPIC response into an unconfirmed candidate", () => {
-    const result = parseVpicResponse(
+  it("parses a structured source response without returning the raw VIN", async () => {
+    const source = createHttpVinResolver("auto1", {
+      baseUrl: "https://auto1.by/",
+      fetchImpl: async () =>
+        new Response(`
+          <html><head><script type="application/ld+json">
+            {"@type":"Car","manufacturer":{"name":"PEUGEOT"},"model":"308","modelDate":"2014","vehicleEngine":{"name":"1.6 HDi"}}
+          </script></head><body></body></html>
+        `),
+    });
+
+    const result = await resolveVinWithSources(
       VIN,
-      {
-        Results: [
-          {
-            Make: "PEUGEOT",
-            Model: "308",
-            ModelYear: "2014",
-            BodyClass: "Hatchback/Liftback/Notchback",
-            DisplacementL: "1.6",
-            FuelTypePrimary: "Diesel",
-            Doors: "5",
-            ErrorCode: "0",
-          },
-        ],
-      },
-      new Date("2026-07-30T12:00:00.000Z"),
+      [source],
+      new Date("2026-08-01T12:00:00.000Z"),
     );
 
     expect(result.status).toBe("resolved");
+    expect(result.source).toBe("auto1");
     expect(result.maskedVin).toBe("VF3••••••••••3456");
-    expect(JSON.stringify(result)).not.toContain(VIN);
     expect(result.candidates[0]).toMatchObject({
       make: "PEUGEOT",
       model: "308",
       year: 2014,
-      doors: 5,
+      engine: "1.6 HDi",
     });
+    expect(JSON.stringify(result)).not.toContain(VIN);
   });
 
-  it("returns a partial candidate instead of inventing missing fields", () => {
-    const result = parseVpicResponse(VIN, {
-      Results: [
-        {
-          Make: "PEUGEOT",
-          ErrorCode: "1",
-          ErrorText: `Partial decode ${VIN}`,
-        },
-      ],
+  it("falls back after a blocked source and keeps a partial candidate", async () => {
+    const blocked = createHttpVinResolver("auto1", {
+      baseUrl: "https://auto1.by/",
+      fetchImpl: async () => new Response("blocked", { status: 403 }),
     });
+    const fallback = createHttpVinResolver("zap", {
+      baseUrl: "https://zap.by/",
+      fetchImpl: async () =>
+        new Response(
+          `<main><div data-make="BMW"></div><div data-model="3"></div></main>`,
+        ),
+    });
+
+    const result = await resolveVinWithSources(VIN, [blocked, fallback]);
 
     expect(result.status).toBe("partial");
-    expect(result.candidates[0]?.model).toBeUndefined();
-    expect(result.warnings).toContain(
-      "Данные vPIC неполные — проверьте и дополните автомобиль вручную.",
-    );
+    expect(result.source).toBe("zap");
+    expect(result.candidates[0]).toMatchObject({ make: "BMW", model: "3" });
+    expect(result.warnings[0]).toContain("auto1");
     expect(JSON.stringify(result)).not.toContain(VIN);
   });
 
-  it("calls the official endpoint without logging or returning the raw VIN", async () => {
-    const fetcher = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        void input;
-        void init;
-        return new Response(
-          JSON.stringify({
-            Results: [{ Make: "PEUGEOT", Model: "308", ModelYear: "2014" }],
-          }),
-          { status: 200 },
-        );
-      },
-    );
-    const result = await resolveVinWithVpic(VIN, fetcher as typeof fetch);
+  it("uses the confirmed public source paths", async () => {
+    const calls: string[] = [];
+    const fetcher = async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      return new Response("<html></html>");
+    };
+    await createHttpVinResolver("auto1", {
+      baseUrl: "https://auto1.by/",
+      fetchImpl: fetcher,
+    }).resolve(VIN);
+    await createHttpVinResolver("zap", {
+      baseUrl: "https://zap.by/",
+      fetchImpl: fetcher,
+    }).resolve(VIN);
 
-    expect(fetcher).toHaveBeenCalledOnce();
-    expect(String(fetcher.mock.calls[0]?.[0])).toContain(
-      "vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/",
+    expect(calls[0]).toBe(
+      "https://auto1.by/Oem/Find?vinFrame=VF3LBBHZHES123456",
     );
-    expect(JSON.stringify(result)).not.toContain(VIN);
+    expect(calls[1]).toBe("https://zap.by/carparts/search/VF3LBBHZHES123456");
   });
 });

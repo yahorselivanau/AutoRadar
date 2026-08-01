@@ -80,4 +80,17 @@ describe("planSourceSearch", () => {
       query: "Капот BMW 3",
     });
   });
+
+  it("uses Armtek catalog labels for a category query", () => {
+    const input = SearchRequestSchema.parse({
+      query: "Тормозные колодки Volkswagen Golf",
+      vehicle: { make: "Volkswagen", model: "Golf" },
+      part: { name: "Тормозная колодка", condition: "new" },
+    });
+
+    expect(planSourceSearch(input, [newArticle]).entries[0]).toMatchObject({
+      strategy: "category",
+      query: "Тормозная колодка VW Golf",
+    });
+  });
 });

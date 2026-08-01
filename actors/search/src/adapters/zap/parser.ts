@@ -13,6 +13,10 @@ import type { AnyNode } from "domhandler";
 
 import { vehicleMakesMatch } from "../../vehicle-makes.v1";
 import { AdapterError } from "../types";
+import {
+  canonicalZapCategoryLabel,
+  zapCategoryLabelVariants,
+} from "./category-vocabulary";
 
 const origin = "https://zap.by";
 
@@ -185,28 +189,53 @@ export function findZapCategoryPath(
   const $ = load(html);
   const selector =
     ".carparts-category-cards__item[href], .cct-node__content[href]";
-  const exact = exactLinkPath($, selector, partName, `${modelPath}/`);
-  if (exact) return exact;
-
-  const requested = new Set(comparableWords(partName));
-  const candidates = $(selector)
+  const requestedLabel = canonicalZapCategoryLabel(partName);
+  const requestedVariants = new Set(
+    zapCategoryLabelVariants(requestedLabel).map(comparable),
+  );
+  const observed = $(selector)
     .toArray()
     .map((node) => {
       const link = $(node);
       const label = cleanText(link.text());
-      const words = new Set(comparableWords(label));
-      const intersection = [...requested].filter((word) => words.has(word));
-      const union = new Set([...requested, ...words]);
-      const path = safeZapPath(link.attr("href"), `${modelPath}/`);
       return {
-        path,
-        score: union.size > 0 ? intersection.length / union.size : 0,
+        label,
+        path: safeZapPath(link.attr("href"), `${modelPath}/`),
       };
     })
-    .filter((candidate) => candidate.path)
+    .filter((candidate): candidate is { label: string; path: string } =>
+      Boolean(candidate.path),
+    );
+  const exactMatches = observed.filter((candidate) =>
+    zapCategoryLabelVariants(candidate.label).some((variant) =>
+      requestedVariants.has(comparable(variant)),
+    ),
+  );
+  if (exactMatches.length === 1) return exactMatches[0]?.path;
+  if (exactMatches.length > 1) return undefined;
+
+  const requested = new Set(comparableWords(requestedLabel));
+  const candidates = observed
+    .map((candidate) => {
+      const scores = zapCategoryLabelVariants(candidate.label).map(
+        (variant) => {
+          const words = new Set(comparableWords(variant));
+          const intersection = [...requested].filter((word) => words.has(word));
+          const union = new Set([...requested, ...words]);
+          return union.size > 0 ? intersection.length / union.size : 0;
+        },
+      );
+      return {
+        path: candidate.path,
+        score: Math.max(...scores, 0),
+      };
+    })
     .sort((left, right) => right.score - left.score);
   const best = candidates[0];
-  return best && best.score >= 0.67 ? best.path : undefined;
+  const second = candidates[1];
+  return best && best.score >= 0.67 && (!second || second.score < best.score)
+    ? best.path
+    : undefined;
 }
 
 export interface ZapVehicleVariant {

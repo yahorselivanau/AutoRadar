@@ -32,6 +32,8 @@ import {
   parseZapVehicleVariants,
   resolveZapEngineVariants,
   resolveZapVehicleVariants,
+  type ZapEngineVariant,
+  type ZapVehicleVariant,
 } from "./parser";
 
 export type ZapDiagnosticReason =
@@ -40,6 +42,17 @@ export type ZapDiagnosticReason =
   | "EMPTY_RESPONSE"
   | "DOM_CHANGED"
   | "TIMEOUT";
+
+export type ZapEngineOptionsResult =
+  | {
+      kind: "engines";
+      vehicle: ZapVehicleVariant;
+      engines: ZapEngineVariant[];
+    }
+  | {
+      kind: "vehicle_variants";
+      variants: ZapVehicleVariant[];
+    };
 
 const diagnosticReasons: readonly ZapDiagnosticReason[] = [
   "ROBOTS_DISALLOWED",
@@ -91,6 +104,75 @@ export class ZapPartsAdapter implements PartsSourceAdapter {
     private readonly loadJson: ZapJsonLoader = loadZapJson,
     private readonly enrichLimit = readZapTransportConfig().ZAP_ENRICH_LIMIT,
   ) {}
+
+  async resolveEngineOptions(
+    input: SearchRequest,
+  ): Promise<ZapEngineOptionsResult> {
+    if (!input.vehicle) {
+      throw diagnostic(
+        "EMPTY_RESPONSE",
+        "для получения двигателей Zap.by нужен автомобиль",
+      );
+    }
+
+    const root = await this.loadPageHtml("/carparts");
+    const makePath = findZapMakePath(root.html, input.vehicle.make);
+    if (!makePath) {
+      throw diagnostic(
+        "EMPTY_RESPONSE",
+        `марка ${input.vehicle.make} отсутствует в публичном каталоге Zap.by`,
+      );
+    }
+
+    const makePage = await this.loadPageHtml(makePath);
+    const modelPath = findZapModelPath(
+      makePage.html,
+      makePath,
+      input.vehicle.model,
+    );
+    if (!modelPath) {
+      throw diagnostic(
+        "EMPTY_RESPONSE",
+        `модель ${input.vehicle.model} отсутствует в каталоге ${input.vehicle.make}`,
+      );
+    }
+
+    const modelPage = await this.loadPageHtml(modelPath);
+    const variants = resolveZapVehicleVariants(
+      parseZapVehicleVariants(modelPage.html),
+      input.vehicle,
+    );
+    if (variants.length !== 1) {
+      return { kind: "vehicle_variants", variants };
+    }
+
+    const selectedVehicle = variants[0];
+    if (!selectedVehicle) {
+      return { kind: "vehicle_variants", variants: [] };
+    }
+    const choice = await this.loadJson("/index.php", {
+      route: "catalog/parts/choice3d",
+      model: selectedVehicle.id,
+    });
+    const choiceHtml = parseZapChoiceHtml(choice);
+    const engines = choiceHtml
+      ? parseZapEngineVariants(choiceHtml).filter(
+          (engine) =>
+            input.vehicle?.year == null ||
+            ((!engine.yearFrom || input.vehicle.year >= engine.yearFrom) &&
+              (!engine.yearTo || input.vehicle.year <= engine.yearTo)),
+        )
+      : [];
+
+    return {
+      kind: "engines",
+      vehicle: selectedVehicle,
+      engines: engines.filter(
+        (engine, index, all) =>
+          all.findIndex((candidate) => candidate.id === engine.id) === index,
+      ),
+    };
+  }
 
   async search(input: SearchRequest): Promise<AdapterResult> {
     if (
@@ -404,3 +486,4 @@ export {
   parseZapVehicleVariants,
   resolveZapVehicleVariants,
 } from "./parser";
+export type { ZapEngineVariant, ZapVehicleVariant } from "./parser";

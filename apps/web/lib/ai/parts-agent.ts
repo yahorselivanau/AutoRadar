@@ -23,6 +23,7 @@ import {
   getPersistedSearchResult,
   streamPersistedSearch,
 } from "@/lib/search/run-persisted-search";
+import { resolveZapEngineSelection } from "@/lib/search/zap-engine-selection";
 import { GEMINI_MODEL, getGeminiModel } from "@/lib/ai/gemini";
 
 export const PARTS_AGENT_MODEL = GEMINI_MODEL;
@@ -43,11 +44,13 @@ export function createPartsAgent({
   conversationId,
   initialState,
   latestUserText,
+  activeVehicleVin,
 }: {
   identity: RequestIdentity;
   conversationId: string;
   initialState: ConversationState;
   latestUserText: string;
+  activeVehicleVin?: string;
 }) {
   let state = ConversationStateSchema.parse(initialState);
   let retrySourceIds: SourceId[] | undefined;
@@ -81,6 +84,78 @@ export function createPartsAgent({
   ) => {
     await persistState(confirmVehicleTransition(state, vehicle));
     return { saved: true, vehicle };
+  };
+
+  const prepareZapEngineSelection = async (request: SearchRequest) => {
+    const resolved = await resolveZapEngineSelection(request);
+    const enrichedRequest = resolved.request;
+    if (resolved.result.kind === "vehicle_variants") {
+      const options = resolved.result.variants.slice(0, 8).map((variant) => ({
+        id: variant.id,
+        label: [
+          variant.label,
+          variant.yearFrom && variant.yearTo
+            ? `${variant.yearFrom}–${variant.yearTo}`
+            : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        value: variant.label,
+      }));
+      return {
+        kind: "vehicle_variants" as const,
+        request: enrichedRequest,
+        clarification: {
+          id: "zap-generation-selection",
+          field: "generation" as const,
+          question:
+            "Сначала выберите поколение или кузов автомобиля для Zap.by.",
+          options,
+        },
+      };
+    }
+
+    const engines = resolved.result.engines.slice(0, 8);
+    if (engines.length === 0) {
+      return {
+        kind: "unavailable" as const,
+        request: enrichedRequest,
+        message: "Zap.by не вернул типы двигателя для выбранной модели и года.",
+      };
+    }
+    if (engines.length === 1) {
+      const engine = engines[0]!;
+      const nextRequest = normalizeSearchRequest(
+        SearchRequestSchema.parse({
+          ...enrichedRequest,
+          vehicle: {
+            ...enrichedRequest.vehicle,
+            engine: [engine.label, engine.details].filter(Boolean).join(" · "),
+          },
+        }),
+      );
+      return {
+        kind: "auto_selected" as const,
+        request: nextRequest,
+        engine: nextRequest.vehicle?.engine ?? engine.label,
+      };
+    }
+
+    return {
+      kind: "engines" as const,
+      request: enrichedRequest,
+      clarification: {
+        id: "zap-engine-selection",
+        field: "engine" as const,
+        question:
+          "Выберите тип двигателя — без него Zap.by не сможет выполнить поиск.",
+        options: engines.map((engine) => ({
+          id: engine.id,
+          label: [engine.label, engine.details].filter(Boolean).join(" · "),
+          value: [engine.label, engine.details].filter(Boolean).join(" · "),
+        })),
+      },
+    };
   };
 
   const tools = {
@@ -142,6 +217,74 @@ export function createPartsAgent({
           pendingClarification: null,
         });
         return { kind: "search_draft" as const, request: parsed };
+      },
+    }),
+    prepare_zap_engine_selection: tool({
+      description:
+        "Перед поиском по автомобилю получить из Zap.by доступные типы двигателя. Не запускает поиск и не расходует лимит. Используй, когда у запроса есть марка, модель и год, но нет двигателя.",
+      inputSchema: SearchRequestSchema,
+      execute: async (request) => {
+        const merged = normalizeSearchRequest(
+          SearchRequestSchema.parse({
+            ...request,
+            vehicle: request.vehicle ?? state.activeVehicle ?? undefined,
+          }),
+        );
+        if (
+          process.env.SOURCE_ZAP_ENABLED === "false" ||
+          !merged.vehicle ||
+          merged.vehicle.engine
+        ) {
+          return { kind: "not_required" as const, request: merged };
+        }
+        try {
+          const result = await prepareZapEngineSelection(merged);
+          if (result.kind === "engines" || result.kind === "vehicle_variants") {
+            await persistState({
+              ...state,
+              searchDraft: result.request,
+              pendingClarification: {
+                ...result.clarification,
+                sourceId: "zap",
+                originalSearchRequest: result.request,
+              },
+              readiness: "collecting",
+            });
+            return {
+              kind: "selection_required" as const,
+              request: result.request,
+              clarification: result.clarification,
+            };
+          }
+          if (result.kind === "auto_selected") {
+            const confirmedVehicle = result.request.vehicle
+              ? VehicleContextSchema.safeParse(result.request.vehicle)
+              : null;
+            await persistState({
+              ...state,
+              searchDraft: result.request,
+              activeVehicle: confirmedVehicle?.success
+                ? confirmedVehicle.data
+                : state.activeVehicle,
+              readiness: "ready",
+              pendingClarification: null,
+            });
+            return {
+              kind: "engine_auto_selected" as const,
+              request: result.request,
+            };
+          }
+          return result;
+        } catch (error) {
+          return {
+            kind: "unavailable" as const,
+            request: merged,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Не удалось получить двигатели из Zap.by.",
+          };
+        }
       },
     }),
     assess_symptom: tool({
@@ -244,14 +387,31 @@ export function createPartsAgent({
                 : request.part,
           }),
         );
-        retrySourceIds = pending.sourceId ? [pending.sourceId] : undefined;
+        const isZapEngineSelection = pending.id === "zap-engine-selection";
+        retrySourceIds = isZapEngineSelection
+          ? undefined
+          : pending.sourceId
+            ? [pending.sourceId]
+            : undefined;
+        const confirmedVehicle = VehicleContextSchema.safeParse(
+          updated.vehicle,
+        );
         await persistState({
           ...state,
+          activeVehicle: confirmedVehicle.success
+            ? confirmedVehicle.data
+            : state.activeVehicle,
           searchDraft: updated,
           pendingClarification: null,
           readiness: "ready",
         });
-        return { kind: "search_draft" as const, request: updated };
+        return {
+          kind: isZapEngineSelection
+            ? ("vehicle_updated" as const)
+            : ("search_draft" as const),
+          request: updated,
+          vehicle: confirmedVehicle.success ? confirmedVehicle.data : undefined,
+        };
       },
     }),
     ask_clarification: tool({
@@ -287,15 +447,54 @@ export function createPartsAgent({
               }),
             ),
           );
+          let searchRequest = merged;
+          if (
+            process.env.SOURCE_ZAP_ENABLED !== "false" &&
+            searchRequest.vehicle &&
+            !searchRequest.vehicle.engine
+          ) {
+            const engineSelection =
+              await prepareZapEngineSelection(searchRequest);
+            if (
+              engineSelection.kind === "engines" ||
+              engineSelection.kind === "vehicle_variants"
+            ) {
+              await persistState({
+                ...state,
+                searchDraft: engineSelection.request,
+                pendingClarification: {
+                  ...engineSelection.clarification,
+                  sourceId: "zap",
+                  originalSearchRequest: engineSelection.request,
+                },
+                readiness: "collecting",
+              });
+              yield {
+                kind: "engine_selection_required" as const,
+                request: engineSelection.request,
+                clarification: engineSelection.clarification,
+              };
+              return;
+            }
+            if (engineSelection.kind === "unavailable") {
+              yield {
+                kind: "engine_selection_unavailable" as const,
+                message: engineSelection.message,
+              };
+              return;
+            }
+            searchRequest = engineSelection.request;
+          }
           await persistState({
             ...state,
-            searchDraft: merged,
+            searchDraft: searchRequest,
             readiness: "searching",
           });
           for await (const event of streamPersistedSearch({
             identity,
             conversationId,
-            input: merged,
+            input: searchRequest,
+            activeVehicleVin,
             sourceIds: retrySourceIds,
           })) {
             if (event.kind === "progress") {

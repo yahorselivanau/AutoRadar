@@ -131,7 +131,10 @@ matching `/auto-parts/.../sku-<digits>/`. Image URLs are accepted only from
 - Text request: join part name, vehicle make, model, year and generation.
 - The public text search can return related categories, for example `Замок
 капота` for `Капот`. The adapter keeps only cards whose verified Motorland
-  category equals the requested part after deterministic normalization.
+  category equals the requested part after deterministic normalization. The
+  owner-provided category vocabulary is used for observed aliases and compound
+  labels such as `Насос водяной (помпа)`, `Головка блока (ГБЦ)` and `Колодки
+  тормозные`; it never creates a URL or accepts an unobserved category.
 - Vehicle identity is read from the verified product URL segments
   `/auto-parts/{make}/{model}/{generation}/{part}/sku-{id}/`, not from loose
   title substrings. Make, model and category must match their corresponding

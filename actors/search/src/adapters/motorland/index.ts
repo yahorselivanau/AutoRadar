@@ -6,6 +6,7 @@ import {
   type PartsSourceAdapter,
 } from "../types";
 import { readMotorlandTransportConfig } from "./config";
+import { canonicalMotorlandCategory } from "./category-vocabulary";
 import { loadMotorlandSearchHtml, type LoadedMotorlandHtml } from "./loader";
 import {
   evaluateMotorlandOffer,
@@ -24,7 +25,7 @@ export function getMotorlandQuery(input: SearchRequest): string {
   if (partNumber) return partNumber;
 
   const values = [
-    input.part.name,
+    canonicalMotorlandCategory(input.part.name),
     input.vehicle?.make,
     input.vehicle?.model,
     input.vehicle?.year ? String(input.vehicle.year) : undefined,
@@ -127,3 +128,7 @@ export {
   evaluateMotorlandOffer,
   parseMotorlandProductIdentity,
 } from "./matcher";
+export {
+  canonicalMotorlandCategory,
+  matchesMotorlandCategory,
+} from "./category-vocabulary";

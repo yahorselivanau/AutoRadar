@@ -8,6 +8,11 @@ import {
   readArmtekTransportConfig,
   type ArmtekTransportConfig,
 } from "./config";
+import {
+  canonicalArmtekPartName,
+  canonicalArmtekVehicleMake,
+  normalizeArmtekQuery,
+} from "./catalog";
 import { createArmtekSearchLoader } from "./loader";
 import { evaluateArmtekOffer } from "./matcher";
 import { parseArmtekSearchPayload } from "./parser";
@@ -41,6 +46,27 @@ describe("Armtek config", () => {
       readArmtekTransportConfig({ ARMTEK_GUEST_AUTH_TOKEN: "" })
         .ARMTEK_GUEST_AUTH_TOKEN,
     ).toBeUndefined();
+  });
+});
+
+describe("Armtek catalog", () => {
+  it("uses the copied Armtek spelling for makes and part names", () => {
+    expect(canonicalArmtekVehicleMake("Volkswagen")).toBe("VW");
+    expect(canonicalArmtekVehicleMake("CITROEN")).toBe("CITROËN");
+    expect(canonicalArmtekPartName("салонный фильтр")).toBe("Фильтр салона");
+    expect(canonicalArmtekPartName("тормозные колодки")).toBe(
+      "Комплект тормозных колодок",
+    );
+  });
+
+  it("rewrites known labels inside a free-text query without losing vehicle data", () => {
+    expect(
+      normalizeArmtekQuery(
+        "Найди тормозные колодки Volkswagen Golf",
+        "тормозные колодки",
+        "Volkswagen",
+      ),
+    ).toBe("Найди Комплект тормозных колодок VW Golf");
   });
 });
 

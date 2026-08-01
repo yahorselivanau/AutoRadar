@@ -3,6 +3,7 @@
 import type {
   GuestUsage,
   NormalizedOffer,
+  SearchClarification,
   SearchRequest,
   SearchSourceProgress,
   VehicleCandidate,
@@ -452,6 +453,43 @@ function DraftCard({
   );
 }
 
+function ZapEngineSelectionCard({
+  request,
+  clarification,
+  disabled,
+  onSelect,
+}: {
+  request: SearchRequest;
+  clarification: SearchClarification;
+  disabled: boolean;
+  onSelect: (option: SearchClarification["options"][number]) => void;
+}) {
+  return (
+    <article className="clarification-card" aria-label="Выбор двигателя">
+      <span className="structured-label">Нужно выбрать двигатель</span>
+      <h2>{clarification.question}</h2>
+      <p className="search-empty-note">
+        {request.vehicle?.make} {request.vehicle?.model}
+        {request.vehicle?.year ? ` · ${request.vehicle.year}` : ""}
+      </p>
+      <div className="clarification-options">
+        {clarification.options.map((option) => (
+          <button
+            className="clarification-option pressable"
+            key={option.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(option)}
+          >
+            <span>{option.label}</span>
+            <ChevronRight size={17} />
+          </button>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function VehicleResolutionCard({
   resolution,
   candidate,
@@ -499,8 +537,8 @@ function VehicleResolutionCard({
         </span>
       </div>
       <p className="search-empty-note">
-        vPIC помогает определить автомобиль, но не подтверждает применяемость
-        деталей. Проверьте поля перед сохранением.
+        Источник VIN помогает определить автомобиль, но не подтверждает
+        применяемость деталей. Проверьте поля перед сохранением.
       </p>
       <div className="request-edit-grid">
         <label className="request-field">
@@ -771,12 +809,13 @@ export function SmartChatExperience({
             id,
             message: messages.at(-1),
             activeVehicle: vehicleContext,
+            activeVehicleVin: activeVehicle?.vin,
             vehicleConfirmationPending:
               body?.vehicleConfirmationPending === true,
           },
         }),
       }),
-    [vehicleContext],
+    [activeVehicle?.vin, vehicleContext],
   );
   const { messages, setMessages, sendMessage, status, stop, error } =
     useChat<PartsAgentUIMessage>({
@@ -1107,6 +1146,41 @@ export function SmartChatExperience({
                                     />
                                   );
                                 }
+                                if (
+                                  part.type ===
+                                    "tool-prepare_zap_engine_selection" &&
+                                  part.output.kind === "selection_required"
+                                ) {
+                                  return (
+                                    <ZapEngineSelectionCard
+                                      key={part.toolCallId}
+                                      request={part.output.request}
+                                      clarification={part.output.clarification}
+                                      disabled={busy}
+                                      onSelect={(option) => {
+                                        if (activeVehicle) {
+                                          updateActiveVehicle({
+                                            engine: String(option.value),
+                                          });
+                                        } else {
+                                          const vehicle =
+                                            part.output.request.vehicle;
+                                          const year = vehicle?.year;
+                                          if (!vehicle || year == null) return;
+                                          saveVehicle({
+                                            ...vehicle,
+                                            year,
+                                            engine: String(option.value),
+                                            displayName: `${vehicle.make} ${vehicle.model}`,
+                                          });
+                                        }
+                                        void submitText(
+                                          `Примени уточнение ${part.output.clarification!.id}: вариант ${option.id} («${option.label}») и запусти поиск.`,
+                                        );
+                                      }}
+                                    />
+                                  );
+                                }
                                 if (part.type === "tool-assess_symptom") {
                                   const assessment = part.output.assessment;
                                   return (
@@ -1249,6 +1323,61 @@ export function SmartChatExperience({
                                       </Marker>
                                     );
                                   }
+                                  if (
+                                    part.type === "tool-start_parts_search" &&
+                                    part.output.kind ===
+                                      "engine_selection_required"
+                                  ) {
+                                    const selection = part.output as {
+                                      kind: "engine_selection_required";
+                                      request: SearchRequest;
+                                      clarification: SearchClarification;
+                                    };
+                                    return (
+                                      <ZapEngineSelectionCard
+                                        key={part.toolCallId}
+                                        request={selection.request}
+                                        clarification={selection.clarification}
+                                        disabled={busy}
+                                        onSelect={(option) => {
+                                          if (activeVehicle) {
+                                            updateActiveVehicle({
+                                              engine: String(option.value),
+                                            });
+                                          } else {
+                                            const vehicle =
+                                              selection.request.vehicle;
+                                            const year = vehicle?.year;
+                                            if (!vehicle || year == null)
+                                              return;
+                                            saveVehicle({
+                                              ...vehicle,
+                                              year,
+                                              engine: String(option.value),
+                                              displayName: `${vehicle.make} ${vehicle.model}`,
+                                            });
+                                          }
+                                          void submitText(
+                                            `Примени уточнение ${selection.clarification.id}: вариант ${option.id} («${option.label}») и запусти поиск.`,
+                                          );
+                                        }}
+                                      />
+                                    );
+                                  }
+                                  if (
+                                    part.output.kind ===
+                                    "engine_selection_unavailable"
+                                  ) {
+                                    return (
+                                      <div
+                                        className="compatibility-warning"
+                                        key={part.toolCallId}
+                                      >
+                                        <AlertCircle size={20} />
+                                        <p>{part.output.message}</p>
+                                      </div>
+                                    );
+                                  }
                                   if (part.output.kind === "search_result") {
                                     return (
                                       <SearchResultCard
@@ -1335,7 +1464,7 @@ export function SmartChatExperience({
                     updateActiveVehicle({
                       ...vehicle,
                       vin: pendingRawVin,
-                      vinResolutionSource: "nhtsa-vpic",
+                      vinResolutionSource: vinResolution.source,
                       vinResolutionProvenance: provenance,
                     });
                   } else {
@@ -1343,7 +1472,7 @@ export function SmartChatExperience({
                       ...vehicle,
                       displayName: `${vehicle.make} ${vehicle.model}`,
                       vin: pendingRawVin,
-                      vinResolutionSource: "nhtsa-vpic",
+                      vinResolutionSource: vinResolution.source,
                       vinResolutionProvenance: provenance,
                     });
                   }

@@ -311,6 +311,41 @@ describe("Zap.by allowed catalog navigation", () => {
     ).toBe("/carparts/audi/a4/maslyanyi-filtr");
   });
 
+  it("uses the supplied Zap.by category vocabulary without inventing a URL", () => {
+    const model = `
+      <a class="carparts-category-cards__item"
+         href="/carparts/audi/a4/vodyanoy-nasos">Водяной насос / помпа</a>
+      <a class="carparts-category-cards__item"
+         href="/carparts/audi/a4/pompa-other">Помпа рулевого управления</a>`;
+
+    expect(findZapCategoryPath(model, "/carparts/audi/a4", "помпа")).toBe(
+      "/carparts/audi/a4/vodyanoy-nasos",
+    );
+    expect(
+      findZapCategoryPath(model, "/carparts/audi/a4", "водяной насос"),
+    ).toBe("/carparts/audi/a4/vodyanoy-nasos");
+  });
+
+  it("resolves a conversational window-regulator name to the observed label", () => {
+    expect(
+      findZapCategoryPath(
+        '<a class="cct-node__content" href="/carparts/audi/a4/steklopodemnik">Стеклоподъемник</a>',
+        "/carparts/audi/a4",
+        "механизм стеклоподъёмника",
+      ),
+    ).toBe("/carparts/audi/a4/steklopodemnik");
+  });
+
+  it("does not choose between equally similar observed categories", () => {
+    const model = `
+      <a class="carparts-category-cards__item" href="/carparts/audi/a4/a">Прокладка поддона</a>
+      <a class="carparts-category-cards__item" href="/carparts/audi/a4/b">Прокладка КПП</a>`;
+
+    expect(
+      findZapCategoryPath(model, "/carparts/audi/a4", "Прокладка"),
+    ).toBeUndefined();
+  });
+
   it("allows the search route explicitly covered by the supplied robots.txt", () => {
     expect(
       resolveZapCatalogUrl("https://zap.by/", "/carparts/search/7700274177"),
@@ -319,6 +354,67 @@ describe("Zap.by allowed catalog navigation", () => {
 });
 
 describe("Zap.by adapter", () => {
+  it("loads engine options before any parts category search", async () => {
+    const pages = new Map([
+      [
+        "/carparts",
+        '<div class="dropdown mrgb10"><a class="btn btn-lg" href="/carparts/toyota">TOYOTA</a></div>',
+      ],
+      [
+        "/carparts/toyota",
+        '<a class="ajax" href="/carparts/toyota/aygo">AYGO</a>',
+      ],
+      [
+        "/carparts/toyota/aygo",
+        `<a data-item="model" data-value="1200">
+          <span class="font-14">AYGO (B1)</span>
+          <span class="small">2005 - 2014</span>
+        </a>`,
+      ],
+    ]);
+    const loader = vi.fn(async (path: string) => ({
+      html: pages.get(path) ?? "",
+      path,
+      status: 200,
+    }));
+    const jsonLoader = vi.fn().mockResolvedValue({
+      html: `<a data-item="type" data-value="1">
+        <span class="font-14">1.0 VVT-i</span>
+        <span class="text-muted">2005 - 2014</span>
+      </a>
+      <a data-item="type" data-value="2">
+        <span class="font-14">1.4 D-4D</span>
+        <span class="text-muted">2005 - 2010</span>
+      </a>`,
+    });
+    const adapter = new ZapPartsAdapter(loader, 50, jsonLoader, 12);
+    const result = await adapter.resolveEngineOptions(
+      SearchRequestSchema.parse({
+        query: "задняя ступица Toyota Aygo 2009",
+        vehicle: { make: "TOYOTA", model: "AYGO", year: 2009 },
+        part: { name: "Ступица колеса", position: "rear" },
+      }),
+    );
+
+    expect(result.kind).toBe("engines");
+    if (result.kind === "engines") {
+      expect(result.vehicle.id).toBe("1200");
+      expect(result.engines.map((engine) => engine.label)).toEqual([
+        "1.0 VVT-i",
+        "1.4 D-4D",
+      ]);
+    }
+    expect(jsonLoader).toHaveBeenCalledWith("/index.php", {
+      route: "catalog/parts/choice3d",
+      model: "1200",
+    });
+    expect(loader.mock.calls.map(([path]) => path)).toEqual([
+      "/carparts",
+      "/carparts/toyota",
+      "/carparts/toyota/aygo",
+    ]);
+  });
+
   it("loads the allowed make/model/category ladder and returns SSR offers", async () => {
     const pages = new Map([
       [

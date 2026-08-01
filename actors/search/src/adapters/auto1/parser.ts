@@ -12,6 +12,40 @@ import { AdapterError } from "../types";
 
 const origin = "https://auto1.by";
 
+export interface Auto1Brand {
+  manufId: string;
+  name: string;
+  aliases: string[];
+}
+
+export interface Auto1Model {
+  modelId: string;
+  title: string;
+  yearFrom?: string;
+  yearTo?: string;
+}
+
+export interface Auto1Engine {
+  engineId: string;
+  volume?: string;
+  displacement?: string;
+  powerKw?: string;
+  yearFrom?: string;
+  yearTo?: string;
+  engineCode?: string;
+  fuel?: string;
+}
+
+export interface Auto1Group {
+  groupId: string;
+  label: string;
+  folder: boolean;
+}
+
+const MANUF_ID_PATTERN = /^\/auto\/(\d+)$/;
+const MODEL_PATH_PATTERN = /^\/auto\/\d+\/(\d+)$/;
+const ENGINE_PATH_PATTERN = /^\/auto\/\d+\/\d+\/(\d+)$/;
+
 function cleanText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -199,4 +233,98 @@ export function parseAuto1SearchHtml(
     );
   }
   return offers;
+}
+
+export function parseAuto1Brands(html: string): Auto1Brand[] {
+  const $ = load(html);
+  const brands: Auto1Brand[] = [];
+  $(".brands-list-item[data-search]").each((_, element) => {
+    const item = $(element);
+    const search = item.attr("data-search") ?? "";
+    const manufHref = item.find('a[href^="/auto/"]').first().attr("href") ?? "";
+    const manufMatch = manufHref.match(MANUF_ID_PATTERN);
+    if (!manufMatch) return;
+    const name = cleanText(item.find(".first span").first().text());
+    if (!name) return;
+    brands.push({
+      manufId: manufMatch[1]!,
+      name,
+      aliases: search
+        .split(";")
+        .map((alias) => cleanText(alias.replace(/&#\d+;/g, " ")))
+        .filter(Boolean),
+    });
+  });
+  return brands;
+}
+
+export function parseAuto1Models(html: string): Auto1Model[] {
+  const $ = load(html);
+  const models: Auto1Model[] = [];
+  $("a.models-item[href]").each((_, element) => {
+    const item = $(element);
+    const modelMatch = (item.attr("href") ?? "").match(MODEL_PATH_PATTERN);
+    if (!modelMatch) return;
+    const title = cleanText(item.find(".models-title").first().text());
+    if (!title) return;
+    const age = cleanText(item.find(".models-age").first().text());
+    const yearMatch = age.match(
+      /(\d{4})(?:\.\d{2})?\s*-\s*(\d{4})(?:\.\d{2})?/,
+    );
+    models.push({
+      modelId: modelMatch[1]!,
+      title,
+      yearFrom: yearMatch?.[1],
+      yearTo: yearMatch?.[2],
+    });
+  });
+  return models;
+}
+
+export function parseAuto1Engines(html: string): Auto1Engine[] {
+  const $ = load(html);
+  const engines: Auto1Engine[] = [];
+  $('tr[data-href^="/auto/"]').each((_, element) => {
+    const row = $(element);
+    const engineMatch = (row.attr("data-href") ?? "").match(
+      ENGINE_PATH_PATTERN,
+    );
+    if (!engineMatch) return;
+    const cells = row
+      .find("td")
+      .map((_, cell) => cleanText($(cell).text()))
+      .get()
+      .filter(Boolean);
+    if (cells.length < 4) return;
+    engines.push({
+      engineId: engineMatch[1]!,
+      volume: cells[0],
+      displacement: cells[1],
+      powerKw: cells[2],
+      yearFrom: cells[3],
+      yearTo: cells[4],
+      engineCode: cells[5],
+      fuel: cells[6],
+    });
+  });
+  return engines;
+}
+
+export function parseAuto1Groups(html: string): Auto1Group[] {
+  const $ = load(html);
+  const groups: Auto1Group[] = [];
+  $('a[href*="groupId="]').each((_, element) => {
+    const anchor = $(element);
+    const url = new URL(anchor.attr("href") ?? "", origin);
+    const groupId = url.searchParams.get("groupId");
+    const label = cleanText(anchor.text());
+    if (!groupId || !label) return;
+    const li = anchor.closest("li");
+    groups.push({
+      groupId,
+      label,
+      folder: li.hasClass("folder") || li.children("ul").length > 0,
+    });
+  });
+  return groups;
 }
